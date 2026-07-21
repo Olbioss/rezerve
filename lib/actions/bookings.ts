@@ -13,6 +13,10 @@ import {
 import { db } from "@/lib/db";
 import { bookings } from "@/lib/db/schema/booking-schema";
 import { services } from "@/lib/db/schema/service-schema";
+import {
+  sendBookingCancelledEmails,
+  sendBookingConfirmedEmails,
+} from "@/lib/email/booking-notifications";
 
 const createBookingSchema = z.object({
   slug: z.string().min(1),
@@ -83,9 +87,9 @@ export async function createBooking(
   const endsAt = new Date(
     startsAt.getTime() + service.durationMinutes * 60_000
   );
-  let bookingId: string;
+  let created: typeof bookings.$inferSelect;
   try {
-    const [created] = await db
+    [created] = await db
       .insert(bookings)
       .values({
         organizationId: business.organizationId,
@@ -97,8 +101,7 @@ export async function createBooking(
         status: "confirmed",
         depositCents: service.depositCents,
       })
-      .returning({ id: bookings.id });
-    bookingId = created.id;
+      .returning();
   } catch (err) {
     if (isOverlapError(err)) {
       return {
@@ -108,12 +111,14 @@ export async function createBooking(
     throw err;
   }
 
-  return redirect(`/b/${slug}/confirmation/${bookingId}`);
+  await sendBookingConfirmedEmails(created);
+
+  return redirect(`/b/${slug}/confirmation/${created.id}`);
 }
 
 export async function cancelBooking(id: string): Promise<void> {
   const { organizationId } = await requireOwner();
-  await db
+  const [cancelled] = await db
     .update(bookings)
     .set({ status: "cancelled", cancelledAt: sql`now()` })
     .where(
@@ -122,7 +127,9 @@ export async function cancelBooking(id: string): Promise<void> {
         eq(bookings.organizationId, organizationId),
         sql`${bookings.status} <> 'cancelled'`
       )
-    );
+    )
+    .returning();
+  if (cancelled) await sendBookingCancelledEmails(cancelled);
   revalidatePath("/dashboard/bookings");
   revalidatePath("/dashboard");
 }

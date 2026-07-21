@@ -37,14 +37,12 @@ const tomorrow = new Date(Date.now() + 86_400_000);
 
 beforeAll(async () => {
   await db.delete(organization).where(eq(organization.id, ORG_ID));
-  await db
-    .insert(organization)
-    .values({
-      id: ORG_ID,
-      name: "ITest Salon",
-      slug: SLUG,
-      createdAt: new Date(),
-    });
+  await db.insert(organization).values({
+    id: ORG_ID,
+    name: "ITest Salon",
+    slug: SLUG,
+    createdAt: new Date(),
+  });
   await db.insert(businessProfiles).values({
     organizationId: ORG_ID,
     timezone: "UTC",
