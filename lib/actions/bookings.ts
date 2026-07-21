@@ -17,6 +17,8 @@ import {
   sendBookingCancelledEmails,
   sendBookingConfirmedEmails,
 } from "@/lib/email/booking-notifications";
+import { requireEnv } from "@/lib/env";
+import { createDepositCheckout } from "@/lib/stripe";
 
 const createBookingSchema = z.object({
   slug: z.string().min(1),
@@ -87,6 +89,8 @@ export async function createBooking(
   const endsAt = new Date(
     startsAt.getTime() + service.durationMinutes * 60_000
   );
+  const requiresDeposit = service.depositCents != null;
+
   let created: typeof bookings.$inferSelect;
   try {
     [created] = await db
@@ -98,8 +102,9 @@ export async function createBooking(
         customerEmail,
         startsAt,
         endsAt,
-        status: "confirmed",
+        status: requiresDeposit ? "pending" : "confirmed",
         depositCents: service.depositCents,
+        expiresAt: requiresDeposit ? new Date(Date.now() + 30 * 60_000) : null,
       })
       .returning();
   } catch (err) {
@@ -109,6 +114,37 @@ export async function createBooking(
       };
     }
     throw err;
+  }
+
+  if (requiresDeposit && service.depositCents != null) {
+    let checkoutUrl: string;
+    try {
+      const session = await createDepositCheckout({
+        bookingId: created.id,
+        slug,
+        serviceName: service.name,
+        businessName: business.orgName,
+        depositCents: service.depositCents,
+        currency: business.profile.currency,
+        customerEmail,
+        appUrl: requireEnv("NEXT_PUBLIC_APP_URL"),
+      });
+      if (!session.url) throw new Error("Checkout session has no URL");
+      checkoutUrl = session.url;
+      await db
+        .update(bookings)
+        .set({ stripeCheckoutSessionId: session.id })
+        .where(eq(bookings.id, created.id));
+    } catch (err) {
+      // Couldn't start payment: release the hold instead of stranding it.
+      await db
+        .update(bookings)
+        .set({ status: "cancelled", cancelledAt: sql`now()` })
+        .where(eq(bookings.id, created.id));
+      console.error("Failed to create deposit checkout:", err);
+      return { error: "Could not start the payment — please try again." };
+    }
+    return redirect(checkoutUrl);
   }
 
   await sendBookingConfirmedEmails(created);
