@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1784623898105,
+      "tag": "0000_material_titania",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784623898327,
+      "tag": "0001_no_overlap_constraint",
+      "breakpoints": true
+    }
+  ]
+}

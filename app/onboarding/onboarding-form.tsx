@@ -1,0 +1,108 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { completeOnboarding } from "@/lib/actions/business";
+import { slugify } from "@/lib/slug";
+
+const timezones = Intl.supportedValuesOf("timeZone");
+const defaultTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+export function OnboardingForm() {
+  const [pending, startTransition] = useTransition();
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [timezone, setTimezone] = useState(defaultTimezone);
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    startTransition(async () => {
+      const result = await completeOnboarding({ name, slug, timezone });
+      if (result?.error) toast.error(result.error);
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Set up your business</CardTitle>
+        <CardDescription>
+          This creates your public booking page.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="name">Business name</Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (!slugTouched) setSlug(slugify(e.target.value));
+              }}
+              required
+              minLength={2}
+              placeholder="Günnur Estetik"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="slug">Booking page URL</Label>
+            <div className="flex items-center gap-1">
+              <span className="text-muted-foreground text-sm">/b/</span>
+              <Input
+                id="slug"
+                value={slug}
+                onChange={(e) => {
+                  setSlugTouched(true);
+                  setSlug(e.target.value);
+                }}
+                required
+                placeholder="gunnur-estetik"
+              />
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="timezone">Timezone</Label>
+            <Select
+              value={timezone}
+              onValueChange={(value) => value && setTimezone(value)}
+            >
+              <SelectTrigger id="timezone">
+                <SelectValue placeholder="Select timezone" />
+              </SelectTrigger>
+              <SelectContent>
+                {timezones.map((tz) => (
+                  <SelectItem key={tz} value={tz}>
+                    {tz}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button type="submit" disabled={pending}>
+            {pending ? "Creating…" : "Create business"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
