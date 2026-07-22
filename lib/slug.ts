@@ -6,6 +6,7 @@ const RESERVED_SLUGS = new Set([
   "b",
   "r",
   "demo",
+  "rezerve",
   "giris",
   "kayit",
   "kurulum",

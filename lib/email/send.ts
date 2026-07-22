@@ -21,7 +21,7 @@ export type SendEmailProps = {
 export async function sendEmail({ to, subject, body, from }: SendEmailProps) {
   const emailHtml = await render(body);
   const info = await transporter.sendMail({
-    from: from ?? `"Slotly" <${process.env.BREVO_SENDER_EMAIL}>`,
+    from: from ?? `"Rezerve" <${process.env.BREVO_SENDER_EMAIL}>`,
     to: Array.isArray(to) ? to.join(", ") : to,
     subject,
     html: emailHtml,

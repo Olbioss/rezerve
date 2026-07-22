@@ -29,7 +29,7 @@ export default async function DashboardLayout({
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-6">
             <Link href="/panel" className="font-bold tracking-tight">
-              Slotly
+              Rezerve
             </Link>
             <nav className="flex gap-4 text-sm">
               {nav.map((item) => (

@@ -154,7 +154,7 @@ export default function Home() {
     >
       {/* Header */}
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-5">
-        <span className={`${display} text-2xl italic`}>Slotly.</span>
+        <span className={`${display} text-2xl italic`}>Rezerve.</span>
         <nav className="flex items-center gap-2">
           <Link
             href="/giris"
@@ -194,7 +194,7 @@ export default function Home() {
             className="landing-fade mt-6 max-w-lg text-[#5f5240] text-lg leading-relaxed"
             style={{ animationDelay: "180ms" }}
           >
-            Kuaförden estetik merkezine, Slotly tüm yerel işletmelere kendi
+            Kuaförden estetik merkezine, Rezerve tüm yerel işletmelere kendi
             randevu sayfasını verir. Hizmetlerinizi ve saatlerinizi girin,
             linkinizi paylaşın — telefon susarken bile defteriniz dolsun.
           </p>
@@ -250,7 +250,7 @@ export default function Home() {
         <div className="mx-auto w-full max-w-6xl px-5 py-20">
           <h2 className={`${display} max-w-xl text-3xl sm:text-4xl`}>
             Küçük işletme, büyük dertler.{" "}
-            <span className="text-[#c2542b]">Slotly dördünü de çözer.</span>
+            <span className="text-[#c2542b]">Rezerve dördünü de çözer.</span>
           </h2>
           <div className="mt-10 grid gap-5 sm:grid-cols-2">
             {FEATURES.map((feature) => (
@@ -293,7 +293,7 @@ export default function Home() {
       <footer className="bg-[#211a13] text-[#8a7a63]">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 border-[#faf5ee]/10 border-t px-5 py-8 text-sm">
           <p>
-            <span className={`${display} text-[#faf5ee] italic`}>Slotly.</span>{" "}
+            <span className={`${display} text-[#faf5ee] italic`}>Rezerve.</span>{" "}
             — İşletmeniz için online randevu
           </p>
           <div className="flex gap-4">

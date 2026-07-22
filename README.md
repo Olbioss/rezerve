@@ -1,4 +1,4 @@
-# Slotly
+# Rezerve
 
 Multi-tenant appointment booking SaaS with a fully Turkish UI (built for
 Turkish local businesses). Business owners sign up, configure services and

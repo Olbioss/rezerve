@@ -13,7 +13,7 @@ import { availabilityRules } from "@/lib/db/schema/availability-schema";
 import { businessProfiles } from "@/lib/db/schema/business-schema";
 import { services } from "@/lib/db/schema/service-schema";
 
-const DEMO_ORG_ID = "org_slotly_demo";
+const DEMO_ORG_ID = "org_rezerve_demo";
 const DEMO_SLUG = "demo";
 
 async function main() {
@@ -24,7 +24,7 @@ async function main() {
   if (!existing) {
     await db.insert(organization).values({
       id: DEMO_ORG_ID,
-      name: "Slotly Demo Salon",
+      name: "Rezerve Demo Salon",
       slug: DEMO_SLUG,
       createdAt: new Date(),
     });
@@ -105,7 +105,7 @@ async function main() {
     console.log("• availability already exists");
   }
 
-  console.log(`Demo hazır: /b/${DEMO_SLUG}`);
+  console.log(`Demo hazır: /r/${DEMO_SLUG}`);
   await db.$client.end();
 }
 

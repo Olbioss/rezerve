@@ -14,7 +14,7 @@ import {
 } from "@/lib/db/schema/auth-schema";
 
 export const auth = betterAuth({
-  appName: "Slotly",
+  appName: "Rezerve",
   baseURL: process.env.BETTER_AUTH_URL,
   basePath: "/api/auth",
   secret: process.env.BETTER_AUTH_SECRET,

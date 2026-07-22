@@ -74,7 +74,7 @@ export function BookingEmail({
           </Section>
           <Hr />
           <Text style={{ color: "#888888", fontSize: 12 }}>
-            {businessName} adına Slotly tarafından gönderilmiştir.
+            {businessName} adına Rezerve tarafından gönderilmiştir.
           </Text>
         </Container>
       </Body>

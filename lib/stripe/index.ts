@@ -19,7 +19,7 @@ export type DepositCheckoutInput = {
   depositCents: number;
   currency: string;
   customerEmail: string;
-  /** Absolute origin, e.g. https://slotly.example.com */
+  /** Absolute origin, e.g. https://rezerve.example.com */
   appUrl: string;
 };
 

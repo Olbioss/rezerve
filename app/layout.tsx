@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Slotly", template: "%s · Slotly" },
+  title: { default: "Rezerve", template: "%s · Rezerve" },
   description:
     "İşletmeniz için online randevu. Hizmetlerinizi ve çalışma saatlerinizi belirleyin — müşterileriniz kendi randevusunu alsın.",
 };
