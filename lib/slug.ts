@@ -4,6 +4,7 @@ import { z } from "zod";
 const RESERVED_SLUGS = new Set([
   "api",
   "b",
+  "demo",
   "dashboard",
   "login",
   "signup",

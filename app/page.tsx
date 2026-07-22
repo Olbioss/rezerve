@@ -209,7 +209,7 @@ export default function Home() {
               Ücretsiz başlayın
             </Link>
             <Link
-              href="/b/test-salon"
+              href="/b/demo"
               className="rounded-full border border-[#211a13]/20 px-6 py-3 font-medium transition-colors hover:bg-[#f0e7d8]"
             >
               Örnek sayfayı görün
