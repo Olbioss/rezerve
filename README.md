@@ -7,7 +7,7 @@ account, optionally paying a deposit (kapora) via iyzico.
 
 ## Features
 
-- **Multi-tenant** — each business gets its own `/b/[slug]` booking page
+- **Multi-tenant** — each business gets its own `/r/[slug]` booking page
   (Better Auth organizations, one business per owner)
 - **Slot engine** — availability computed from weekly hours (split shifts
   supported), service duration, slot granularity, lead time and booking
@@ -40,10 +40,25 @@ bun dev
 ```
 
 Useful scripts: `bun run check` (Biome), `bun run typecheck`,
-`bun run test` (unit + DB integration tests), `bun run db:studio`.
+`bun run test` (unit + DB integration tests), `bun run db:studio`,
+`bun run seed:demo` (creates the public demo business at `/r/demo`).
 
 Payments use the iyzico sandbox by default (`IYZICO_BASE_URL`); create
 sandbox keys at sandbox-merchant.iyzipay.com.
+
+## Routes
+
+Everything is Turkish, including the URLs:
+
+| Route | Purpose |
+| --- | --- |
+| `/` | Marketing landing page |
+| `/giris` · `/kayit` · `/kurulum` | Login, signup, business onboarding |
+| `/panel` (+ `randevular` `hizmetler` `saatler` `ayarlar`) | Owner dashboard |
+| `/r/[slug]` | Public booking page (no customer account) |
+| `/r/[slug]/onay/[bookingId]` | Booking confirmation |
+| `/api/r/[slug]/slots` | Availability API |
+| `/api/odeme/iyzico` | iyzico payment callback |
 
 ## Testing
 
