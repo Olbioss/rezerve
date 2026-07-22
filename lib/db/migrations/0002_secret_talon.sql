@@ -1,0 +1,1 @@
+ALTER TABLE "business_profiles" ALTER COLUMN "currency" SET DEFAULT 'try';

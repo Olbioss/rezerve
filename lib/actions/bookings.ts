@@ -59,13 +59,13 @@ export async function createBooking(
 ): Promise<ActionResult> {
   const parsed = createBookingSchema.safeParse(input);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return { error: parsed.error.issues[0]?.message ?? "Geçersiz bilgi" };
   }
   const { slug, serviceId, customerName, customerEmail } = parsed.data;
   const startsAt = new Date(parsed.data.startsAt);
 
   const business = await getBusinessBySlug(slug);
-  if (!business) return { error: "Business not found" };
+  if (!business) return { error: "İşletme bulunamadı" };
 
   const service = await db.query.services.findFirst({
     where: and(
@@ -74,14 +74,16 @@ export async function createBooking(
       eq(services.active, true)
     ),
   });
-  if (!service) return { error: "Service not found" };
+  if (!service) return { error: "Hizmet bulunamadı" };
 
   // Never trust the client: the requested instant must be in the freshly
   // computed availability for its local business day.
   const dateISO = localDateISO(startsAt, business.profile.timezone);
   const slots = await getAvailableSlots(business, serviceId, dateISO);
   if (!slots?.some((slot) => slot.getTime() === startsAt.getTime())) {
-    return { error: "That time is no longer available — please pick another." };
+    return {
+      error: "Bu saat artık müsait değil — lütfen başka bir saat seçin.",
+    };
   }
 
   await cancelExpiredHolds(business.organizationId);
@@ -110,7 +112,7 @@ export async function createBooking(
   } catch (err) {
     if (isOverlapError(err)) {
       return {
-        error: "That time was just taken — please pick another slot.",
+        error: "Bu saat az önce doldu — lütfen başka bir saat seçin.",
       };
     }
     throw err;
@@ -142,7 +144,7 @@ export async function createBooking(
         .set({ status: "cancelled", cancelledAt: sql`now()` })
         .where(eq(bookings.id, created.id));
       console.error("Failed to create deposit checkout:", err);
-      return { error: "Could not start the payment — please try again." };
+      return { error: "Ödeme başlatılamadı — lütfen tekrar deneyin." };
     }
     return redirect(checkoutUrl);
   }

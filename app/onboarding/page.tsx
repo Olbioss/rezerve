@@ -6,7 +6,7 @@ import { member } from "@/lib/db/schema/auth-schema";
 import { businessProfiles } from "@/lib/db/schema/business-schema";
 import { OnboardingForm } from "./onboarding-form";
 
-export const metadata = { title: "Set up your business" };
+export const metadata = { title: "İşletmenizi kurun" };
 
 export default async function OnboardingPage() {
   const session = await requireUser();

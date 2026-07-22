@@ -46,7 +46,7 @@ function businessDateISO(timezone: string, daysFromNow: number): string {
 function formatDayLabel(dateISO: string, timezone: string): string {
   const [y, m, d] = dateISO.split("-").map(Number);
   const date = new TZDate(y, m - 1, d, timezone);
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleDateString("tr-TR", {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -55,7 +55,7 @@ function formatDayLabel(dateISO: string, timezone: string): string {
 }
 
 function formatSlotTime(iso: string, timezone: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
+  return new Date(iso).toLocaleTimeString("tr-TR", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -127,7 +127,7 @@ export function BookingFlow({
   if (services.length === 0) {
     return (
       <p className="text-center text-muted-foreground">
-        This business hasn't added any services yet.
+        Bu işletme henüz hizmet eklememiş.
       </p>
     );
   }
@@ -151,9 +151,9 @@ export function BookingFlow({
                   </p>
                 )}
                 <p className="mt-1 text-muted-foreground text-sm">
-                  {s.durationMinutes} min
+                  {s.durationMinutes} dk
                   {s.depositCents
-                    ? ` · ${formatMoney(s.depositCents, currency)} deposit`
+                    ? ` · ${formatMoney(s.depositCents, currency)} kapora`
                     : ""}
                 </p>
               </div>
@@ -175,17 +175,17 @@ export function BookingFlow({
         className="justify-self-start text-muted-foreground text-sm underline underline-offset-4"
         onClick={() => setService(null)}
       >
-        ← All services
+        ← Tüm hizmetler
       </button>
 
       <div className="flex items-center justify-between rounded-lg border p-4">
         <div>
           <p className="font-medium">{service.name}</p>
           <p className="text-muted-foreground text-sm">
-            {service.durationMinutes} min ·{" "}
+            {service.durationMinutes} dk ·{" "}
             {formatMoney(service.priceCents, currency)}
             {service.depositCents
-              ? ` · ${formatMoney(service.depositCents, currency)} deposit due now`
+              ? ` · ${formatMoney(service.depositCents, currency)} kapora (şimdi ödenir)`
               : ""}
           </p>
         </div>
@@ -212,7 +212,7 @@ export function BookingFlow({
           ))}
         </div>
       ) : slots.length === 0 ? (
-        <p className="text-muted-foreground">No free times on this day.</p>
+        <p className="text-muted-foreground">Bu günde boş saat yok.</p>
       ) : (
         <div className="flex flex-wrap gap-2">
           {slots.map((slot) => (
@@ -231,23 +231,23 @@ export function BookingFlow({
       {selectedSlot && (
         <form onSubmit={submit} className="grid gap-4 rounded-lg border p-4">
           <p className="font-medium">
-            {formatDayLabel(dateISO, timezone)} at{" "}
+            {formatDayLabel(dateISO, timezone)},{" "}
             {formatSlotTime(selectedSlot, timezone)}
           </p>
           <div className="grid gap-2">
-            <Label htmlFor="name">Your name</Label>
+            <Label htmlFor="name">Adınız</Label>
             <Input id="name" name="name" required minLength={2} />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">E-posta</Label>
             <Input id="email" name="email" type="email" required />
           </div>
           <Button type="submit" disabled={pending}>
             {pending
-              ? "Booking…"
+              ? "Randevu alınıyor…"
               : service.depositCents
-                ? `Pay ${formatMoney(service.depositCents, currency)} deposit & book`
-                : "Confirm booking"}
+                ? `${formatMoney(service.depositCents, currency)} kapora öde ve randevu al`
+                : "Randevuyu onayla"}
           </Button>
         </form>
       )}

@@ -13,7 +13,10 @@ const intervalSchema = z
     startMinutes: z.number().int().min(0).max(1439),
     endMinutes: z.number().int().min(1).max(1440),
   })
-  .refine((i) => i.endMinutes > i.startMinutes, "End must be after start");
+  .refine(
+    (i) => i.endMinutes > i.startMinutes,
+    "Bitiş, başlangıçtan sonra olmalı"
+  );
 
 const rulesSchema = z.array(intervalSchema).max(50);
 
@@ -27,7 +30,7 @@ export async function saveAvailability(
   const { organizationId } = await requireOwner();
   const parsed = rulesSchema.safeParse(input);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return { error: parsed.error.issues[0]?.message ?? "Geçersiz bilgi" };
   }
 
   // Reject overlapping intervals within the same weekday.
@@ -44,7 +47,7 @@ export async function saveAvailability(
     intervals.sort((a, b) => a.startMinutes - b.startMinutes);
     for (let i = 1; i < intervals.length; i++) {
       if (intervals[i].startMinutes < intervals[i - 1].endMinutes) {
-        return { error: "Intervals on the same day cannot overlap" };
+        return { error: "Aynı gündeki aralıklar çakışamaz" };
       }
     }
   }

@@ -15,7 +15,7 @@ export function SignOutButton() {
         router.push("/");
       }}
     >
-      Sign out
+      Çıkış yap
     </Button>
   );
 }

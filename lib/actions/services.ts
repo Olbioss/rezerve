@@ -25,13 +25,13 @@ export async function createService(
   const { organizationId } = await requireOwner();
   const parsed = serviceSchema.safeParse(input);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return { error: parsed.error.issues[0]?.message ?? "Geçersiz bilgi" };
   }
   if (
     parsed.data.depositCents !== null &&
     parsed.data.depositCents > parsed.data.priceCents
   ) {
-    return { error: "Deposit cannot exceed the price" };
+    return { error: "Kapora fiyattan büyük olamaz" };
   }
   await db.insert(services).values({ ...parsed.data, organizationId });
   revalidatePath("/dashboard/services");
@@ -44,13 +44,13 @@ export async function updateService(
   const { organizationId } = await requireOwner();
   const parsed = serviceSchema.safeParse(input);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return { error: parsed.error.issues[0]?.message ?? "Geçersiz bilgi" };
   }
   if (
     parsed.data.depositCents !== null &&
     parsed.data.depositCents > parsed.data.priceCents
   ) {
-    return { error: "Deposit cannot exceed the price" };
+    return { error: "Kapora fiyattan büyük olamaz" };
   }
   await db
     .update(services)
@@ -79,7 +79,7 @@ export async function deleteService(id: string): Promise<ActionResult> {
       );
     revalidatePath("/dashboard/services");
     return {
-      error: "Service has bookings, so it was deactivated instead of deleted.",
+      error: "Hizmetin randevuları olduğu için silinmek yerine pasife alındı.",
     };
   }
   revalidatePath("/dashboard/services");

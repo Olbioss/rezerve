@@ -5,7 +5,7 @@ import { bookings } from "@/lib/db/schema/booking-schema";
 import { services } from "@/lib/db/schema/service-schema";
 import { type BookingRow, BookingsList } from "./bookings-list";
 
-export const metadata = { title: "Bookings" };
+export const metadata = { title: "Randevular" };
 
 async function loadBookings(
   organizationId: string,
@@ -52,9 +52,9 @@ export default async function BookingsPage() {
   return (
     <div className="grid gap-6">
       <div>
-        <h1 className="font-semibold text-2xl tracking-tight">Bookings</h1>
+        <h1 className="font-semibold text-2xl tracking-tight">Randevular</h1>
         <p className="text-muted-foreground">
-          Times shown in {profile.timezone}.
+          Saatler {profile.timezone} saat dilimindedir.
         </p>
       </div>
       <BookingsList

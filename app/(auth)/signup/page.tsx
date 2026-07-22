@@ -31,7 +31,7 @@ export default function SignupPage() {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message ?? "Sign up failed");
+      toast.error(error.message ?? "Kayıt başarısız");
       return;
     }
     router.push("/onboarding");
@@ -40,19 +40,19 @@ export default function SignupPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create your account</CardTitle>
+        <CardTitle>Hesap oluşturun</CardTitle>
         <CardDescription>
-          Set up your business and start taking bookings.
+          İşletmenizi kurun ve randevu almaya başlayın.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">Your name</Label>
+            <Label htmlFor="name">Adınız</Label>
             <Input id="name" name="name" required autoComplete="name" />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">E-posta</Label>
             <Input
               id="email"
               name="email"
@@ -62,7 +62,7 @@ export default function SignupPage() {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Şifre</Label>
             <Input
               id="password"
               name="password"
@@ -73,12 +73,12 @@ export default function SignupPage() {
             />
           </div>
           <Button type="submit" disabled={loading}>
-            {loading ? "Creating account…" : "Create account"}
+            {loading ? "Hesap oluşturuluyor…" : "Hesap oluştur"}
           </Button>
           <p className="text-center text-muted-foreground text-sm">
-            Already have an account?{" "}
+            Zaten hesabınız var mı?{" "}
             <Link href="/login" className="underline underline-offset-4">
-              Log in
+              Giriş yapın
             </Link>
           </p>
         </form>

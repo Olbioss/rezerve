@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { availabilityRules } from "@/lib/db/schema/availability-schema";
 import { AvailabilityEditor } from "./availability-editor";
 
-export const metadata = { title: "Availability" };
+export const metadata = { title: "Çalışma Saatleri" };
 
 export default async function AvailabilityPage() {
   const { organizationId } = await requireOwner();

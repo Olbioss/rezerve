@@ -7,7 +7,7 @@ import { bookings } from "@/lib/db/schema/booking-schema";
 import { services } from "@/lib/db/schema/service-schema";
 import { formatMoney } from "@/lib/format";
 
-export const metadata = { title: "Booking confirmation" };
+export const metadata = { title: "Randevu onayı" };
 
 export default async function ConfirmationPage({
   params,
@@ -30,7 +30,7 @@ export default async function ConfirmationPage({
     where: eq(services.id, booking.serviceId),
   });
 
-  const when = booking.startsAt.toLocaleString("en-US", {
+  const when = booking.startsAt.toLocaleString("tr-TR", {
     timeZone: business.profile.timezone,
     weekday: "long",
     month: "long",
@@ -44,34 +44,34 @@ export default async function ConfirmationPage({
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-4 px-4 py-10 text-center">
       {booking.status === "confirmed" && (
         <>
-          <h1 className="font-bold text-2xl">You're booked! 🎉</h1>
+          <h1 className="font-bold text-2xl">Randevunuz alındı! 🎉</h1>
           <p className="text-muted-foreground">
-            {service?.name} at {business.orgName}
+            {service?.name} — {business.orgName}
           </p>
           <p className="font-medium text-lg">{when}</p>
           <p className="text-muted-foreground text-sm">
-            A confirmation email is on its way to {booking.customerEmail}.
+            Onay e-postası {booking.customerEmail} adresine gönderildi.
           </p>
         </>
       )}
       {booking.status === "pending" && (
         <>
-          <h1 className="font-bold text-2xl">Almost there…</h1>
+          <h1 className="font-bold text-2xl">Az kaldı…</h1>
           <p className="text-muted-foreground">
-            We're waiting for your{" "}
+            {when} tarihindeki {service?.name} randevunuzun onaylanması için{" "}
             {booking.depositCents
               ? formatMoney(booking.depositCents, business.profile.currency)
               : ""}{" "}
-            deposit payment to confirm {service?.name} on {when}. This page will
-            show the confirmed status once payment completes.
+            kapora ödemenizi bekliyoruz. Ödeme tamamlandığında bu sayfada onay
+            görünecek.
           </p>
         </>
       )}
       {booking.status === "cancelled" && (
         <>
-          <h1 className="font-bold text-2xl">Booking cancelled</h1>
+          <h1 className="font-bold text-2xl">Randevu iptal edildi</h1>
           <p className="text-muted-foreground">
-            This booking is no longer active.
+            Bu randevu artık geçerli değil.
           </p>
         </>
       )}
@@ -79,7 +79,7 @@ export default async function ConfirmationPage({
         href={`/b/${slug}`}
         className="text-muted-foreground text-sm underline underline-offset-4"
       >
-        Back to {business.orgName}
+        {business.orgName} sayfasına dön
       </Link>
     </main>
   );

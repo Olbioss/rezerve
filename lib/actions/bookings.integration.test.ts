@@ -100,7 +100,7 @@ describe("createBooking (integration)", () => {
       customerName: "Bob",
       customerEmail: "bob@test.dev",
     });
-    expect(result?.error).toMatch(/no longer available/);
+    expect(result?.error).toMatch(/artık müsait değil/);
   });
 
   it("rejects an instant that is not on the slot grid", async () => {
@@ -113,7 +113,7 @@ describe("createBooking (integration)", () => {
       customerName: "Mallory",
       customerEmail: "mallory@test.dev",
     });
-    expect(result?.error).toMatch(/no longer available/);
+    expect(result?.error).toMatch(/artık müsait değil/);
   });
 
   it("parallel double-submit: exactly one wins", async () => {
@@ -135,7 +135,7 @@ describe("createBooking (integration)", () => {
     expect(winners).toHaveLength(1);
     expect(losers).toHaveLength(1);
     const loser = losers[0] as { ok: false; result: { error?: string } };
-    expect(loser.result?.error).toMatch(/just taken|no longer available/);
+    expect(loser.result?.error).toMatch(/az önce doldu|artık müsait değil/);
   });
 
   it("unknown business slug errors cleanly", async () => {
@@ -146,6 +146,6 @@ describe("createBooking (integration)", () => {
       customerName: "Nobody",
       customerEmail: "nobody@test.dev",
     });
-    expect(result?.error).toBe("Business not found");
+    expect(result?.error).toBe("İşletme bulunamadı");
   });
 });

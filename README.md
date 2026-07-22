@@ -1,8 +1,9 @@
 # Slotly
 
-Multi-tenant appointment booking SaaS. Business owners sign up, configure
-services and weekly hours, and get a public booking page — customers book
-without an account, optionally paying a deposit via Stripe.
+Multi-tenant appointment booking SaaS with a fully Turkish UI (built for
+Turkish local businesses). Business owners sign up, configure services and
+weekly hours, and get a public booking page — customers book without an
+account, optionally paying a deposit via Stripe.
 
 ## Features
 

@@ -10,7 +10,7 @@ export const businessProfiles = pgTable("business_profiles", {
     .references(() => organization.id, { onDelete: "cascade" }),
   /** IANA timezone, e.g. "Europe/Istanbul". All hours are local to this. */
   timezone: text("timezone").notNull(),
-  currency: text("currency").notNull().default("usd"),
+  currency: text("currency").notNull().default("try"),
   slotGranularityMinutes: integer("slot_granularity_minutes")
     .notNull()
     .default(30),

@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { services } from "@/lib/db/schema/service-schema";
 import { ServicesManager } from "./services-manager";
 
-export const metadata = { title: "Services" };
+export const metadata = { title: "Hizmetler" };
 
 export default async function ServicesPage() {
   const { organizationId, profile } = await requireOwner();

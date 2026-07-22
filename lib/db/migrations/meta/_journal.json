@@ -15,6 +15,13 @@
       "when": 1784623898327,
       "tag": "0001_no_overlap_constraint",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784709392623,
+      "tag": "0002_secret_talon",
+      "breakpoints": true
     }
   ]
 }

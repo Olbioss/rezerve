@@ -32,6 +32,12 @@ const statusVariant = {
   cancelled: "outline",
 } as const;
 
+const statusLabel = {
+  confirmed: "onaylı",
+  pending: "bekliyor",
+  cancelled: "iptal",
+} as const;
+
 export function BookingsList({
   upcoming,
   past,
@@ -46,7 +52,7 @@ export function BookingsList({
   const [pending, startTransition] = useTransition();
 
   function formatWhen(iso: string) {
-    return new Date(iso).toLocaleString("en-US", {
+    return new Date(iso).toLocaleString("tr-TR", {
       timeZone: timezone,
       weekday: "short",
       month: "short",
@@ -61,7 +67,7 @@ export function BookingsList({
     if (rows.length === 0) {
       return (
         <p className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-          Nothing here yet.
+          Henüz randevu yok.
         </p>
       );
     }
@@ -69,11 +75,11 @@ export function BookingsList({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>When</TableHead>
-            <TableHead>Service</TableHead>
-            <TableHead>Customer</TableHead>
-            <TableHead>Deposit</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead>Tarih</TableHead>
+            <TableHead>Hizmet</TableHead>
+            <TableHead>Müşteri</TableHead>
+            <TableHead>Kapora</TableHead>
+            <TableHead>Durum</TableHead>
             {allowCancel && <TableHead />}
           </TableRow>
         </TableHeader>
@@ -97,7 +103,7 @@ export function BookingsList({
               </TableCell>
               <TableCell>
                 <Badge variant={statusVariant[booking.status]}>
-                  {booking.status}
+                  {statusLabel[booking.status]}
                 </Badge>
               </TableCell>
               {allowCancel && (
@@ -110,11 +116,11 @@ export function BookingsList({
                       onClick={() =>
                         startTransition(async () => {
                           await cancelBooking(booking.id);
-                          toast.success("Booking cancelled");
+                          toast.success("Randevu iptal edildi");
                         })
                       }
                     >
-                      Cancel
+                      İptal et
                     </Button>
                   )}
                 </TableCell>
@@ -129,8 +135,8 @@ export function BookingsList({
   return (
     <Tabs defaultValue="upcoming">
       <TabsList>
-        <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
-        <TabsTrigger value="past">Past ({past.length})</TabsTrigger>
+        <TabsTrigger value="upcoming">Yaklaşan ({upcoming.length})</TabsTrigger>
+        <TabsTrigger value="past">Geçmiş ({past.length})</TabsTrigger>
       </TabsList>
       <TabsContent value="upcoming">{renderTable(upcoming, true)}</TabsContent>
       <TabsContent value="past">{renderTable(past, false)}</TabsContent>

@@ -1,7 +1,7 @@
 import { requireOwner } from "@/lib/auth-guard";
 import { SettingsForm } from "./settings-form";
 
-export const metadata = { title: "Settings" };
+export const metadata = { title: "Ayarlar" };
 
 export default async function SettingsPage() {
   const { profile } = await requireOwner();

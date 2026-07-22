@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { bookings } from "@/lib/db/schema/booking-schema";
 import { services } from "@/lib/db/schema/service-schema";
 
-export const metadata = { title: "Dashboard" };
+export const metadata = { title: "Genel Bakış" };
 
 export default async function DashboardPage() {
   const { session, organizationId, profile } = await requireOwner();
@@ -57,7 +57,7 @@ export default async function DashboardPage() {
     ]);
 
   function formatWhen(date: Date) {
-    return date.toLocaleString("en-US", {
+    return date.toLocaleString("tr-TR", {
       timeZone: profile.timezone,
       weekday: "short",
       month: "short",
@@ -72,30 +72,29 @@ export default async function DashboardPage() {
     <div className="grid gap-6">
       <div>
         <h1 className="font-semibold text-2xl tracking-tight">
-          Welcome, {session.user.name}
+          Hoş geldiniz, {session.user.name}
         </h1>
         <p className="text-muted-foreground">
-          {weekCount} confirmed booking{weekCount === 1 ? "" : "s"} in the next
-          7 days · {serviceCount} active service
-          {serviceCount === 1 ? "" : "s"}
+          Önümüzdeki 7 günde {weekCount} onaylı randevu · {serviceCount} aktif
+          hizmet
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Next up</CardTitle>
+          <CardTitle>Sıradaki randevular</CardTitle>
         </CardHeader>
         <CardContent>
           {next.length === 0 ? (
             <p className="text-muted-foreground">
-              No upcoming bookings.{" "}
+              Yaklaşan randevu yok.{" "}
               <Link
                 href="/dashboard/services"
                 className="underline underline-offset-4"
               >
-                Add services
+                Hizmet ekleyin
               </Link>{" "}
-              and share your booking page to get started.
+              ve randevu sayfanızı paylaşarak başlayın.
             </p>
           ) : (
             <ul className="grid gap-3">
@@ -111,7 +110,7 @@ export default async function DashboardPage() {
                     <p className="text-muted-foreground text-sm">
                       {formatWhen(booking.startsAt)}
                       {booking.status === "pending"
-                        ? " · awaiting deposit"
+                        ? " · kapora bekleniyor"
                         : ""}
                     </p>
                   </div>

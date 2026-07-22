@@ -18,7 +18,7 @@ const timezoneSchema = z.string().refine((tz) => {
   } catch {
     return false;
   }
-}, "Invalid timezone");
+}, "Geçersiz saat dilimi");
 
 const onboardingSchema = z.object({
   name: z.string().min(2).max(80),
@@ -35,7 +35,7 @@ export async function completeOnboarding(
   const session = await requireUser();
   const parsed = onboardingSchema.safeParse(input);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return { error: parsed.error.issues[0]?.message ?? "Geçersiz bilgi" };
   }
   const { name, slug, timezone } = parsed.data;
 
@@ -51,11 +51,11 @@ export async function completeOnboarding(
         body: { name, slug },
         headers: await headers(),
       });
-      if (!org) return { error: "Could not create the business" };
+      if (!org) return { error: "İşletme oluşturulamadı" };
       organizationId = org.id;
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Could not create the business";
+        err instanceof Error ? err.message : "İşletme oluşturulamadı";
       return { error: message };
     }
   }
@@ -90,7 +90,7 @@ export async function updateSettings(
   const { organizationId } = await requireOwner();
   const parsed = settingsSchema.safeParse(input);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return { error: parsed.error.issues[0]?.message ?? "Geçersiz bilgi" };
   }
   await db
     .update(businessProfiles)

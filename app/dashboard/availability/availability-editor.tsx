@@ -38,7 +38,7 @@ export function AvailabilityEditor({
     startTransition(async () => {
       const result = await saveAvailability(rules);
       if (result?.error) toast.error(result.error);
-      else toast.success("Availability saved");
+      else toast.success("Çalışma saatleri kaydedildi");
     });
   }
 
@@ -47,15 +47,15 @@ export function AvailabilityEditor({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-semibold text-2xl tracking-tight">
-            Weekly availability
+            Haftalık çalışma saatleri
           </h1>
           <p className="text-muted-foreground">
-            Hours are in your business timezone. Add multiple intervals for
-            split shifts.
+            Saatler işletmenizin saat dilimindedir. Bölünmüş vardiyalar için
+            birden fazla aralık ekleyebilirsiniz.
           </p>
         </div>
         <Button onClick={save} disabled={pending}>
-          {pending ? "Saving…" : "Save"}
+          {pending ? "Kaydediliyor…" : "Kaydet"}
         </Button>
       </div>
 
@@ -73,11 +73,11 @@ export function AvailabilityEditor({
                   size="sm"
                   onClick={() => addInterval(weekday)}
                 >
-                  Add hours
+                  Saat ekle
                 </Button>
               </div>
               {dayIntervals.length === 0 ? (
-                <p className="mt-2 text-muted-foreground text-sm">Closed</p>
+                <p className="mt-2 text-muted-foreground text-sm">Kapalı</p>
               ) : (
                 <div className="mt-3 grid gap-2">
                   {dayIntervals.map(({ rule, index }) => (
@@ -108,7 +108,7 @@ export function AvailabilityEditor({
                         size="sm"
                         onClick={() => removeInterval(index)}
                       >
-                        Remove
+                        Kaldır
                       </Button>
                     </div>
                   ))}

@@ -54,27 +54,27 @@ export function BookingEmail({
           <Hr />
           <Section>
             <Text style={{ margin: "4px 0" }}>
-              <strong>Business:</strong> {businessName}
+              <strong>İşletme:</strong> {businessName}
             </Text>
             <Text style={{ margin: "4px 0" }}>
-              <strong>Service:</strong> {serviceName}
+              <strong>Hizmet:</strong> {serviceName}
             </Text>
             <Text style={{ margin: "4px 0" }}>
-              <strong>When:</strong> {whenText}
+              <strong>Tarih:</strong> {whenText}
             </Text>
             <Text style={{ margin: "4px 0" }}>
-              <strong>Customer:</strong> {customerName}
+              <strong>Müşteri:</strong> {customerName}
               {customerEmail ? ` (${customerEmail})` : ""}
             </Text>
             {depositLine && (
               <Text style={{ margin: "4px 0" }}>
-                <strong>Deposit:</strong> {depositLine}
+                <strong>Kapora:</strong> {depositLine}
               </Text>
             )}
           </Section>
           <Hr />
           <Text style={{ color: "#888888", fontSize: 12 }}>
-            Sent by Slotly on behalf of {businessName}.
+            {businessName} adına Slotly tarafından gönderilmiştir.
           </Text>
         </Container>
       </Body>

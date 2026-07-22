@@ -6,12 +6,12 @@ export default function Home() {
     <main className="flex min-h-svh flex-col items-center justify-center gap-6 p-8 text-center">
       <h1 className="font-bold text-4xl tracking-tight sm:text-5xl">Slotly</h1>
       <p className="max-w-md text-lg text-muted-foreground">
-        Online booking for your business. Set your services and hours — your
-        customers book themselves.
+        İşletmeniz için online randevu. Hizmetlerinizi ve çalışma saatlerinizi
+        belirleyin — müşterileriniz kendi randevusunu alsın.
       </p>
       <div className="flex gap-3">
         <Button size="lg" nativeButton={false} render={<Link href="/signup" />}>
-          Get started
+          Hemen başla
         </Button>
         <Button
           size="lg"
@@ -19,7 +19,7 @@ export default function Home() {
           nativeButton={false}
           render={<Link href="/login" />}
         >
-          Log in
+          Giriş yap
         </Button>
       </div>
     </main>

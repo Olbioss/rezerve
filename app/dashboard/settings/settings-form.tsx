@@ -35,21 +35,19 @@ export function SettingsForm({ initial }: { initial: Settings }) {
     startTransition(async () => {
       const result = await updateSettings(settings);
       if (result?.error) toast.error(result.error);
-      else toast.success("Settings saved");
+      else toast.success("Ayarlar kaydedildi");
     });
   }
 
   return (
     <div className="grid max-w-xl gap-6">
       <div>
-        <h1 className="font-semibold text-2xl tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Booking rules for your public page.
-        </p>
+        <h1 className="font-semibold text-2xl tracking-tight">Ayarlar</h1>
+        <p className="text-muted-foreground">Randevu sayfanız için kurallar.</p>
       </div>
       <form onSubmit={submit} className="grid gap-4">
         <div className="grid gap-2">
-          <Label htmlFor="timezone">Timezone</Label>
+          <Label htmlFor="timezone">Saat dilimi</Label>
           <Select
             value={settings.timezone}
             onValueChange={(value) =>
@@ -70,7 +68,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="grid gap-2">
-            <Label htmlFor="granularity">Slot granularity (min)</Label>
+            <Label htmlFor="granularity">Randevu aralığı (dk)</Label>
             <Input
               id="granularity"
               type="number"
@@ -87,7 +85,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="leadtime">Min lead time (min)</Label>
+            <Label htmlFor="leadtime">Minimum ön süre (dk)</Label>
             <Input
               id="leadtime"
               type="number"
@@ -103,7 +101,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="window">Booking window (days)</Label>
+            <Label htmlFor="window">Randevu penceresi (gün)</Label>
             <Input
               id="window"
               type="number"
@@ -119,7 +117,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="currency">Currency</Label>
+            <Label htmlFor="currency">Para birimi</Label>
             <Select
               value={settings.currency}
               onValueChange={(value) =>
@@ -144,11 +142,11 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           </div>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="contact">Notification email (optional)</Label>
+          <Label htmlFor="contact">Bildirim e-postası (isteğe bağlı)</Label>
           <Input
             id="contact"
             type="email"
-            placeholder="Defaults to your login email"
+            placeholder="Varsayılan: giriş e-postanız"
             value={settings.contactEmail ?? ""}
             onChange={(e) =>
               setSettings((s) => ({
@@ -159,7 +157,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           />
         </div>
         <Button type="submit" disabled={pending} className="justify-self-start">
-          {pending ? "Saving…" : "Save settings"}
+          {pending ? "Kaydediliyor…" : "Ayarları kaydet"}
         </Button>
       </form>
     </div>

@@ -18,13 +18,13 @@ const RESERVED_SLUGS = new Set([
 
 export const slugSchema = z
   .string()
-  .min(3, "Slug must be at least 3 characters")
-  .max(48, "Slug must be at most 48 characters")
+  .min(3, "Adres en az 3 karakter olmalı")
+  .max(48, "Adres en fazla 48 karakter olabilir")
   .regex(
     /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
-    "Use lowercase letters, numbers and single hyphens (e.g. my-salon)"
+    "Küçük harf, rakam ve tek tire kullanın (örn. benim-salonum)"
   )
-  .refine((slug) => !RESERVED_SLUGS.has(slug), "This slug is reserved");
+  .refine((slug) => !RESERVED_SLUGS.has(slug), "Bu adres kullanılamaz");
 
 /** Best-effort slug suggestion from a business name. */
 export function slugify(name: string): string {

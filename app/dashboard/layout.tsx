@@ -6,11 +6,11 @@ import { organization } from "@/lib/db/schema/auth-schema";
 import { SignOutButton } from "./sign-out-button";
 
 const nav = [
-  { href: "/dashboard", label: "Overview" },
-  { href: "/dashboard/bookings", label: "Bookings" },
-  { href: "/dashboard/services", label: "Services" },
-  { href: "/dashboard/availability", label: "Availability" },
-  { href: "/dashboard/settings", label: "Settings" },
+  { href: "/dashboard", label: "Genel Bakış" },
+  { href: "/dashboard/bookings", label: "Randevular" },
+  { href: "/dashboard/services", label: "Hizmetler" },
+  { href: "/dashboard/availability", label: "Çalışma Saatleri" },
+  { href: "/dashboard/settings", label: "Ayarlar" },
 ];
 
 export default async function DashboardLayout({

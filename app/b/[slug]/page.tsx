@@ -28,7 +28,7 @@ export default async function BookingPage({
         <h1 className="font-bold text-3xl tracking-tight">
           {business.orgName}
         </h1>
-        <p className="mt-1 text-muted-foreground">Book an appointment</p>
+        <p className="mt-1 text-muted-foreground">Randevu alın</p>
       </div>
       <BookingFlow
         slug={slug}
@@ -55,5 +55,7 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const business = await getBusinessBySlug(slug);
-  return { title: business ? `Book ${business.orgName}` : "Not found" };
+  return {
+    title: business ? `${business.orgName} — Randevu` : "Bulunamadı",
+  };
 }

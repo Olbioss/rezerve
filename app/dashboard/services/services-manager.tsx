@@ -62,7 +62,7 @@ export function ServicesManager({
         toast.error(result.error);
         return;
       }
-      toast.success(editing ? "Service updated" : "Service created");
+      toast.success(editing ? "Hizmet güncellendi" : "Hizmet oluşturuldu");
       setOpen(false);
       setEditing(null);
     });
@@ -82,25 +82,28 @@ export function ServicesManager({
     <div className="grid gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-semibold text-2xl tracking-tight">Services</h1>
-          <p className="text-muted-foreground">What your customers can book.</p>
+          <h1 className="font-semibold text-2xl tracking-tight">Hizmetler</h1>
+          <p className="text-muted-foreground">
+            Müşterilerinizin randevu alabileceği hizmetler.
+          </p>
         </div>
-        <Button onClick={openNew}>Add service</Button>
+        <Button onClick={openNew}>Hizmet ekle</Button>
       </div>
 
       {services.length === 0 ? (
         <p className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-          No services yet. Add your first one to appear on your booking page.
+          Henüz hizmet yok. Randevu sayfanızda görünmesi için ilk hizmetinizi
+          ekleyin.
         </p>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Deposit</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Ad</TableHead>
+              <TableHead>Süre</TableHead>
+              <TableHead>Fiyat</TableHead>
+              <TableHead>Kapora</TableHead>
+              <TableHead>Durum</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -108,7 +111,7 @@ export function ServicesManager({
             {services.map((service) => (
               <TableRow key={service.id}>
                 <TableCell className="font-medium">{service.name}</TableCell>
-                <TableCell>{service.durationMinutes} min</TableCell>
+                <TableCell>{service.durationMinutes} dk</TableCell>
                 <TableCell>
                   {formatMoney(service.priceCents, currency)}
                 </TableCell>
@@ -119,7 +122,7 @@ export function ServicesManager({
                 </TableCell>
                 <TableCell>
                   <Badge variant={service.active ? "default" : "secondary"}>
-                    {service.active ? "Active" : "Inactive"}
+                    {service.active ? "Aktif" : "Pasif"}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
@@ -128,7 +131,7 @@ export function ServicesManager({
                     size="sm"
                     onClick={() => openEdit(service)}
                   >
-                    Edit
+                    Düzenle
                   </Button>
                   <Button
                     variant="ghost"
@@ -138,11 +141,11 @@ export function ServicesManager({
                       startTransition(async () => {
                         const result = await deleteService(service.id);
                         if (result?.error) toast.error(result.error);
-                        else toast.success("Service deleted");
+                        else toast.success("Hizmet silindi");
                       })
                     }
                   >
-                    Delete
+                    Sil
                   </Button>
                 </TableCell>
               </TableRow>
@@ -155,23 +158,23 @@ export function ServicesManager({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editing ? "Edit service" : "New service"}
+              {editing ? "Hizmeti düzenle" : "Yeni hizmet"}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={submit} className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Ad</Label>
               <Input
                 id="name"
                 name="name"
                 required
                 minLength={2}
                 defaultValue={editing?.name ?? ""}
-                placeholder="Haircut"
+                placeholder="Saç kesimi"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="description">Description (optional)</Label>
+              <Label htmlFor="description">Açıklama (isteğe bağlı)</Label>
               <Input
                 id="description"
                 name="description"
@@ -180,7 +183,7 @@ export function ServicesManager({
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="grid gap-2">
-                <Label htmlFor="duration">Duration (min)</Label>
+                <Label htmlFor="duration">Süre (dk)</Label>
                 <Input
                   id="duration"
                   name="duration"
@@ -193,7 +196,7 @@ export function ServicesManager({
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="price">Price</Label>
+                <Label htmlFor="price">Fiyat</Label>
                 <Input
                   id="price"
                   name="price"
@@ -207,7 +210,7 @@ export function ServicesManager({
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="deposit">Deposit (optional)</Label>
+                <Label htmlFor="deposit">Kapora (isteğe bağlı)</Label>
                 <Input
                   id="deposit"
                   name="deposit"
@@ -223,7 +226,7 @@ export function ServicesManager({
               </div>
             </div>
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Save service"}
+              {pending ? "Kaydediliyor…" : "Hizmeti kaydet"}
             </Button>
           </form>
         </DialogContent>

@@ -43,15 +43,15 @@ export function OnboardingForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Set up your business</CardTitle>
+        <CardTitle>İşletmenizi kurun</CardTitle>
         <CardDescription>
-          This creates your public booking page.
+          Bu adım, herkese açık randevu sayfanızı oluşturur.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">Business name</Label>
+            <Label htmlFor="name">İşletme adı</Label>
             <Input
               id="name"
               value={name}
@@ -65,7 +65,7 @@ export function OnboardingForm() {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="slug">Booking page URL</Label>
+            <Label htmlFor="slug">Randevu sayfası adresi</Label>
             <div className="flex items-center gap-1">
               <span className="text-muted-foreground text-sm">/b/</span>
               <Input
@@ -81,13 +81,13 @@ export function OnboardingForm() {
             </div>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="timezone">Timezone</Label>
+            <Label htmlFor="timezone">Saat dilimi</Label>
             <Select
               value={timezone}
               onValueChange={(value) => value && setTimezone(value)}
             >
               <SelectTrigger id="timezone">
-                <SelectValue placeholder="Select timezone" />
+                <SelectValue placeholder="Saat dilimi seçin" />
               </SelectTrigger>
               <SelectContent>
                 {timezones.map((tz) => (
@@ -99,7 +99,7 @@ export function OnboardingForm() {
             </Select>
           </div>
           <Button type="submit" disabled={pending}>
-            {pending ? "Creating…" : "Create business"}
+            {pending ? "Oluşturuluyor…" : "İşletmeyi oluştur"}
           </Button>
         </form>
       </CardContent>

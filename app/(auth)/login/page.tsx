@@ -30,7 +30,7 @@ export default function LoginPage() {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message ?? "Login failed");
+      toast.error(error.message ?? "Giriş başarısız");
       return;
     }
     router.push("/dashboard");
@@ -39,13 +39,15 @@ export default function LoginPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Welcome back</CardTitle>
-        <CardDescription>Log in to manage your bookings.</CardDescription>
+        <CardTitle>Tekrar hoş geldiniz</CardTitle>
+        <CardDescription>
+          Randevularınızı yönetmek için giriş yapın.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">E-posta</Label>
             <Input
               id="email"
               name="email"
@@ -55,7 +57,7 @@ export default function LoginPage() {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Şifre</Label>
             <Input
               id="password"
               name="password"
@@ -65,12 +67,12 @@ export default function LoginPage() {
             />
           </div>
           <Button type="submit" disabled={loading}>
-            {loading ? "Logging in…" : "Log in"}
+            {loading ? "Giriş yapılıyor…" : "Giriş yap"}
           </Button>
           <p className="text-center text-muted-foreground text-sm">
-            New here?{" "}
+            Yeni misiniz?{" "}
             <Link href="/signup" className="underline underline-offset-4">
-              Create an account
+              Hesap oluşturun
             </Link>
           </p>
         </form>

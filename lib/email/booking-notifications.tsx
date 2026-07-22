@@ -29,7 +29,7 @@ async function loadContext(booking: Booking) {
   ]);
   if (!org || !profile || !service) return null;
 
-  const whenText = booking.startsAt.toLocaleString("en-US", {
+  const whenText = booking.startsAt.toLocaleString("tr-TR", {
     timeZone: profile.timezone,
     weekday: "long",
     year: "numeric",
@@ -41,7 +41,7 @@ async function loadContext(booking: Booking) {
   });
   const depositLine =
     booking.depositCents != null
-      ? `${formatMoney(booking.depositCents, profile.currency)} paid`
+      ? `${formatMoney(booking.depositCents, profile.currency)} ödendi`
       : undefined;
   const ownerEmail = profile.contactEmail ?? owner?.email ?? null;
 
@@ -62,12 +62,12 @@ export async function sendBookingConfirmedEmails(booking: Booking) {
   await Promise.all([
     sendEmailSafe({
       to: booking.customerEmail,
-      subject: `Booking confirmed — ${ctx.service.name} at ${ctx.org.name}`,
+      subject: `Randevunuz onaylandı — ${ctx.service.name}, ${ctx.org.name}`,
       body: (
         <BookingEmail
-          heading="You're booked!"
-          preview={`${ctx.service.name} on ${ctx.whenText}`}
-          intro={`Hi ${booking.customerName}, your appointment is confirmed.`}
+          heading="Randevunuz alındı!"
+          preview={`${ctx.service.name} — ${ctx.whenText}`}
+          intro={`Merhaba ${booking.customerName}, randevunuz onaylandı.`}
           {...shared}
         />
       ),
@@ -75,12 +75,12 @@ export async function sendBookingConfirmedEmails(booking: Booking) {
     ctx.ownerEmail &&
       sendEmailSafe({
         to: ctx.ownerEmail,
-        subject: `New booking — ${ctx.service.name} on ${ctx.whenText}`,
+        subject: `Yeni randevu — ${ctx.service.name}, ${ctx.whenText}`,
         body: (
           <BookingEmail
-            heading="New booking"
-            preview={`${booking.customerName} booked ${ctx.service.name}`}
-            intro="You have a new confirmed booking."
+            heading="Yeni randevu"
+            preview={`${booking.customerName} — ${ctx.service.name} randevusu aldı`}
+            intro="Yeni bir onaylı randevunuz var."
             customerEmail={booking.customerEmail}
             {...shared}
           />
@@ -102,12 +102,12 @@ export async function sendBookingCancelledEmails(booking: Booking) {
   await Promise.all([
     sendEmailSafe({
       to: booking.customerEmail,
-      subject: `Booking cancelled — ${ctx.service.name} at ${ctx.org.name}`,
+      subject: `Randevu iptal edildi — ${ctx.service.name}, ${ctx.org.name}`,
       body: (
         <BookingEmail
-          heading="Booking cancelled"
-          preview={`Your ${ctx.service.name} appointment was cancelled`}
-          intro={`Hi ${booking.customerName}, your appointment has been cancelled. If this is unexpected, please contact ${ctx.org.name} directly.`}
+          heading="Randevu iptal edildi"
+          preview={`${ctx.service.name} randevunuz iptal edildi`}
+          intro={`Merhaba ${booking.customerName}, randevunuz iptal edildi. Bu beklenmedik bir durumsa lütfen doğrudan ${ctx.org.name} ile iletişime geçin.`}
           {...shared}
         />
       ),
@@ -115,12 +115,12 @@ export async function sendBookingCancelledEmails(booking: Booking) {
     ctx.ownerEmail &&
       sendEmailSafe({
         to: ctx.ownerEmail,
-        subject: `Booking cancelled — ${ctx.service.name} on ${ctx.whenText}`,
+        subject: `Randevu iptal edildi — ${ctx.service.name}, ${ctx.whenText}`,
         body: (
           <BookingEmail
-            heading="Booking cancelled"
-            preview={`${booking.customerName}'s booking was cancelled`}
-            intro="A booking has been cancelled."
+            heading="Randevu iptal edildi"
+            preview={`${booking.customerName} adlı müşterinin randevusu iptal edildi`}
+            intro="Bir randevu iptal edildi."
             customerEmail={booking.customerEmail}
             {...shared}
           />

@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: { default: "Slotly", template: "%s · Slotly" },
   description:
-    "Online booking for your business. Set your services and hours — your customers book themselves.",
+    "İşletmeniz için online randevu. Hizmetlerinizi ve çalışma saatlerinizi belirleyin — müşterileriniz kendi randevusunu alsın.",
 };
 
 export default function RootLayout({
@@ -26,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="tr"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
