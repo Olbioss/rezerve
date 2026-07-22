@@ -1,6 +1,7 @@
 "use client";
 
 import { TZDate } from "@date-fns/tz";
+import { useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -75,6 +76,15 @@ export function BookingFlow({
   const [slots, setSlots] = useState<string[] | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("odeme") === "basarisiz") {
+      toast.error(
+        "Ödeme tamamlanamadı — randevunuz onaylanmadı. Dilerseniz tekrar deneyebilirsiniz."
+      );
+    }
+  }, [searchParams]);
 
   const days = useMemo(
     () =>

@@ -40,7 +40,8 @@ export const bookings = pgTable(
     status: bookingStatus("status").notNull().default("confirmed"),
     /** Deposit charged at booking time, snapshotted from the service. */
     depositCents: integer("deposit_cents"),
-    stripeCheckoutSessionId: text("stripe_checkout_session_id").unique(),
+    /** iyzico Checkout Form token for the deposit payment, if any. */
+    paymentToken: text("payment_token").unique(),
     /** Only set while status = 'pending'; hold is released after this. */
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),

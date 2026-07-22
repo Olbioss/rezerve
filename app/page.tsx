@@ -43,7 +43,7 @@ const STEPS = [
 const FEATURES = [
   {
     title: "Kapora ile ön ödeme",
-    body: "Gelmeyen müşteriye son. Stripe ile kapora alın; ödeme tamamlanana kadar saat 30 dakika bloke kalır, ödenmezse kendiliğinden boşalır.",
+    body: "Gelmeyen müşteriye son. iyzico ile kapora alın; ödeme tamamlanana kadar saat 30 dakika bloke kalır, ödenmezse kendiliğinden boşalır.",
   },
   {
     title: "Çakışma imkânsız",

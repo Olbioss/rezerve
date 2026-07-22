@@ -1,9 +1,8 @@
 /**
- * Integration tests for the Stripe webhook handler against the local dev DB.
+ * Integration tests for the iyzico payment-result handler against the dev DB.
  * Email sends are mocked; state transitions and idempotency are real.
  */
 import { eq } from "drizzle-orm";
-import type Stripe from "stripe";
 import {
   afterAll,
   beforeAll,
@@ -21,26 +20,19 @@ vi.mock("@/lib/email/booking-notifications", () => ({
   sendBookingCancelledEmails: (...args: unknown[]) => sendCancelled(...args),
 }));
 
-const { handleWebhookEvent } = await import("./handle-webhook-event");
+const { confirmPaidBooking, cancelFailedPayment } = await import(
+  "./handle-payment-result"
+);
 const { db } = await import("@/lib/db");
 const { organization } = await import("@/lib/db/schema/auth-schema");
 const { bookings } = await import("@/lib/db/schema/booking-schema");
 const { businessProfiles } = await import("@/lib/db/schema/business-schema");
 const { services } = await import("@/lib/db/schema/service-schema");
 
-const ORG_ID = "org_itest_webhook";
+const ORG_ID = "org_itest_payment";
+const TOKEN = "itest-iyzico-token";
 let serviceId: string;
 let bookingId: string;
-
-function fakeEvent(
-  type: "checkout.session.completed" | "checkout.session.expired",
-  id: string | undefined
-): Stripe.Event {
-  return {
-    type,
-    data: { object: { metadata: id ? { bookingId: id } : {} } },
-  } as unknown as Stripe.Event;
-}
 
 async function bookingStatus(): Promise<string | undefined> {
   const row = await db.query.bookings.findFirst({
@@ -53,8 +45,8 @@ beforeAll(async () => {
   await db.delete(organization).where(eq(organization.id, ORG_ID));
   await db.insert(organization).values({
     id: ORG_ID,
-    name: "Webhook Salon",
-    slug: "itest-webhook",
+    name: "Payment Salon",
+    slug: "itest-payment",
     createdAt: new Date(),
   });
   await db
@@ -64,7 +56,7 @@ beforeAll(async () => {
     .insert(services)
     .values({
       organizationId: ORG_ID,
-      name: "Deposit Cut",
+      name: "Kaporali Bakim",
       durationMinutes: 30,
       priceCents: 5000,
       depositCents: 1000,
@@ -89,6 +81,7 @@ beforeEach(async () => {
       endsAt: new Date(startsAt.getTime() + 30 * 60_000),
       status: "pending",
       depositCents: 1000,
+      paymentToken: TOKEN,
       expiresAt: new Date(Date.now() + 30 * 60_000),
     })
     .returning({ id: bookings.id });
@@ -100,52 +93,36 @@ afterAll(async () => {
   await db.$client.end();
 });
 
-describe("handleWebhookEvent (integration)", () => {
-  it("completed: confirms the pending booking and emails once", async () => {
-    await handleWebhookEvent(
-      fakeEvent("checkout.session.completed", bookingId)
-    );
+describe("handle-payment-result (integration)", () => {
+  it("successful payment confirms the pending booking and emails once", async () => {
+    expect(await confirmPaidBooking(bookingId, TOKEN)).toBe("confirmed");
     expect(await bookingStatus()).toBe("confirmed");
     expect(sendConfirmed).toHaveBeenCalledTimes(1);
   });
 
-  it("duplicate completed delivery: no second email, state unchanged", async () => {
-    await handleWebhookEvent(
-      fakeEvent("checkout.session.completed", bookingId)
-    );
-    await handleWebhookEvent(
-      fakeEvent("checkout.session.completed", bookingId)
-    );
+  it("duplicate callback: no second email, state unchanged", async () => {
+    await confirmPaidBooking(bookingId, TOKEN);
+    expect(await confirmPaidBooking(bookingId, TOKEN)).toBe("noop");
     expect(await bookingStatus()).toBe("confirmed");
     expect(sendConfirmed).toHaveBeenCalledTimes(1);
   });
 
-  it("expired: cancels the pending booking silently", async () => {
-    await handleWebhookEvent(fakeEvent("checkout.session.expired", bookingId));
+  it("wrong token cannot confirm the booking", async () => {
+    expect(await confirmPaidBooking(bookingId, "stolen-token")).toBe("noop");
+    expect(await bookingStatus()).toBe("pending");
+    expect(sendConfirmed).not.toHaveBeenCalled();
+  });
+
+  it("failed payment cancels the hold silently", async () => {
+    expect(await cancelFailedPayment(bookingId, TOKEN)).toBe("cancelled");
     expect(await bookingStatus()).toBe("cancelled");
     expect(sendCancelled).not.toHaveBeenCalled();
   });
 
-  it("completed after expiry: does not resurrect a cancelled booking", async () => {
-    await handleWebhookEvent(fakeEvent("checkout.session.expired", bookingId));
-    await handleWebhookEvent(
-      fakeEvent("checkout.session.completed", bookingId)
-    );
+  it("success after cancellation does not resurrect the booking", async () => {
+    await cancelFailedPayment(bookingId, TOKEN);
+    expect(await confirmPaidBooking(bookingId, TOKEN)).toBe("noop");
     expect(await bookingStatus()).toBe("cancelled");
-    expect(sendConfirmed).not.toHaveBeenCalled();
-  });
-
-  it("ignores events without a bookingId or with unknown ids", async () => {
-    await handleWebhookEvent(
-      fakeEvent("checkout.session.completed", undefined)
-    );
-    await handleWebhookEvent(
-      fakeEvent(
-        "checkout.session.completed",
-        "00000000-0000-0000-0000-000000000000"
-      )
-    );
-    expect(await bookingStatus()).toBe("pending");
     expect(sendConfirmed).not.toHaveBeenCalled();
   });
 });

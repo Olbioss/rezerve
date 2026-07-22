@@ -2,6 +2,7 @@
 
 import { and, eq, lt, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth-guard";
@@ -18,7 +19,7 @@ import {
   sendBookingConfirmedEmails,
 } from "@/lib/email/booking-notifications";
 import { requireEnv } from "@/lib/env";
-import { createDepositCheckout } from "@/lib/stripe";
+import { createDepositCheckout } from "@/lib/payments/iyzico";
 
 const createBookingSchema = z.object({
   slug: z.string().min(1),
@@ -121,21 +122,25 @@ export async function createBooking(
   if (requiresDeposit && service.depositCents != null) {
     let checkoutUrl: string;
     try {
-      const session = await createDepositCheckout({
+      const requestHeaders = await headers();
+      const customerIp =
+        requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        "85.34.78.112";
+      const checkout = await createDepositCheckout({
         bookingId: created.id,
-        slug,
         serviceName: service.name,
         businessName: business.orgName,
         depositCents: service.depositCents,
         currency: business.profile.currency,
+        customerName,
         customerEmail,
+        customerIp,
         appUrl: requireEnv("NEXT_PUBLIC_APP_URL"),
       });
-      if (!session.url) throw new Error("Checkout session has no URL");
-      checkoutUrl = session.url;
+      checkoutUrl = checkout.paymentPageUrl;
       await db
         .update(bookings)
-        .set({ stripeCheckoutSessionId: session.id })
+        .set({ paymentToken: checkout.token })
         .where(eq(bookings.id, created.id));
     } catch (err) {
       // Couldn't start payment: release the hold instead of stranding it.
