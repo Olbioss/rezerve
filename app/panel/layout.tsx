@@ -6,11 +6,11 @@ import { organization } from "@/lib/db/schema/auth-schema";
 import { SignOutButton } from "./sign-out-button";
 
 const nav = [
-  { href: "/dashboard", label: "Genel Bakış" },
-  { href: "/dashboard/bookings", label: "Randevular" },
-  { href: "/dashboard/services", label: "Hizmetler" },
-  { href: "/dashboard/availability", label: "Çalışma Saatleri" },
-  { href: "/dashboard/settings", label: "Ayarlar" },
+  { href: "/panel", label: "Genel Bakış" },
+  { href: "/panel/randevular", label: "Randevular" },
+  { href: "/panel/hizmetler", label: "Hizmetler" },
+  { href: "/panel/saatler", label: "Çalışma Saatleri" },
+  { href: "/panel/ayarlar", label: "Ayarlar" },
 ];
 
 export default async function DashboardLayout({
@@ -28,7 +28,7 @@ export default async function DashboardLayout({
       <header className="border-b">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="font-bold tracking-tight">
+            <Link href="/panel" className="font-bold tracking-tight">
               Slotly
             </Link>
             <nav className="flex gap-4 text-sm">
@@ -46,11 +46,11 @@ export default async function DashboardLayout({
           <div className="flex items-center gap-3">
             {org && (
               <Link
-                href={`/b/${org.slug}`}
+                href={`/r/${org.slug}`}
                 target="_blank"
                 className="text-muted-foreground text-sm underline underline-offset-4"
               >
-                /b/{org.slug}
+                /r/{org.slug}
               </Link>
             )}
             <SignOutButton />

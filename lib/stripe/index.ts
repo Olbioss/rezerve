@@ -39,14 +39,14 @@ export async function createDepositCheckout(input: DepositCheckoutInput) {
           currency: input.currency,
           unit_amount: input.depositCents,
           product_data: {
-            name: `Deposit — ${input.serviceName} at ${input.businessName}`,
+            name: `Kapora — ${input.serviceName}, ${input.businessName}`,
           },
         },
       },
     ],
     metadata: { bookingId: input.bookingId },
     expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-    success_url: `${input.appUrl}/b/${input.slug}/confirmation/${input.bookingId}?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${input.appUrl}/b/${input.slug}`,
+    success_url: `${input.appUrl}/r/${input.slug}/onay/${input.bookingId}?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${input.appUrl}/r/${input.slug}`,
   });
 }

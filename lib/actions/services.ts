@@ -34,7 +34,7 @@ export async function createService(
     return { error: "Kapora fiyattan büyük olamaz" };
   }
   await db.insert(services).values({ ...parsed.data, organizationId });
-  revalidatePath("/dashboard/services");
+  revalidatePath("/panel/hizmetler");
 }
 
 export async function updateService(
@@ -58,7 +58,7 @@ export async function updateService(
     .where(
       and(eq(services.id, id), eq(services.organizationId, organizationId))
     );
-  revalidatePath("/dashboard/services");
+  revalidatePath("/panel/hizmetler");
 }
 
 export async function deleteService(id: string): Promise<ActionResult> {
@@ -77,10 +77,10 @@ export async function deleteService(id: string): Promise<ActionResult> {
       .where(
         and(eq(services.id, id), eq(services.organizationId, organizationId))
       );
-    revalidatePath("/dashboard/services");
+    revalidatePath("/panel/hizmetler");
     return {
       error: "Hizmetin randevuları olduğu için silinmek yerine pasife alındı.",
     };
   }
-  revalidatePath("/dashboard/services");
+  revalidatePath("/panel/hizmetler");
 }

@@ -89,7 +89,7 @@ export function BookingFlow({
       setSlots(null);
       setSelectedSlot(null);
       const res = await fetch(
-        `/api/b/${slug}/slots?serviceId=${serviceId}&date=${date}`
+        `/api/r/${slug}/slots?serviceId=${serviceId}&date=${date}`
       );
       if (!res.ok) {
         setSlots([]);

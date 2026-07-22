@@ -67,7 +67,7 @@ export function OnboardingForm() {
           <div className="grid gap-2">
             <Label htmlFor="slug">Randevu sayfası adresi</Label>
             <div className="flex items-center gap-1">
-              <span className="text-muted-foreground text-sm">/b/</span>
+              <span className="text-muted-foreground text-sm">/r/</span>
               <Input
                 id="slug"
                 value={slug}

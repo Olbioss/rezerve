@@ -33,7 +33,7 @@ export default function LoginPage() {
       toast.error(error.message ?? "Giriş başarısız");
       return;
     }
-    router.push("/dashboard");
+    router.push("/panel");
   }
 
   return (
@@ -71,7 +71,7 @@ export default function LoginPage() {
           </Button>
           <p className="text-center text-muted-foreground text-sm">
             Yeni misiniz?{" "}
-            <Link href="/signup" className="underline underline-offset-4">
+            <Link href="/kayit" className="underline underline-offset-4">
               Hesap oluşturun
             </Link>
           </p>

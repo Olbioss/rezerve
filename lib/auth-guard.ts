@@ -12,17 +12,17 @@ import { businessProfiles } from "@/lib/db/schema/business-schema";
  */
 export async function requireOwner() {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/login");
+  if (!session) redirect("/giris");
 
   const membership = await db.query.member.findFirst({
     where: eq(member.userId, session.user.id),
   });
-  if (!membership) redirect("/onboarding");
+  if (!membership) redirect("/kurulum");
 
   const profile = await db.query.businessProfiles.findFirst({
     where: eq(businessProfiles.organizationId, membership.organizationId),
   });
-  if (!profile) redirect("/onboarding");
+  if (!profile) redirect("/kurulum");
 
   return { session, organizationId: membership.organizationId, profile };
 }
@@ -30,6 +30,6 @@ export async function requireOwner() {
 /** Signed-in user (no business required) — used by the onboarding page. */
 export async function requireUser() {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/login");
+  if (!session) redirect("/giris");
   return session;
 }

@@ -89,7 +89,7 @@ export default async function DashboardPage() {
             <p className="text-muted-foreground">
               Yaklaşan randevu yok.{" "}
               <Link
-                href="/dashboard/services"
+                href="/panel/hizmetler"
                 className="underline underline-offset-4"
               >
                 Hizmet ekleyin

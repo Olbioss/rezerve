@@ -157,13 +157,13 @@ export default function Home() {
         <span className={`${display} text-2xl italic`}>Slotly.</span>
         <nav className="flex items-center gap-2">
           <Link
-            href="/login"
+            href="/giris"
             className="rounded-full px-4 py-2 text-sm transition-colors hover:bg-[#f0e7d8]"
           >
             Giriş yap
           </Link>
           <Link
-            href="/signup"
+            href="/kayit"
             className="rounded-full bg-[#211a13] px-4 py-2 text-[#faf5ee] text-sm transition-colors hover:bg-[#3a2f23]"
           >
             Hemen başla
@@ -203,13 +203,13 @@ export default function Home() {
             style={{ animationDelay: "270ms" }}
           >
             <Link
-              href="/signup"
+              href="/kayit"
               className="rounded-full bg-[#c2542b] px-6 py-3 font-medium text-white transition-colors hover:bg-[#a84621]"
             >
               Ücretsiz başlayın
             </Link>
             <Link
-              href="/b/demo"
+              href="/r/demo"
               className="rounded-full border border-[#211a13]/20 px-6 py-3 font-medium transition-colors hover:bg-[#f0e7d8]"
             >
               Örnek sayfayı görün
@@ -281,7 +281,7 @@ export default function Home() {
             Randevu sayfanız 5 dakikada yayında. Kredi kartı gerekmez.
           </p>
           <Link
-            href="/signup"
+            href="/kayit"
             className="mt-8 inline-block rounded-full bg-[#c2542b] px-8 py-4 font-medium text-lg text-white transition-colors hover:bg-[#a84621]"
           >
             Ücretsiz başlayın
@@ -297,10 +297,10 @@ export default function Home() {
             — İşletmeniz için online randevu
           </p>
           <div className="flex gap-4">
-            <Link href="/login" className="hover:text-[#faf5ee]">
+            <Link href="/giris" className="hover:text-[#faf5ee]">
               Giriş yap
             </Link>
-            <Link href="/signup" className="hover:text-[#faf5ee]">
+            <Link href="/kayit" className="hover:text-[#faf5ee]">
               Kayıt ol
             </Link>
           </div>

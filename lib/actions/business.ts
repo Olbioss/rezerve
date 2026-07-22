@@ -65,7 +65,7 @@ export async function completeOnboarding(
     .values({ organizationId, timezone })
     .onConflictDoNothing({ target: businessProfiles.organizationId });
 
-  redirect("/dashboard");
+  redirect("/panel");
 }
 
 const settingsSchema = z.object({
@@ -96,5 +96,5 @@ export async function updateSettings(
     .update(businessProfiles)
     .set(parsed.data)
     .where(eq(businessProfiles.organizationId, organizationId));
-  redirect("/dashboard/settings");
+  redirect("/panel/ayarlar");
 }

@@ -62,5 +62,5 @@ export async function saveAvailability(
         .values(parsed.data.map((rule) => ({ ...rule, organizationId })));
     }
   });
-  revalidatePath("/dashboard/availability");
+  revalidatePath("/panel/saatler");
 }

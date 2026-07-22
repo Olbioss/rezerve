@@ -76,7 +76,7 @@ export default async function ConfirmationPage({
         </>
       )}
       <Link
-        href={`/b/${slug}`}
+        href={`/r/${slug}`}
         className="text-muted-foreground text-sm underline underline-offset-4"
       >
         {business.orgName} sayfasına dön

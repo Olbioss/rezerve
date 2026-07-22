@@ -19,7 +19,7 @@ export default async function OnboardingPage() {
     const profile = await db.query.businessProfiles.findFirst({
       where: eq(businessProfiles.organizationId, membership.organizationId),
     });
-    if (profile) redirect("/dashboard");
+    if (profile) redirect("/panel");
   }
 
   return (

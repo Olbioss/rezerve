@@ -151,7 +151,7 @@ export async function createBooking(
 
   await sendBookingConfirmedEmails(created);
 
-  return redirect(`/b/${slug}/confirmation/${created.id}`);
+  return redirect(`/r/${slug}/onay/${created.id}`);
 }
 
 export async function cancelBooking(id: string): Promise<void> {
@@ -168,6 +168,6 @@ export async function cancelBooking(id: string): Promise<void> {
     )
     .returning();
   if (cancelled) await sendBookingCancelledEmails(cancelled);
-  revalidatePath("/dashboard/bookings");
-  revalidatePath("/dashboard");
+  revalidatePath("/panel/randevular");
+  revalidatePath("/panel");
 }

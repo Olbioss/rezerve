@@ -34,7 +34,7 @@ export default function SignupPage() {
       toast.error(error.message ?? "Kayıt başarısız");
       return;
     }
-    router.push("/onboarding");
+    router.push("/kurulum");
   }
 
   return (
@@ -77,7 +77,7 @@ export default function SignupPage() {
           </Button>
           <p className="text-center text-muted-foreground text-sm">
             Zaten hesabınız var mı?{" "}
-            <Link href="/login" className="underline underline-offset-4">
+            <Link href="/giris" className="underline underline-offset-4">
               Giriş yapın
             </Link>
           </p>

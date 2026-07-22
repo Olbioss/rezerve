@@ -89,7 +89,7 @@ describe("createBooking (integration)", () => {
         customerName: "Alice",
         customerEmail: "alice@test.dev",
       })
-    ).rejects.toThrow(/REDIRECT:\/b\/itest-bookings\/confirmation\//);
+    ).rejects.toThrow(/REDIRECT:\/r\/itest-bookings\/onay\//);
   });
 
   it("rejects a slot that is already booked", async () => {
