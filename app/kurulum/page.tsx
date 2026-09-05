@@ -1,5 +1,7 @@
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { ThemeToggle } from "@/components/brand/theme-toggle";
+import { Wordmark } from "@/components/brand/wordmark";
 import { requireUser } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
 import { member } from "@/lib/db/schema/auth-schema";
@@ -23,8 +25,12 @@ export default async function OnboardingPage() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center p-6">
-      <div className="w-full max-w-md">
+    <div className="relative flex min-h-svh flex-col items-center justify-center gap-8 p-6">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      <Wordmark className="text-4xl" />
+      <div className="rise w-full max-w-md">
         <OnboardingForm />
       </div>
     </div>

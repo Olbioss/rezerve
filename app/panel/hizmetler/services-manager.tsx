@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/panel/empty-state";
+import { PageHeader } from "@/components/panel/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -79,22 +81,21 @@ export function ServicesManager({
   }
 
   return (
-    <div className="grid gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-semibold text-2xl tracking-tight">Hizmetler</h1>
-          <p className="text-muted-foreground">
-            Müşterilerinizin randevu alabileceği hizmetler.
-          </p>
-        </div>
-        <Button onClick={openNew}>Hizmet ekle</Button>
-      </div>
+    <div className="grid gap-8">
+      <PageHeader
+        title="Hizmetler"
+        description="Müşterilerinizin randevu alabileceği hizmetler."
+        action={
+          <Button variant="brand" onClick={openNew}>
+            Hizmet ekle
+          </Button>
+        }
+      />
 
       {services.length === 0 ? (
-        <p className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-          Henüz hizmet yok. Randevu sayfanızda görünmesi için ilk hizmetinizi
-          ekleyin.
-        </p>
+        <EmptyState title="Henüz hizmet yok.">
+          Randevu sayfanızda görünmesi için ilk hizmetinizi ekleyin.
+        </EmptyState>
       ) : (
         <Table>
           <TableHeader>
@@ -110,18 +111,27 @@ export function ServicesManager({
           <TableBody>
             {services.map((service) => (
               <TableRow key={service.id}>
-                <TableCell className="font-medium">{service.name}</TableCell>
-                <TableCell>{service.durationMinutes} dk</TableCell>
-                <TableCell>
+                <TableCell className="font-medium">
+                  {service.name}
+                  {service.description && (
+                    <span className="block text-muted-foreground text-xs">
+                      {service.description}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell className="numeral">
+                  {service.durationMinutes} dk
+                </TableCell>
+                <TableCell className="numeral text-base">
                   {formatMoney(service.priceCents, currency)}
                 </TableCell>
-                <TableCell>
+                <TableCell className="numeral">
                   {service.depositCents
                     ? formatMoney(service.depositCents, currency)
                     : "—"}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={service.active ? "default" : "secondary"}>
+                  <Badge variant={service.active ? "default" : "ghost"}>
                     {service.active ? "Aktif" : "Pasif"}
                   </Badge>
                 </TableCell>
@@ -134,7 +144,7 @@ export function ServicesManager({
                     Düzenle
                   </Button>
                   <Button
-                    variant="ghost"
+                    variant="destructive"
                     size="sm"
                     disabled={pending}
                     onClick={() =>
@@ -161,8 +171,8 @@ export function ServicesManager({
               {editing ? "Hizmeti düzenle" : "Yeni hizmet"}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={submit} className="grid gap-4">
-            <div className="grid gap-2">
+          <form onSubmit={submit} className="grid gap-5">
+            <div className="grid gap-1.5">
               <Label htmlFor="name">Ad</Label>
               <Input
                 id="name"
@@ -173,7 +183,7 @@ export function ServicesManager({
                 placeholder="Saç kesimi"
               />
             </div>
-            <div className="grid gap-2">
+            <div className="grid gap-1.5">
               <Label htmlFor="description">Açıklama (isteğe bağlı)</Label>
               <Input
                 id="description"
@@ -181,8 +191,8 @@ export function ServicesManager({
                 defaultValue={editing?.description ?? ""}
               />
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="grid gap-2">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-1.5">
                 <Label htmlFor="duration">Süre (dk)</Label>
                 <Input
                   id="duration"
@@ -195,7 +205,7 @@ export function ServicesManager({
                   defaultValue={editing?.durationMinutes ?? 30}
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-1.5">
                 <Label htmlFor="price">Fiyat</Label>
                 <Input
                   id="price"
@@ -209,8 +219,8 @@ export function ServicesManager({
                   }
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="deposit">Kapora (isteğe bağlı)</Label>
+              <div className="grid gap-1.5">
+                <Label htmlFor="deposit">Kapora</Label>
                 <Input
                   id="deposit"
                   name="deposit"
@@ -225,7 +235,7 @@ export function ServicesManager({
                 />
               </div>
             </div>
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" variant="brand" disabled={pending}>
               {pending ? "Kaydediliyor…" : "Hizmeti kaydet"}
             </Button>
           </form>

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/panel/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,13 +41,13 @@ export function SettingsForm({ initial }: { initial: Settings }) {
   }
 
   return (
-    <div className="grid max-w-xl gap-6">
-      <div>
-        <h1 className="font-semibold text-2xl tracking-tight">Ayarlar</h1>
-        <p className="text-muted-foreground">Randevu sayfanız için kurallar.</p>
-      </div>
-      <form onSubmit={submit} className="grid gap-4">
-        <div className="grid gap-2">
+    <div className="grid max-w-xl gap-8">
+      <PageHeader
+        title="Ayarlar"
+        description="Randevu sayfanız için kurallar."
+      />
+      <form onSubmit={submit} className="grid gap-6">
+        <div className="grid gap-1.5">
           <Label htmlFor="timezone">Saat dilimi</Label>
           <Select
             value={settings.timezone}
@@ -66,8 +67,8 @@ export function SettingsForm({ initial }: { initial: Settings }) {
             </SelectContent>
           </Select>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="grid gap-2">
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="grid gap-1.5">
             <Label htmlFor="granularity">Randevu aralığı (dk)</Label>
             <Input
               id="granularity"
@@ -84,7 +85,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
               }
             />
           </div>
-          <div className="grid gap-2">
+          <div className="grid gap-1.5">
             <Label htmlFor="leadtime">Minimum ön süre (dk)</Label>
             <Input
               id="leadtime"
@@ -100,7 +101,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
               }
             />
           </div>
-          <div className="grid gap-2">
+          <div className="grid gap-1.5">
             <Label htmlFor="window">Randevu penceresi (gün)</Label>
             <Input
               id="window"
@@ -116,7 +117,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
               }
             />
           </div>
-          <div className="grid gap-2">
+          <div className="grid gap-1.5">
             <Label htmlFor="currency">Para birimi</Label>
             <Select
               value={settings.currency}
@@ -141,7 +142,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
             </Select>
           </div>
         </div>
-        <div className="grid gap-2">
+        <div className="grid gap-1.5">
           <Label htmlFor="contact">Bildirim e-postası (isteğe bağlı)</Label>
           <Input
             id="contact"
@@ -156,7 +157,12 @@ export function SettingsForm({ initial }: { initial: Settings }) {
             }
           />
         </div>
-        <Button type="submit" disabled={pending} className="justify-self-start">
+        <Button
+          type="submit"
+          variant="brand"
+          disabled={pending}
+          className="justify-self-start"
+        >
           {pending ? "Kaydediliyor…" : "Ayarları kaydet"}
         </Button>
       </form>

@@ -1,7 +1,9 @@
 "use client";
 
+import { PlusIcon, XIcon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/panel/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { saveAvailability } from "@/lib/actions/availability";
@@ -43,48 +45,53 @@ export function AvailabilityEditor({
   }
 
   return (
-    <div className="grid max-w-2xl gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-semibold text-2xl tracking-tight">
-            Haftalık çalışma saatleri
-          </h1>
-          <p className="text-muted-foreground">
-            Saatler işletmenizin saat dilimindedir. Bölünmüş vardiyalar için
-            birden fazla aralık ekleyebilirsiniz.
-          </p>
-        </div>
-        <Button onClick={save} disabled={pending}>
-          {pending ? "Kaydediliyor…" : "Kaydet"}
-        </Button>
-      </div>
+    <div className="grid max-w-2xl gap-8">
+      <PageHeader
+        title="Çalışma saatleri"
+        description="Saatler işletmenizin saat dilimindedir. Bölünmüş vardiyalar için birden fazla aralık ekleyebilirsiniz."
+        action={
+          <Button variant="brand" onClick={save} disabled={pending}>
+            {pending ? "Kaydediliyor…" : "Kaydet"}
+          </Button>
+        }
+      />
 
-      <div className="grid gap-4">
+      <div className="grid">
         {WEEKDAYS.map((dayName, weekday) => {
           const dayIntervals = rules
             .map((rule, index) => ({ rule, index }))
             .filter(({ rule }) => rule.weekday === weekday);
           return (
-            <div key={dayName} className="rounded-lg border p-4">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{dayName}</span>
+            <div
+              key={dayName}
+              className="grid gap-3 border-border border-b py-4 sm:grid-cols-[9rem_1fr] sm:items-start"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="eyebrow pt-2 text-muted-foreground">
+                  {dayName}
+                </span>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
+                  className="sm:hidden"
                   onClick={() => addInterval(weekday)}
                 >
+                  <PlusIcon />
                   Saat ekle
                 </Button>
               </div>
-              {dayIntervals.length === 0 ? (
-                <p className="mt-2 text-muted-foreground text-sm">Kapalı</p>
-              ) : (
-                <div className="mt-3 grid gap-2">
-                  {dayIntervals.map(({ rule, index }) => (
-                    <div key={index} className="flex items-center gap-2">
+              <div className="grid gap-2">
+                {dayIntervals.length === 0 ? (
+                  <p className="py-2 font-display text-muted-foreground text-lg italic">
+                    Kapalı
+                  </p>
+                ) : (
+                  dayIntervals.map(({ rule, index }) => (
+                    <div key={index} className="flex items-center gap-3">
                       <Input
                         type="time"
-                        className="w-32"
+                        aria-label={`${dayName} başlangıç`}
+                        className="numeral w-28 text-lg"
                         value={minutesToTime(rule.startMinutes)}
                         onChange={(e) =>
                           updateInterval(index, {
@@ -95,7 +102,8 @@ export function AvailabilityEditor({
                       <span className="text-muted-foreground">–</span>
                       <Input
                         type="time"
-                        className="w-32"
+                        aria-label={`${dayName} bitiş`}
+                        className="numeral w-28 text-lg"
                         value={minutesToTime(rule.endMinutes)}
                         onChange={(e) =>
                           updateInterval(index, {
@@ -105,15 +113,26 @@ export function AvailabilityEditor({
                       />
                       <Button
                         variant="ghost"
-                        size="sm"
+                        size="icon-sm"
+                        aria-label="Aralığı kaldır"
                         onClick={() => removeInterval(index)}
                       >
-                        Kaldır
+                        <XIcon />
                       </Button>
                     </div>
-                  ))}
+                  ))
+                )}
+                <div className="hidden sm:block">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => addInterval(weekday)}
+                  >
+                    <PlusIcon />
+                    Saat ekle
+                  </Button>
                 </div>
-              )}
+              </div>
             </div>
           );
         })}

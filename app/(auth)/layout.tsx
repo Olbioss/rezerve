@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { ThemeToggle } from "@/components/brand/theme-toggle";
+import { Wordmark } from "@/components/brand/wordmark";
 
 export default function AuthLayout({
   children,
@@ -6,11 +7,12 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-6 p-6">
-      <Link href="/" className="font-bold text-2xl tracking-tight">
-        Rezerve
-      </Link>
-      <div className="w-full max-w-sm">{children}</div>
+    <div className="relative flex min-h-svh flex-col items-center justify-center gap-8 p-6">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      <Wordmark className="text-4xl" />
+      <div className="rise w-full max-w-sm">{children}</div>
     </div>
   );
 }

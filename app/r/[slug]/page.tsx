@@ -1,5 +1,6 @@
 import { and, asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import { BookingShell } from "@/components/booking/booking-shell";
 import { getBusinessBySlug } from "@/lib/booking/get-available-slots";
 import { db } from "@/lib/db";
 import { services } from "@/lib/db/schema/service-schema";
@@ -23,13 +24,10 @@ export default async function BookingPage({
   });
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
-      <div className="mb-8 text-center">
-        <h1 className="font-bold text-3xl tracking-tight">
-          {business.orgName}
-        </h1>
-        <p className="mt-1 text-muted-foreground">Randevu alın</p>
-      </div>
+    <BookingShell
+      businessName={business.orgName}
+      tagline={`Randevu alın · ${rows.length} hizmet`}
+    >
       <BookingFlow
         slug={slug}
         timezone={business.profile.timezone}
@@ -44,7 +42,7 @@ export default async function BookingPage({
           depositCents: s.depositCents,
         }))}
       />
-    </main>
+    </BookingShell>
   );
 }
 

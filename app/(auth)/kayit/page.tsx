@@ -40,18 +40,20 @@ export default function SignupPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Hesap oluşturun</CardTitle>
+        <CardTitle>
+          Hesap <em className="text-brand-ink">oluşturun</em>
+        </CardTitle>
         <CardDescription>
           İşletmenizi kurun ve randevu almaya başlayın.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid gap-2">
+        <form onSubmit={handleSubmit} className="grid gap-5">
+          <div className="grid gap-1.5">
             <Label htmlFor="name">Adınız</Label>
             <Input id="name" name="name" required autoComplete="name" />
           </div>
-          <div className="grid gap-2">
+          <div className="grid gap-1.5">
             <Label htmlFor="email">E-posta</Label>
             <Input
               id="email"
@@ -61,7 +63,7 @@ export default function SignupPage() {
               autoComplete="email"
             />
           </div>
-          <div className="grid gap-2">
+          <div className="grid gap-1.5">
             <Label htmlFor="password">Şifre</Label>
             <Input
               id="password"
@@ -72,12 +74,15 @@ export default function SignupPage() {
               autoComplete="new-password"
             />
           </div>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" variant="brand" disabled={loading}>
             {loading ? "Hesap oluşturuluyor…" : "Hesap oluştur"}
           </Button>
           <p className="text-center text-muted-foreground text-sm">
             Zaten hesabınız var mı?{" "}
-            <Link href="/giris" className="underline underline-offset-4">
+            <Link
+              href="/giris"
+              className="text-brand-ink underline underline-offset-4"
+            >
               Giriş yapın
             </Link>
           </p>

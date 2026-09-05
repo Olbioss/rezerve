@@ -39,14 +39,16 @@ export default function LoginPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Tekrar hoş geldiniz</CardTitle>
+        <CardTitle>
+          Tekrar <em className="text-brand-ink">hoş geldiniz</em>
+        </CardTitle>
         <CardDescription>
           Randevularınızı yönetmek için giriş yapın.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid gap-2">
+        <form onSubmit={handleSubmit} className="grid gap-5">
+          <div className="grid gap-1.5">
             <Label htmlFor="email">E-posta</Label>
             <Input
               id="email"
@@ -56,7 +58,7 @@ export default function LoginPage() {
               autoComplete="email"
             />
           </div>
-          <div className="grid gap-2">
+          <div className="grid gap-1.5">
             <Label htmlFor="password">Şifre</Label>
             <Input
               id="password"
@@ -66,12 +68,15 @@ export default function LoginPage() {
               autoComplete="current-password"
             />
           </div>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" variant="brand" disabled={loading}>
             {loading ? "Giriş yapılıyor…" : "Giriş yap"}
           </Button>
           <p className="text-center text-muted-foreground text-sm">
             Yeni misiniz?{" "}
-            <Link href="/kayit" className="underline underline-offset-4">
+            <Link
+              href="/kayit"
+              className="text-brand-ink underline underline-offset-4"
+            >
               Hesap oluşturun
             </Link>
           </p>

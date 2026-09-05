@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, gte, lt } from "drizzle-orm";
+import { PageHeader } from "@/components/panel/page-header";
 import { requireOwner } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
 import { bookings } from "@/lib/db/schema/booking-schema";
@@ -50,13 +51,11 @@ export default async function BookingsPage() {
   ]);
 
   return (
-    <div className="grid gap-6">
-      <div>
-        <h1 className="font-semibold text-2xl tracking-tight">Randevular</h1>
-        <p className="text-muted-foreground">
-          Saatler {profile.timezone} saat dilimindedir.
-        </p>
-      </div>
+    <div className="grid gap-8">
+      <PageHeader
+        title="Randevular"
+        description={`Saatler ${profile.timezone} saat dilimindedir.`}
+      />
       <BookingsList
         upcoming={upcoming}
         past={past}

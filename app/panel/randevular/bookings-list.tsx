@@ -2,7 +2,11 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/panel/empty-state";
+import {
+  type BookingStatus,
+  StatusBadge,
+} from "@/components/panel/status-badge";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -21,22 +25,10 @@ export type BookingRow = {
   customerName: string;
   customerEmail: string;
   startsAtISO: string;
-  status: "pending" | "confirmed" | "cancelled";
+  status: BookingStatus;
   depositCents: number | null;
   serviceName: string;
 };
-
-const statusVariant = {
-  confirmed: "default",
-  pending: "secondary",
-  cancelled: "outline",
-} as const;
-
-const statusLabel = {
-  confirmed: "onaylı",
-  pending: "bekliyor",
-  cancelled: "iptal",
-} as const;
 
 export function BookingsList({
   upcoming,
@@ -66,9 +58,9 @@ export function BookingsList({
   function renderTable(rows: BookingRow[], allowCancel: boolean) {
     if (rows.length === 0) {
       return (
-        <p className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-          Henüz randevu yok.
-        </p>
+        <EmptyState title="Henüz randevu yok.">
+          Randevu sayfanızın adresini paylaşarak başlayın.
+        </EmptyState>
       );
     }
     return (
@@ -86,31 +78,31 @@ export function BookingsList({
         <TableBody>
           {rows.map((booking) => (
             <TableRow key={booking.id}>
-              <TableCell className="font-medium">
+              <TableCell className="numeral text-base">
                 {formatWhen(booking.startsAtISO)}
               </TableCell>
-              <TableCell>{booking.serviceName}</TableCell>
+              <TableCell className="font-medium">
+                {booking.serviceName}
+              </TableCell>
               <TableCell>
                 {booking.customerName}
                 <span className="block text-muted-foreground text-xs">
                   {booking.customerEmail}
                 </span>
               </TableCell>
-              <TableCell>
+              <TableCell className="numeral">
                 {booking.depositCents
                   ? formatMoney(booking.depositCents, currency)
                   : "—"}
               </TableCell>
               <TableCell>
-                <Badge variant={statusVariant[booking.status]}>
-                  {statusLabel[booking.status]}
-                </Badge>
+                <StatusBadge status={booking.status} />
               </TableCell>
               {allowCancel && (
                 <TableCell className="text-right">
                   {booking.status !== "cancelled" && (
                     <Button
-                      variant="ghost"
+                      variant="destructive"
                       size="sm"
                       disabled={pending}
                       onClick={() =>

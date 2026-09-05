@@ -1,12 +1,7 @@
-import { Fraunces } from "next/font/google";
 import Link from "next/link";
-
-const fraunces = Fraunces({
-  subsets: ["latin", "latin-ext"],
-  variable: "--font-fraunces",
-});
-
-const display = "[font-family:var(--font-fraunces)]";
+import { ThemeToggle } from "@/components/brand/theme-toggle";
+import { Wordmark } from "@/components/brand/wordmark";
+import { Button } from "@/components/ui/button";
 
 const TICKER_SLOTS = [
   "09:00",
@@ -24,17 +19,17 @@ const TICKER_SLOTS = [
 
 const STEPS = [
   {
-    n: "01",
+    n: "1",
     title: "Hesabınızı açın",
     body: "İşletme adınızı ve saat diliminizi girin — randevu sayfanız saniyeler içinde hazır.",
   },
   {
-    n: "02",
+    n: "2",
     title: "Hizmet ve saatlerinizi ekleyin",
     body: "Süre, fiyat ve isterseniz kapora belirleyin; haftalık çalışma saatlerinizi girin.",
   },
   {
-    n: "03",
+    n: "3",
     title: "Linkinizi paylaşın",
     body: "Adresinizi Instagram profilinize koyun — müşteriler boş saatleri görüp kendileri randevu alsın.",
   },
@@ -42,43 +37,52 @@ const STEPS = [
 
 const FEATURES = [
   {
+    key: "Kapora",
     title: "Kapora ile ön ödeme",
     body: "Gelmeyen müşteriye son. iyzico ile kapora alın; ödeme tamamlanana kadar saat 30 dakika bloke kalır, ödenmezse kendiliğinden boşalır.",
   },
   {
+    key: "Çakışma",
     title: "Çakışma imkânsız",
     body: "Aynı saat asla iki kez satılmaz. İki müşteri aynı anda tıklasa bile çakışma veritabanı seviyesinde engellenir.",
   },
   {
+    key: "Bildirim",
     title: "Anında e-posta bildirimi",
     body: "Her randevuda ve iptalde hem size hem müşterinize otomatik e-posta gider. Telefon trafiği biter.",
   },
   {
+    key: "Kurallar",
     title: "Kurallar sizin elinizde",
     body: "Randevu aralığı, minimum ön süre, kaç gün ileriye randevu alınabileceği — hepsini siz belirlersiniz.",
   },
 ];
 
+const MOCK_SLOTS: Array<[string, "free" | "selected" | "taken"]> = [
+  ["09:00", "taken"],
+  ["09:30", "free"],
+  ["10:00", "free"],
+  ["10:30", "selected"],
+  ["11:00", "taken"],
+  ["11:30", "free"],
+];
+
 function SlotTicker() {
   const chips = [...TICKER_SLOTS, ...TICKER_SLOTS];
   return (
-    <div
-      aria-hidden
-      className="overflow-hidden border-[#e7dcc9] border-y bg-[#f4ecdf] py-3"
-    >
-      <div className="landing-marquee flex w-max gap-3">
+    <div aria-hidden className="overflow-hidden border-border border-y py-4">
+      <div className="marquee flex w-max">
         {chips.map((slot, i) => {
           const taken = i % 4 === 2;
           return (
             <span
               key={`${slot}-${i}`}
-              className={`shrink-0 rounded-full border px-4 py-1 font-mono text-sm ${
-                taken
-                  ? "border-[#d8c9b0] text-[#a4937a] line-through"
-                  : "border-[#211a13]/20 bg-[#faf5ee] text-[#211a13]"
+              className={`numeral flex shrink-0 items-center gap-7 px-7 text-xl ${
+                taken ? "text-muted-foreground/60 line-through" : ""
               }`}
             >
               {slot}
+              <span className="text-brand not-italic">·</span>
             </span>
           );
         })}
@@ -90,58 +94,44 @@ function SlotTicker() {
 function HeroMockup() {
   return (
     <div aria-hidden className="relative mx-auto w-full max-w-sm">
-      <div className="-z-10 absolute inset-0 scale-125 rounded-full bg-[radial-gradient(closest-side,#eadfcb,transparent)]" />
-      <div className="rotate-[1.5deg] rounded-2xl border border-[#e7dcc9] bg-white p-5 shadow-[0_24px_60px_-24px_rgba(33,26,19,0.35)]">
-        <p className={`${display} text-[#211a13] text-lg`}>Günnur Estetik</p>
-        <p className="text-[#8a7a63] text-sm">Randevu alın</p>
-        <div className="mt-4 rounded-lg border border-[#eee5d5] bg-[#faf5ee] p-3">
-          <p className="font-medium text-[#211a13] text-sm">Cilt Bakımı</p>
-          <p className="text-[#8a7a63] text-xs">60 dk · ₺1.500 · ₺300 kapora</p>
+      <div className="surface-contrast -rotate-[1.5deg] rounded-3xl p-6 shadow-[0_40px_80px_-30px_rgb(0_0_0/0.55)] ring-1 ring-hair">
+        <p className="font-display text-2xl leading-none">
+          Günnur <em className="text-brand-ink">Estetik</em>
+        </p>
+        <p className="eyebrow mt-2 text-muted-foreground">Randevu alın</p>
+
+        <div className="mt-5 flex items-end justify-between border-border border-t pt-4">
+          <div>
+            <p className="font-medium">Cilt Bakımı</p>
+            <p className="text-muted-foreground text-xs">60 dk · ₺300 kapora</p>
+          </div>
+          <p className="numeral text-2xl">₺1.500</p>
         </div>
-        <div className="mt-3 flex gap-2">
-          {["Çar 23", "Per 24", "Cum 25"].map((day, i) => (
-            <span
-              key={day}
-              className={`rounded-md px-2.5 py-1 text-xs ${
-                i === 0
-                  ? "bg-[#211a13] text-[#faf5ee]"
-                  : "border border-[#e7dcc9] text-[#5f5240]"
-              }`}
-            >
-              {day}
-            </span>
-          ))}
-        </div>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          {[
-            ["09:00", "free"],
-            ["10:30", "selected"],
-            ["12:00", "taken"],
-            ["14:30", "free"],
-            ["16:00", "free"],
-            ["17:30", "free"],
-          ].map(([slot, state]) => (
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {MOCK_SLOTS.map(([slot, state]) => (
             <span
               key={slot}
-              className={`rounded-md py-1.5 text-center font-mono text-xs ${
+              className={`numeral rounded-full border py-2 text-center ${
                 state === "selected"
-                  ? "bg-[#c2542b] text-white"
+                  ? "border-brand bg-brand font-medium text-brand-foreground"
                   : state === "taken"
-                    ? "border border-[#eee5d5] text-[#c6b79e] line-through"
-                    : "border border-[#e7dcc9] text-[#211a13]"
+                    ? "border-transparent text-muted-foreground/50 line-through"
+                    : "border-hair"
               }`}
             >
               {slot}
             </span>
           ))}
         </div>
-        <div className="mt-4 rounded-lg bg-[#211a13] py-2.5 text-center font-medium text-[#faf5ee] text-sm">
+
+        <div className="mt-5 rounded-full bg-brand py-3.5 text-center font-medium text-[0.8125rem] text-brand-foreground uppercase tracking-[0.12em]">
           ₺300 kapora öde ve randevu al
         </div>
       </div>
-      <div className="-bottom-5 -rotate-2 absolute right-0 rounded-full border border-[#e7dcc9] bg-white px-4 py-2 text-sm shadow-lg">
-        <span className="mr-1 text-[#3f7d4e]">✓</span>
-        <span className="text-[#211a13]">Randevunuz alındı!</span>
+
+      <div className="-bottom-5 absolute right-0 rotate-3 rounded-full bg-card px-5 py-2.5 font-display text-lg text-brand-ink italic shadow-[0_20px_40px_-20px_rgb(0_0_0/0.6)] ring-1 ring-hair">
+        Randevunuz alındı.
       </div>
     </div>
   );
@@ -149,163 +139,163 @@ function HeroMockup() {
 
 export default function Home() {
   return (
-    <main
-      className={`${fraunces.variable} min-h-svh bg-[#faf5ee] text-[#211a13]`}
-    >
-      {/* Header */}
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-5">
-        <span className={`${display} text-2xl italic`}>Rezerve.</span>
-        <nav className="flex items-center gap-2">
-          <Link
-            href="/giris"
-            className="rounded-full px-4 py-2 text-sm transition-colors hover:bg-[#f0e7d8]"
-          >
+    <div className="flex min-h-svh flex-col">
+      <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-6">
+        <Wordmark href={null} />
+        <nav className="flex items-center gap-2 sm:gap-3">
+          <ThemeToggle />
+          <Button variant="ghost" size="sm" render={<Link href="/giris" />}>
             Giriş yap
-          </Link>
-          <Link
-            href="/kayit"
-            className="rounded-full bg-[#211a13] px-4 py-2 text-[#faf5ee] text-sm transition-colors hover:bg-[#3a2f23]"
-          >
+          </Button>
+          <Button variant="outline" size="sm" render={<Link href="/kayit" />}>
             Hemen başla
-          </Link>
+          </Button>
         </nav>
       </header>
 
-      {/* Hero */}
-      <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 pt-10 pb-20 lg:grid-cols-[1.1fr_0.9fr]">
-        <div>
-          <p
-            className="landing-fade mb-4 inline-block rounded-full border border-[#c2542b]/30 bg-[#c2542b]/10 px-3 py-1 text-[#a84621] text-sm"
-            style={{ animationDelay: "0ms" }}
-          >
-            Yerel işletmeler için online randevu
-          </p>
-          <h1
-            className={`${display} landing-fade text-balance font-medium text-5xl leading-[1.05] tracking-tight sm:text-6xl`}
-            style={{ animationDelay: "90ms" }}
-          >
-            Müşterileriniz kendi randevusunu{" "}
-            <em className="text-[#c2542b] not-italic underline decoration-[#c2542b]/30 decoration-wavy underline-offset-8">
-              alsın
-            </em>
-            .
-          </h1>
-          <p
-            className="landing-fade mt-6 max-w-lg text-[#5f5240] text-lg leading-relaxed"
-            style={{ animationDelay: "180ms" }}
-          >
-            Kuaförden estetik merkezine, Rezerve tüm yerel işletmelere kendi
-            randevu sayfasını verir. Hizmetlerinizi ve saatlerinizi girin,
-            linkinizi paylaşın — telefon susarken bile defteriniz dolsun.
-          </p>
-          <div
-            className="landing-fade mt-8 flex flex-wrap items-center gap-3"
-            style={{ animationDelay: "270ms" }}
-          >
-            <Link
-              href="/kayit"
-              className="rounded-full bg-[#c2542b] px-6 py-3 font-medium text-white transition-colors hover:bg-[#a84621]"
+      <main className="flex-1">
+        {/* Hero */}
+        <section className="mx-auto grid w-full max-w-6xl items-center gap-14 px-5 pt-10 pb-20 lg:grid-cols-[1.05fr_0.95fr]">
+          <div>
+            <p
+              className="eyebrow rise text-brand-ink"
+              style={{ animationDelay: "0ms" }}
             >
-              Ücretsiz başlayın
-            </Link>
-            <Link
-              href="/r/demo"
-              className="rounded-full border border-[#211a13]/20 px-6 py-3 font-medium transition-colors hover:bg-[#f0e7d8]"
+              Yerel işletmeler için online randevu
+            </p>
+            <h1
+              className="rise mt-5 font-display text-5xl leading-[0.95] sm:text-6xl lg:text-7xl"
+              style={{ animationDelay: "60ms" }}
             >
-              Örnek sayfayı görün
-            </Link>
-          </div>
-          <p
-            className="landing-fade mt-5 text-[#8a7a63] text-sm"
-            style={{ animationDelay: "360ms" }}
-          >
-            Kurulum 5 dakika · Müşterileriniz için üyelik gerekmez
-          </p>
-        </div>
-        <div className="landing-fade" style={{ animationDelay: "240ms" }}>
-          <HeroMockup />
-        </div>
-      </section>
-
-      <SlotTicker />
-
-      {/* How it works */}
-      <section className="mx-auto w-full max-w-6xl px-5 py-20">
-        <h2 className={`${display} text-3xl sm:text-4xl`}>Nasıl çalışır?</h2>
-        <div className="mt-10 grid gap-10 sm:grid-cols-3">
-          {STEPS.map((step) => (
-            <div key={step.n}>
-              <p className={`${display} text-6xl text-[#e0d2ba] italic`}>
-                {step.n}
-              </p>
-              <h3 className="mt-3 font-semibold text-lg">{step.title}</h3>
-              <p className="mt-2 text-[#5f5240] leading-relaxed">{step.body}</p>
+              Müşterileriniz kendi randevusunu{" "}
+              <em className="text-brand-ink">alsın.</em>
+            </h1>
+            <p
+              className="rise mt-7 max-w-lg text-lg text-muted-foreground leading-relaxed"
+              style={{ animationDelay: "120ms" }}
+            >
+              Kuaförden estetik merkezine, Rezerve tüm yerel işletmelere kendi
+              randevu sayfasını verir. Boş saatleriniz görünür, dolu saatleriniz
+              kapalı; telefon susarken bile defteriniz dolsun.
+            </p>
+            <div
+              className="rise mt-9 flex flex-wrap items-center gap-3"
+              style={{ animationDelay: "180ms" }}
+            >
+              <Button variant="brand" size="lg" render={<Link href="/kayit" />}>
+                Ücretsiz başlayın
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                render={<Link href="/r/demo" />}
+              >
+                Örnek sayfayı görün
+              </Button>
             </div>
-          ))}
-        </div>
-      </section>
+            <p
+              className="eyebrow rise mt-6 text-muted-foreground"
+              style={{ animationDelay: "240ms" }}
+            >
+              Kurulum 5 dakika · Müşterileriniz için üyelik gerekmez
+            </p>
+          </div>
+          <div className="rise" style={{ animationDelay: "160ms" }}>
+            <HeroMockup />
+          </div>
+        </section>
 
-      {/* Features */}
-      <section className="border-[#e7dcc9] border-t bg-[#f4ecdf]">
-        <div className="mx-auto w-full max-w-6xl px-5 py-20">
-          <h2 className={`${display} max-w-xl text-3xl sm:text-4xl`}>
-            Küçük işletme, büyük dertler.{" "}
-            <span className="text-[#c2542b]">Rezerve dördünü de çözer.</span>
+        <SlotTicker />
+
+        {/* How it works */}
+        <section className="mx-auto w-full max-w-6xl px-5 py-24">
+          <p className="eyebrow text-brand-ink">Nasıl çalışır?</p>
+          <div className="mt-12 grid gap-12 sm:grid-cols-3">
+            {STEPS.map((step) => (
+              <div key={step.n}>
+                <p className="font-display text-5xl text-brand italic leading-none">
+                  {step.n}
+                </p>
+                <h3 className="mt-4 font-display text-2xl leading-tight">
+                  {step.title}
+                </h3>
+                <p className="mt-3 max-w-[34ch] text-muted-foreground leading-relaxed">
+                  {step.body}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Features */}
+        <section className="mx-auto w-full max-w-6xl px-5 pb-24">
+          <p className="eyebrow text-brand-ink">Neden Rezerve</p>
+          <h2 className="mt-4 max-w-[18ch] font-display text-4xl leading-[1.05] sm:text-5xl">
+            Küçük işletme, büyük dertler. Rezerve{" "}
+            <em className="text-brand-ink">dördünü de</em> çözer.
           </h2>
-          <div className="mt-10 grid gap-5 sm:grid-cols-2">
+          <div className="mt-12 grid gap-4 sm:grid-cols-2">
             {FEATURES.map((feature) => (
               <div
-                key={feature.title}
-                className="rounded-2xl border border-[#e7dcc9] bg-[#faf5ee] p-6 transition-transform duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_-20px_rgba(33,26,19,0.3)]"
+                key={feature.key}
+                className="rounded-2xl bg-card p-7 ring-1 ring-border transition-[box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:ring-brand/50"
               >
-                <h3 className={`${display} text-xl`}>{feature.title}</h3>
-                <p className="mt-2 text-[#5f5240] leading-relaxed">
+                <p className="eyebrow text-brand-ink">{feature.key}</p>
+                <h3 className="mt-4 font-display text-2xl leading-tight">
+                  {feature.title}
+                </h3>
+                <p className="mt-3 text-muted-foreground leading-relaxed">
                   {feature.body}
                 </p>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* CTA band */}
-      <section className="bg-[#211a13] text-[#faf5ee]">
-        <div className="mx-auto w-full max-w-6xl px-5 py-24 text-center">
-          <h2
-            className={`${display} mx-auto max-w-2xl text-balance text-4xl leading-tight sm:text-5xl`}
-          >
-            Bugün kurun,{" "}
-            <em className="text-[#e8926b] not-italic">yarın dolu başlayın.</em>
-          </h2>
-          <p className="mx-auto mt-4 max-w-md text-[#c6b79e]">
-            Randevu sayfanız 5 dakikada yayında. Kredi kartı gerekmez.
-          </p>
-          <Link
-            href="/kayit"
-            className="mt-8 inline-block rounded-full bg-[#c2542b] px-8 py-4 font-medium text-lg text-white transition-colors hover:bg-[#a84621]"
-          >
-            Ücretsiz başlayın
-          </Link>
-        </div>
-      </section>
+        {/* CTA */}
+        <section className="mx-auto w-full max-w-6xl px-5 pb-24">
+          <div className="surface-contrast rounded-3xl px-6 py-20 text-center ring-1 ring-hair">
+            <h2 className="mx-auto max-w-[20ch] font-display text-4xl leading-[1.05] sm:text-5xl">
+              Bugün kurun,{" "}
+              <em className="text-brand-ink">yarın dolu başlayın.</em>
+            </h2>
+            <p className="mx-auto mt-5 max-w-md text-muted-foreground">
+              Randevu sayfanız 5 dakikada yayında. Kredi kartı gerekmez.
+            </p>
+            <Button
+              variant="brand"
+              size="lg"
+              className="mt-9"
+              render={<Link href="/kayit" />}
+            >
+              Ücretsiz başlayın
+            </Button>
+          </div>
+        </section>
+      </main>
 
-      {/* Footer */}
-      <footer className="bg-[#211a13] text-[#8a7a63]">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 border-[#faf5ee]/10 border-t px-5 py-8 text-sm">
-          <p>
-            <span className={`${display} text-[#faf5ee] italic`}>Rezerve.</span>{" "}
-            — İşletmeniz için online randevu
+      <footer className="border-border border-t">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-8">
+          <p className="text-muted-foreground text-sm">
+            <Wordmark href={null} className="text-xl" /> — İşletmeniz için
+            online randevu
           </p>
-          <div className="flex gap-4">
-            <Link href="/giris" className="hover:text-[#faf5ee]">
+          <div className="flex gap-5 text-sm">
+            <Link
+              href="/giris"
+              className="text-muted-foreground transition-colors hover:text-brand-ink"
+            >
               Giriş yap
             </Link>
-            <Link href="/kayit" className="hover:text-[#faf5ee]">
+            <Link
+              href="/kayit"
+              className="text-muted-foreground transition-colors hover:text-brand-ink"
+            >
               Kayıt ol
             </Link>
           </div>
         </div>
       </footer>
-    </main>
+    </div>
   );
 }

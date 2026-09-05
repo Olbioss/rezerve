@@ -43,14 +43,16 @@ export function OnboardingForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>İşletmenizi kurun</CardTitle>
+        <CardTitle>
+          İşletmenizi <em className="text-brand-ink">kurun</em>
+        </CardTitle>
         <CardDescription>
           Bu adım, herkese açık randevu sayfanızı oluşturur.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid gap-2">
+        <form onSubmit={handleSubmit} className="grid gap-5">
+          <div className="grid gap-1.5">
             <Label htmlFor="name">İşletme adı</Label>
             <Input
               id="name"
@@ -64,9 +66,9 @@ export function OnboardingForm() {
               placeholder="Günnur Estetik"
             />
           </div>
-          <div className="grid gap-2">
+          <div className="grid gap-1.5">
             <Label htmlFor="slug">Randevu sayfası adresi</Label>
-            <div className="flex items-center gap-1">
+            <div className="flex items-baseline gap-1">
               <span className="text-muted-foreground text-sm">/r/</span>
               <Input
                 id="slug"
@@ -80,7 +82,7 @@ export function OnboardingForm() {
               />
             </div>
           </div>
-          <div className="grid gap-2">
+          <div className="grid gap-1.5">
             <Label htmlFor="timezone">Saat dilimi</Label>
             <Select
               value={timezone}
@@ -98,7 +100,7 @@ export function OnboardingForm() {
               </SelectContent>
             </Select>
           </div>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" variant="brand" disabled={pending}>
             {pending ? "Oluşturuluyor…" : "İşletmeyi oluştur"}
           </Button>
         </form>

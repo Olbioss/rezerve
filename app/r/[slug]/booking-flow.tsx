@@ -1,6 +1,7 @@
 "use client";
 
 import { TZDate } from "@date-fns/tz";
+import { ArrowLeftIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -10,29 +11,26 @@ import {
   useTransition,
 } from "react";
 import { toast } from "sonner";
+import { BookingSummary } from "@/components/booking/booking-summary";
+import { type Day, DayStrip } from "@/components/booking/day-strip";
+import {
+  type BookableService,
+  ServiceCard,
+} from "@/components/booking/service-card";
+import { SlotGrid } from "@/components/booking/slot-grid";
+import { StepDots } from "@/components/booking/step-dots";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import { createBooking } from "@/lib/actions/bookings";
 import { formatMoney } from "@/lib/format";
-
-type Service = {
-  id: string;
-  name: string;
-  description: string | null;
-  durationMinutes: number;
-  priceCents: number;
-  depositCents: number | null;
-};
 
 type Props = {
   slug: string;
   timezone: string;
   bookingWindowDays: number;
   currency: string;
-  services: Service[];
+  services: BookableService[];
 };
 
 /** Local YYYY-MM-DD in the business timezone for `daysFromNow`. */
@@ -44,12 +42,25 @@ function businessDateISO(timezone: string, daysFromNow: number): string {
   return `${y}-${m}-${d}`;
 }
 
+function dayParts(dateISO: string, timezone: string): Day {
+  const [y, m, d] = dateISO.split("-").map(Number);
+  const date = new TZDate(y, m - 1, d, timezone);
+  const part = (options: Intl.DateTimeFormatOptions) =>
+    date.toLocaleDateString("tr-TR", { ...options, timeZone: timezone });
+  return {
+    dateISO,
+    weekday: part({ weekday: "short" }),
+    dayNumber: part({ day: "numeric" }),
+    month: part({ month: "short" }),
+  };
+}
+
 function formatDayLabel(dateISO: string, timezone: string): string {
   const [y, m, d] = dateISO.split("-").map(Number);
   const date = new TZDate(y, m - 1, d, timezone);
   return date.toLocaleDateString("tr-TR", {
-    weekday: "short",
-    month: "short",
+    weekday: "long",
+    month: "long",
     day: "numeric",
     timeZone: timezone,
   });
@@ -71,7 +82,7 @@ export function BookingFlow({
   currency,
   services,
 }: Props) {
-  const [service, setService] = useState<Service | null>(null);
+  const [service, setService] = useState<BookableService | null>(null);
   const [dateISO, setDateISO] = useState(() => businessDateISO(timezone, 0));
   const [slots, setSlots] = useState<string[] | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -89,7 +100,7 @@ export function BookingFlow({
   const days = useMemo(
     () =>
       Array.from({ length: Math.min(bookingWindowDays, 30) }, (_, i) =>
-        businessDateISO(timezone, i)
+        dayParts(businessDateISO(timezone, i), timezone)
       ),
     [timezone, bookingWindowDays]
   );
@@ -136,130 +147,128 @@ export function BookingFlow({
 
   if (services.length === 0) {
     return (
-      <p className="text-center text-muted-foreground">
-        Bu işletme henüz hizmet eklememiş.
+      <p className="rounded-2xl border border-hair border-dashed px-6 py-10 text-center text-muted-foreground">
+        <span className="block font-display text-foreground text-2xl italic">
+          Henüz hizmet yok.
+        </span>
+        Bu işletme randevu sayfasını hazırlıyor.
       </p>
     );
   }
 
-  // Step 1: pick a service
+  // Step 1 — pick a service.
   if (!service) {
     return (
-      <div className="grid gap-3">
-        {services.map((s) => (
-          <Card
-            key={s.id}
-            className="cursor-pointer transition-colors hover:bg-accent"
-            onClick={() => setService(s)}
-          >
-            <CardContent className="flex items-center justify-between py-4">
-              <div>
-                <p className="font-medium">{s.name}</p>
-                {s.description && (
-                  <p className="text-muted-foreground text-sm">
-                    {s.description}
-                  </p>
-                )}
-                <p className="mt-1 text-muted-foreground text-sm">
-                  {s.durationMinutes} dk
-                  {s.depositCents
-                    ? ` · ${formatMoney(s.depositCents, currency)} kapora`
-                    : ""}
-                </p>
-              </div>
-              <p className="font-semibold">
-                {formatMoney(s.priceCents, currency)}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="rise">
+        <StepDots current={1} />
+        <div className="grid gap-3">
+          {services.map((s) => (
+            <ServiceCard
+              key={s.id}
+              service={s}
+              currency={currency}
+              onSelect={() => setService(s)}
+            />
+          ))}
+        </div>
+        <p className="mt-6 text-center text-muted-foreground text-xs">
+          Kapora istenen hizmetlerde ödeme iyzico güvencesiyle alınır.
+        </p>
       </div>
     );
   }
 
-  // Step 2 + 3: pick a day & slot, enter details
+  const summaryLine = `${service.durationMinutes} dk · ${formatMoney(
+    service.priceCents,
+    currency
+  )}${
+    service.depositCents
+      ? ` · ${formatMoney(service.depositCents, currency)} kapora`
+      : ""
+  }`;
+
+  // Steps 2 and 3 — day, slot, then details.
   return (
     <div className="grid gap-6">
-      <button
-        type="button"
-        className="justify-self-start text-muted-foreground text-sm underline underline-offset-4"
-        onClick={() => setService(null)}
-      >
-        ← Tüm hizmetler
-      </button>
+      <StepDots current={selectedSlot ? 3 : 2} />
 
-      <div className="flex items-center justify-between rounded-lg border p-4">
-        <div>
-          <p className="font-medium">{service.name}</p>
-          <p className="text-muted-foreground text-sm">
-            {service.durationMinutes} dk ·{" "}
-            {formatMoney(service.priceCents, currency)}
-            {service.depositCents
-              ? ` · ${formatMoney(service.depositCents, currency)} kapora (şimdi ödenir)`
-              : ""}
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-hair px-4 py-3">
+        <div className="min-w-0">
+          <p className="truncate font-display text-lg leading-tight">
+            {service.name}
           </p>
+          <p className="eyebrow mt-1 text-muted-foreground">{summaryLine}</p>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setService(null);
+            setSelectedSlot(null);
+          }}
+        >
+          <ArrowLeftIcon />
+          Değiştir
+        </Button>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {days.map((day) => (
-          <Button
-            key={day}
-            variant={day === dateISO ? "default" : "outline"}
-            size="sm"
-            className="shrink-0"
-            onClick={() => setDateISO(day)}
-          >
-            {formatDayLabel(day, timezone)}
-          </Button>
-        ))}
+      <div className="min-w-0">
+        <p className="eyebrow mb-2 text-muted-foreground">Gün</p>
+        <DayStrip days={days} selected={dateISO} onSelect={setDateISO} />
       </div>
 
-      {slots === null ? (
-        <div className="flex flex-wrap gap-2">
-          {Array.from({ length: 8 }, (_, i) => (
-            <Skeleton key={i} className="h-9 w-16" />
-          ))}
-        </div>
-      ) : slots.length === 0 ? (
-        <p className="text-muted-foreground">Bu günde boş saat yok.</p>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {slots.map((slot) => (
-            <Button
-              key={slot}
-              variant={slot === selectedSlot ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedSlot(slot)}
-            >
-              {formatSlotTime(slot, timezone)}
-            </Button>
-          ))}
-        </div>
-      )}
+      <div>
+        <p className="eyebrow mb-3 text-muted-foreground">Boş saatler</p>
+        <SlotGrid
+          slots={slots}
+          selected={selectedSlot}
+          formatTime={(iso) => formatSlotTime(iso, timezone)}
+          onSelect={setSelectedSlot}
+        />
+      </div>
 
       {selectedSlot && (
-        <form onSubmit={submit} className="grid gap-4 rounded-lg border p-4">
-          <p className="font-medium">
-            {formatDayLabel(dateISO, timezone)},{" "}
-            {formatSlotTime(selectedSlot, timezone)}
-          </p>
-          <div className="grid gap-2">
-            <Label htmlFor="name">Adınız</Label>
-            <Input id="name" name="name" required minLength={2} />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="email">E-posta</Label>
-            <Input id="email" name="email" type="email" required />
-          </div>
-          <Button type="submit" disabled={pending}>
-            {pending
-              ? "Randevu alınıyor…"
-              : service.depositCents
-                ? `${formatMoney(service.depositCents, currency)} kapora öde ve randevu al`
-                : "Randevuyu onayla"}
-          </Button>
-        </form>
+        <div className="rise grid gap-5">
+          <BookingSummary
+            serviceName={service.name}
+            when={`${formatDayLabel(dateISO, timezone)}, ${formatSlotTime(
+              selectedSlot,
+              timezone
+            )}`}
+            durationMinutes={service.durationMinutes}
+            priceCents={service.priceCents}
+            depositCents={service.depositCents}
+            currency={currency}
+          />
+          <form onSubmit={submit} className="grid gap-5">
+            <div className="grid gap-1.5">
+              <Label htmlFor="name">Adınız</Label>
+              <Input id="name" name="name" required minLength={2} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="email">E-posta</Label>
+              <Input id="email" name="email" type="email" required />
+            </div>
+            <Button
+              type="submit"
+              variant="brand"
+              size="lg"
+              disabled={pending}
+              className="w-full"
+            >
+              {pending
+                ? "Randevu alınıyor…"
+                : service.depositCents
+                  ? `${formatMoney(service.depositCents, currency)} kapora öde ve randevu al`
+                  : "Randevuyu onayla"}
+            </Button>
+            <p className="text-center text-muted-foreground text-xs">
+              {service.depositCents
+                ? "Saat 30 dakika sizin için tutulur."
+                : "Üyelik gerekmez."}
+            </p>
+          </form>
+        </div>
       )}
     </div>
   );
