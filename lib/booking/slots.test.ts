@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeSlotsForDay, type SlotInput } from "./slots";
+import { computeSlotsForDay, type DaySlot, type SlotInput } from "./slots";
 
 /** Europe/Istanbul is UTC+3 year-round (no DST since 2016). */
 const IST = "Europe/Istanbul";
@@ -20,8 +20,19 @@ function base(overrides: Partial<SlotInput> = {}): SlotInput {
   };
 }
 
-function iso(slots: Date[]): string[] {
-  return slots.map((d) => d.toISOString());
+/** ISO starts of the bookable slots — what the old `Date[]` return held. */
+function iso(slots: DaySlot[]): string[] {
+  return slots.filter((s) => !s.taken).map((s) => s.start.toISOString());
+}
+
+/** ISO starts of every slot on the grid, free and taken alike. */
+function all(slots: DaySlot[]): string[] {
+  return slots.map((s) => s.start.toISOString());
+}
+
+/** ISO starts of the slots shown struck through. */
+function taken(slots: DaySlot[]): string[] {
+  return slots.filter((s) => s.taken).map((s) => s.start.toISOString());
 }
 
 describe("computeSlotsForDay", () => {
@@ -92,6 +103,37 @@ describe("computeSlotsForDay", () => {
     expect(iso(slots)).not.toContain("2026-08-05T07:00:00.000Z");
     expect(iso(slots)).toContain("2026-08-05T06:30:00.000Z");
     expect(iso(slots)).toContain("2026-08-05T07:30:00.000Z");
+  });
+
+  it("surfaces a booked slot as taken rather than dropping it", () => {
+    // The grid keeps its shape: the customer sees 10:00 struck through.
+    const slots = computeSlotsForDay(
+      base({
+        existingBookings: [
+          {
+            startsAt: new Date("2026-08-05T07:00:00Z"),
+            endsAt: new Date("2026-08-05T07:30:00Z"),
+          },
+        ],
+      })
+    );
+    expect(all(slots)).toHaveLength(6);
+    expect(taken(slots)).toEqual(["2026-08-05T07:00:00.000Z"]);
+  });
+
+  it("omits slots inside the lead time entirely, never as taken", () => {
+    // A 09:00 slot at 14:00 is gone, not struck through.
+    const slots = computeSlotsForDay(
+      base({
+        now: new Date("2026-08-05T06:45:00Z"),
+        minLeadTimeMinutes: 60,
+      })
+    );
+    expect(all(slots)).toEqual([
+      "2026-08-05T08:00:00.000Z",
+      "2026-08-05T08:30:00.000Z",
+    ]);
+    expect(taken(slots)).toEqual([]);
   });
 
   it("excludes partial overlaps in both directions", () => {

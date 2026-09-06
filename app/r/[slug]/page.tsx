@@ -1,7 +1,10 @@
 import { and, asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { BookingShell } from "@/components/booking/booking-shell";
-import { getBusinessBySlug } from "@/lib/booking/get-available-slots";
+import {
+  getBusinessBySlug,
+  getOpenWeekdays,
+} from "@/lib/booking/get-available-slots";
 import { db } from "@/lib/db";
 import { services } from "@/lib/db/schema/service-schema";
 import { BookingFlow } from "./booking-flow";
@@ -15,13 +18,16 @@ export default async function BookingPage({
   const business = await getBusinessBySlug(slug);
   if (!business) notFound();
 
-  const rows = await db.query.services.findMany({
-    where: and(
-      eq(services.organizationId, business.organizationId),
-      eq(services.active, true)
-    ),
-    orderBy: [asc(services.createdAt)],
-  });
+  const [rows, openWeekdays] = await Promise.all([
+    db.query.services.findMany({
+      where: and(
+        eq(services.organizationId, business.organizationId),
+        eq(services.active, true)
+      ),
+      orderBy: [asc(services.createdAt)],
+    }),
+    getOpenWeekdays(business.organizationId),
+  ]);
 
   return (
     <BookingShell
@@ -33,6 +39,7 @@ export default async function BookingPage({
         timezone={business.profile.timezone}
         bookingWindowDays={business.profile.bookingWindowDays}
         currency={business.profile.currency}
+        openWeekdays={openWeekdays}
         services={rows.map((s) => ({
           id: s.id,
           name: s.name,

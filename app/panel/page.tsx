@@ -4,12 +4,22 @@ import { EmptyState } from "@/components/panel/empty-state";
 import { PageHeader } from "@/components/panel/page-header";
 import { StatTile } from "@/components/panel/stat-tile";
 import { StatusBadge } from "@/components/panel/status-badge";
+import { WeekHeatmap } from "@/components/panel/week-heatmap";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { requireOwner } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
 import { bookings } from "@/lib/db/schema/booking-schema";
 import { services } from "@/lib/db/schema/service-schema";
 import { formatMoney } from "@/lib/format";
+import { getWeekOverview } from "@/lib/panel/week-overview";
 
 export const metadata = { title: "Genel Bakış" };
 
@@ -26,9 +36,9 @@ export default async function DashboardPage() {
   const [
     next,
     [{ value: weekCount }],
-    [{ value: serviceCount }],
     [{ value: depositSum }],
     [{ value: pendingCount }],
+    week,
   ] = await Promise.all([
     db
       .select({
@@ -55,15 +65,6 @@ export default async function DashboardPage() {
       .from(bookings)
       .where(and(inWeek, eq(bookings.status, "confirmed"))),
     db
-      .select({ value: count() })
-      .from(services)
-      .where(
-        and(
-          eq(services.organizationId, organizationId),
-          eq(services.active, true)
-        )
-      ),
-    db
       .select({ value: sum(bookings.depositCents) })
       .from(bookings)
       .where(and(inWeek, eq(bookings.status, "confirmed"))),
@@ -71,6 +72,7 @@ export default async function DashboardPage() {
       .select({ value: count() })
       .from(bookings)
       .where(and(inWeek, eq(bookings.status, "pending"))),
+    getWeekOverview(organizationId, profile.timezone, now),
   ]);
 
   function formatWhen(date: Date) {
@@ -96,7 +98,11 @@ export default async function DashboardPage() {
         }
         description={`Saatler ${profile.timezone} saat dilimindedir.`}
         action={
-          <Button variant="outline" render={<Link href="/panel/randevular" />}>
+          <Button
+            nativeButton={false}
+            variant="outline"
+            render={<Link href="/panel/randevular" />}
+          >
             Tüm randevular
           </Button>
         }
@@ -118,51 +124,72 @@ export default async function DashboardPage() {
           detail="Önümüzdeki 7 gün"
         />
         <StatTile
-          label="Aktif hizmet"
-          value={serviceCount}
-          detail="Randevu sayfanızda görünür"
+          label="Doluluk"
+          value={week.occupancyPercent === null ? "—" : week.occupancyPercent}
+          suffix={week.occupancyPercent === null ? undefined : "%"}
+          detail={
+            week.occupancyPercent === null
+              ? "Çalışma saatlerinizi girin"
+              : `${week.bookedHours} / ${week.openHours} saat dolu`
+          }
         />
       </div>
 
-      <section className="grid gap-4">
-        <h2 className="font-display text-2xl">Sıradaki randevular</h2>
-        {next.length === 0 ? (
-          <EmptyState title="Yaklaşan randevu yok.">
-            <Link
-              href="/panel/hizmetler"
-              className="text-brand-ink underline underline-offset-4"
-            >
-              Hizmet ekleyin
-            </Link>{" "}
-            ve randevu sayfanızı paylaşarak başlayın.
-          </EmptyState>
-        ) : (
-          <ul className="grid">
-            {next.map((booking) => (
-              <li
-                key={booking.id}
-                className="flex items-center justify-between gap-4 border-border border-b py-4 last:border-b-0"
+      <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+        <section className="grid min-w-0 gap-4">
+          <h2 className="font-display text-2xl">Sıradaki randevular</h2>
+          {next.length === 0 ? (
+            <EmptyState title="Yaklaşan randevu yok.">
+              <Link
+                href="/panel/hizmetler"
+                className="text-brand-ink underline underline-offset-4"
               >
-                <div className="min-w-0">
-                  <p className="truncate font-medium">
-                    {booking.serviceName}{" "}
-                    <span className="text-muted-foreground">
-                      — {booking.customerName}
-                    </span>
-                  </p>
-                  <p className="numeral mt-1 text-muted-foreground text-sm">
-                    {formatWhen(booking.startsAt)}
-                    {booking.depositCents
-                      ? ` · ${formatMoney(booking.depositCents, profile.currency)} kapora`
-                      : ""}
-                  </p>
-                </div>
-                <StatusBadge status={booking.status} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                Hizmet ekleyin
+              </Link>{" "}
+              ve randevu sayfanızı paylaşarak başlayın.
+            </EmptyState>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tarih</TableHead>
+                  <TableHead>Hizmet</TableHead>
+                  <TableHead>Müşteri</TableHead>
+                  <TableHead>Kapora</TableHead>
+                  <TableHead>Durum</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {next.map((booking) => (
+                  <TableRow key={booking.id}>
+                    <TableCell className="numeral whitespace-nowrap">
+                      {formatWhen(booking.startsAt)}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {booking.serviceName}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {booking.customerName}
+                    </TableCell>
+                    <TableCell className="numeral">
+                      {booking.depositCents
+                        ? formatMoney(booking.depositCents, profile.currency)
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={booking.status} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </section>
+
+        <div className="min-w-0">
+          <WeekHeatmap week={week} />
+        </div>
+      </div>
     </div>
   );
 }

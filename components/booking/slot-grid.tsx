@@ -3,6 +3,12 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
+/** One chip on the grid, as the slots API returns it. */
+export type Slot = {
+  time: string;
+  taken: boolean;
+};
+
 /** Time chips for one day. `slots === null` means still loading. */
 export function SlotGrid({
   slots,
@@ -10,7 +16,7 @@ export function SlotGrid({
   formatTime,
   onSelect,
 }: {
-  slots: string[] | null;
+  slots: Slot[] | null;
   selected: string | null;
   formatTime: (iso: string) => string;
   onSelect: (iso: string) => void;
@@ -43,14 +49,32 @@ export function SlotGrid({
       className="grid grid-cols-3 gap-2.5"
     >
       {slots.map((slot) => {
-        const active = slot === selected;
+        const active = slot.time === selected;
+        // Taken chips stay on the grid so the day keeps its shape. They
+        // remain radios — an unavailable option is what they are — but
+        // disabled, so keyboard nav skips them and the label reads "dolu".
+        if (slot.taken) {
+          return (
+            <button
+              key={slot.time}
+              type="button"
+              role="radio"
+              aria-checked={false}
+              disabled
+              className="numeral h-11 cursor-default rounded-full border border-transparent text-lg text-muted-foreground/50 line-through"
+            >
+              {formatTime(slot.time)}
+              <span className="sr-only"> — dolu</span>
+            </button>
+          );
+        }
         return (
           <button
-            key={slot}
+            key={slot.time}
             type="button"
             role="radio"
             aria-checked={active}
-            onClick={() => onSelect(slot)}
+            onClick={() => onSelect(slot.time)}
             className={cn(
               "numeral h-11 rounded-full border text-lg transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2",
               active
@@ -58,7 +82,7 @@ export function SlotGrid({
                 : "border-hair text-foreground hover:border-brand hover:text-brand-ink"
             )}
           >
-            {formatTime(slot)}
+            {formatTime(slot.time)}
           </button>
         );
       })}

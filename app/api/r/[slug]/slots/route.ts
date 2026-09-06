@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
-  getAvailableSlots,
   getBusinessBySlug,
+  getDaySlots,
 } from "@/lib/booking/get-available-slots";
 
 export async function GET(
@@ -24,12 +24,17 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const slots = await getAvailableSlots(business, serviceId, date);
+  const slots = await getDaySlots(business, serviceId, date);
   if (slots === null) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
+  // Time and free/taken only — the grid shows the shape of the day, never
+  // who booked it.
   return NextResponse.json({
-    slots: slots.map((slot) => slot.toISOString()),
+    slots: slots.map((slot) => ({
+      time: slot.start.toISOString(),
+      taken: slot.taken,
+    })),
   });
 }

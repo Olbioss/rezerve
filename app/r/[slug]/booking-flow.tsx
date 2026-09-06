@@ -17,7 +17,7 @@ import {
   type BookableService,
   ServiceCard,
 } from "@/components/booking/service-card";
-import { SlotGrid } from "@/components/booking/slot-grid";
+import { type Slot, SlotGrid } from "@/components/booking/slot-grid";
 import { StepDots } from "@/components/booking/step-dots";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,8 @@ type Props = {
   timezone: string;
   bookingWindowDays: number;
   currency: string;
+  /** Weekdays (0 = Sunday) the business opens on; the rest are dimmed. */
+  openWeekdays: number[];
   services: BookableService[];
 };
 
@@ -42,7 +44,11 @@ function businessDateISO(timezone: string, daysFromNow: number): string {
   return `${y}-${m}-${d}`;
 }
 
-function dayParts(dateISO: string, timezone: string): Day {
+function dayParts(
+  dateISO: string,
+  timezone: string,
+  openWeekdays: number[]
+): Day {
   const [y, m, d] = dateISO.split("-").map(Number);
   const date = new TZDate(y, m - 1, d, timezone);
   const part = (options: Intl.DateTimeFormatOptions) =>
@@ -52,6 +58,7 @@ function dayParts(dateISO: string, timezone: string): Day {
     weekday: part({ weekday: "short" }),
     dayNumber: part({ day: "numeric" }),
     month: part({ month: "short" }),
+    closed: !openWeekdays.includes(date.getDay()),
   };
 }
 
@@ -66,6 +73,23 @@ function formatDayLabel(dateISO: string, timezone: string): string {
   });
 }
 
+/** The first day in the window the business actually opens. */
+function firstOpenDateISO(
+  timezone: string,
+  openWeekdays: number[],
+  bookingWindowDays: number
+): string {
+  const span = Math.min(bookingWindowDays, 30);
+  for (let i = 0; i < span; i++) {
+    const dateISO = businessDateISO(timezone, i);
+    const [y, m, d] = dateISO.split("-").map(Number);
+    if (openWeekdays.includes(new TZDate(y, m - 1, d, timezone).getDay())) {
+      return dateISO;
+    }
+  }
+  return businessDateISO(timezone, 0);
+}
+
 function formatSlotTime(iso: string, timezone: string): string {
   return new Date(iso).toLocaleTimeString("tr-TR", {
     hour: "2-digit",
@@ -75,17 +99,39 @@ function formatSlotTime(iso: string, timezone: string): string {
   });
 }
 
+/** "Salı 11:00" — what the Devam button carries. */
+function formatShortWhen(
+  dateISO: string,
+  iso: string,
+  timezone: string
+): string {
+  const [y, m, d] = dateISO.split("-").map(Number);
+  const weekday = new TZDate(y, m - 1, d, timezone).toLocaleDateString(
+    "tr-TR",
+    {
+      weekday: "long",
+      timeZone: timezone,
+    }
+  );
+  return `${weekday} ${formatSlotTime(iso, timezone)}`;
+}
+
 export function BookingFlow({
   slug,
   timezone,
   bookingWindowDays,
   currency,
+  openWeekdays,
   services,
 }: Props) {
   const [service, setService] = useState<BookableService | null>(null);
-  const [dateISO, setDateISO] = useState(() => businessDateISO(timezone, 0));
-  const [slots, setSlots] = useState<string[] | null>(null);
+  const [dateISO, setDateISO] = useState(() =>
+    firstOpenDateISO(timezone, openWeekdays, bookingWindowDays)
+  );
+  const [slots, setSlots] = useState<Slot[] | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  // Step 3 is its own screen, entered from the Devam button on step 2.
+  const [onDetails, setOnDetails] = useState(false);
   const [pending, startTransition] = useTransition();
   const searchParams = useSearchParams();
 
@@ -100,15 +146,16 @@ export function BookingFlow({
   const days = useMemo(
     () =>
       Array.from({ length: Math.min(bookingWindowDays, 30) }, (_, i) =>
-        dayParts(businessDateISO(timezone, i), timezone)
+        dayParts(businessDateISO(timezone, i), timezone, openWeekdays)
       ),
-    [timezone, bookingWindowDays]
+    [timezone, bookingWindowDays, openWeekdays]
   );
 
   const loadSlots = useCallback(
     async (serviceId: string, date: string) => {
       setSlots(null);
       setSelectedSlot(null);
+      setOnDetails(false);
       const res = await fetch(
         `/api/r/${slug}/slots?serviceId=${serviceId}&date=${date}`
       );
@@ -116,7 +163,7 @@ export function BookingFlow({
         setSlots([]);
         return;
       }
-      const data = (await res.json()) as { slots: string[] };
+      const data = (await res.json()) as { slots: Slot[] };
       setSlots(data.slots);
     },
     [slug]
@@ -187,47 +234,11 @@ export function BookingFlow({
       : ""
   }`;
 
-  // Steps 2 and 3 — day, slot, then details.
-  return (
-    <div className="grid gap-6">
-      <StepDots current={selectedSlot ? 3 : 2} />
-
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-hair px-4 py-3">
-        <div className="min-w-0">
-          <p className="truncate font-display text-lg leading-tight">
-            {service.name}
-          </p>
-          <p className="eyebrow mt-1 text-muted-foreground">{summaryLine}</p>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            setService(null);
-            setSelectedSlot(null);
-          }}
-        >
-          <ArrowLeftIcon />
-          Değiştir
-        </Button>
-      </div>
-
-      <div className="min-w-0">
-        <p className="eyebrow mb-2 text-muted-foreground">Gün</p>
-        <DayStrip days={days} selected={dateISO} onSelect={setDateISO} />
-      </div>
-
-      <div>
-        <p className="eyebrow mb-3 text-muted-foreground">Boş saatler</p>
-        <SlotGrid
-          slots={slots}
-          selected={selectedSlot}
-          formatTime={(iso) => formatSlotTime(iso, timezone)}
-          onSelect={setSelectedSlot}
-        />
-      </div>
-
-      {selectedSlot && (
+  // Step 3 — its own screen: the grid is behind you, the summary is the page.
+  if (onDetails && selectedSlot) {
+    return (
+      <div className="grid gap-6">
+        <StepDots current={3} />
         <div className="rise grid gap-5">
           <BookingSummary
             serviceName={service.name}
@@ -268,7 +279,70 @@ export function BookingFlow({
                 : "Üyelik gerekmez."}
             </p>
           </form>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="justify-self-center"
+            onClick={() => setOnDetails(false)}
+          >
+            <ArrowLeftIcon />
+            Saati değiştir
+          </Button>
         </div>
+      </div>
+    );
+  }
+
+  // Step 2 — day and slot.
+  return (
+    <div className="grid gap-6">
+      <StepDots current={2} />
+
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-hair px-4 py-3">
+        <div className="min-w-0">
+          <p className="truncate font-display text-lg leading-tight">
+            {service.name}
+          </p>
+          <p className="eyebrow mt-1 text-muted-foreground">{summaryLine}</p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setService(null);
+            setSelectedSlot(null);
+            setOnDetails(false);
+          }}
+        >
+          <ArrowLeftIcon />
+          Değiştir
+        </Button>
+      </div>
+
+      <div className="min-w-0">
+        <p className="eyebrow mb-2 text-muted-foreground">Gün</p>
+        <DayStrip days={days} selected={dateISO} onSelect={setDateISO} />
+      </div>
+
+      <div>
+        <p className="eyebrow mb-3 text-muted-foreground">Boş saatler</p>
+        <SlotGrid
+          slots={slots}
+          selected={selectedSlot}
+          formatTime={(iso) => formatSlotTime(iso, timezone)}
+          onSelect={setSelectedSlot}
+        />
+      </div>
+
+      {selectedSlot && (
+        <Button
+          variant="brand"
+          size="lg"
+          className="rise w-full"
+          onClick={() => setOnDetails(true)}
+        >
+          Devam · {formatShortWhen(dateISO, selectedSlot, timezone)}
+        </Button>
       )}
     </div>
   );

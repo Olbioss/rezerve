@@ -11,6 +11,16 @@ export type BookedInterval = {
   endsAt: Date;
 };
 
+/**
+ * One slot on the grid. `taken` slots are shown struck through rather than
+ * hidden — the booking page promises "dolu saatleriniz kapalı", so a
+ * customer should see the shape of the day, not a suspiciously short list.
+ */
+export type DaySlot = {
+  start: Date;
+  taken: boolean;
+};
+
 export type SlotInput = {
   /** Local business day, e.g. "2026-08-05". */
   dateISO: string;
@@ -26,13 +36,23 @@ export type SlotInput = {
   minLeadTimeMinutes: number;
 };
 
+/** The local weekday (0 = Sunday) a business date falls on. */
+export function weekdayFor(dateISO: string, timezone: string): number {
+  const [year, month, day] = dateISO.split("-").map(Number);
+  return new TZDate(year, month - 1, day, timezone).getDay();
+}
+
 /**
- * Compute bookable slot starts (UTC instants) for one local business day.
+ * Compute the slot grid for one local business day.
+ *
+ * Slots that overlap a live booking are returned with `taken: true`. Slots
+ * that fall before the lead time — already past, or too soon to book — are
+ * omitted entirely: a 09:00 slot at 14:00 is gone, not "taken".
  *
  * Local wall times are converted to instants via TZDate, so DST transitions
  * resolve the way a wall clock in the business's timezone would.
  */
-export function computeSlotsForDay(input: SlotInput): Date[] {
+export function computeSlotsForDay(input: SlotInput): DaySlot[] {
   const {
     dateISO,
     timezone,
@@ -45,12 +65,12 @@ export function computeSlotsForDay(input: SlotInput): Date[] {
   } = input;
 
   const [year, month, day] = dateISO.split("-").map(Number);
-  const weekday = new TZDate(year, month - 1, day, timezone).getDay();
+  const weekday = weekdayFor(dateISO, timezone);
   const dayRules = rules.filter((rule) => rule.weekday === weekday);
 
   const earliestStart = new Date(now.getTime() + minLeadTimeMinutes * 60_000);
 
-  const slots: Date[] = [];
+  const slots: DaySlot[] = [];
   for (const rule of dayRules) {
     for (
       let startMinutes = rule.startMinutes;
@@ -67,16 +87,15 @@ export function computeSlotsForDay(input: SlotInput): Date[] {
       const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60_000);
 
       if (slotStart < earliestStart) continue;
-      const overlaps = existingBookings.some(
+      const taken = existingBookings.some(
         (booking) => slotStart < booking.endsAt && slotEnd > booking.startsAt
       );
-      if (overlaps) continue;
 
-      slots.push(slotStart);
+      slots.push({ start: slotStart, taken });
     }
   }
 
-  return slots.sort((a, b) => a.getTime() - b.getTime());
+  return slots.sort((a, b) => a.start.getTime() - b.start.getTime());
 }
 
 function localMinutesToInstant(

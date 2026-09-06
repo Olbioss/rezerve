@@ -7,7 +7,7 @@ import { availabilityRules } from "@/lib/db/schema/availability-schema";
 import { bookings } from "@/lib/db/schema/booking-schema";
 import { businessProfiles } from "@/lib/db/schema/business-schema";
 import { services } from "@/lib/db/schema/service-schema";
-import { computeSlotsForDay } from "./slots";
+import { computeSlotsForDay, type DaySlot } from "./slots";
 
 export type BusinessContext = {
   organizationId: string;
@@ -43,16 +43,19 @@ export function localDateISO(instant: Date, timezone: string): string {
 }
 
 /**
- * Available UTC slot starts for one local business day.
+ * The full slot grid for one local business day, free and taken alike.
  * Returns null when the request is invalid (unknown service, date out of
  * booking window, malformed date).
+ *
+ * Display path only. Booking creation must validate against
+ * `getAvailableSlots` below, which admits free slots exclusively.
  */
-export async function getAvailableSlots(
+export async function getDaySlots(
   business: BusinessContext,
   serviceId: string,
   dateISO: string,
   now: Date = new Date()
-): Promise<Date[] | null> {
+): Promise<DaySlot[] | null> {
   if (!DATE_ISO_RE.test(dateISO)) return null;
   const { organizationId, profile } = business;
 
@@ -113,4 +116,31 @@ export async function getAvailableSlots(
     now,
     minLeadTimeMinutes: profile.minLeadTimeMinutes,
   });
+}
+
+/**
+ * Bookable UTC slot starts for one local business day — free slots only.
+ *
+ * This is the guard booking creation validates against, so its contract is
+ * deliberately unchanged: a slot absent here can never be booked.
+ */
+export async function getAvailableSlots(
+  business: BusinessContext,
+  serviceId: string,
+  dateISO: string,
+  now: Date = new Date()
+): Promise<Date[] | null> {
+  const slots = await getDaySlots(business, serviceId, dateISO, now);
+  if (slots === null) return null;
+  return slots.filter((slot) => !slot.taken).map((slot) => slot.start);
+}
+
+/** Weekdays (0 = Sunday) the business has any opening hours on. */
+export async function getOpenWeekdays(
+  organizationId: string
+): Promise<number[]> {
+  const rules = await db.query.availabilityRules.findMany({
+    where: eq(availabilityRules.organizationId, organizationId),
+  });
+  return [...new Set(rules.map((rule) => rule.weekday))].sort();
 }

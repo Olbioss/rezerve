@@ -7,6 +7,8 @@ export type Day = {
   weekday: string;
   dayNumber: string;
   month: string;
+  /** Closed days are dimmed and unselectable — the business isn't open. */
+  closed: boolean;
 };
 
 /** Horizontally scrolling day picker for step 2. */
@@ -33,12 +35,16 @@ export function DayStrip({
             type="button"
             role="radio"
             aria-checked={active}
+            disabled={day.closed}
+            aria-label={day.closed ? `${day.weekday} — kapalı` : undefined}
             onClick={() => onSelect(day.dateISO)}
             className={cn(
               "flex w-14 shrink-0 flex-col items-center rounded-2xl border py-2.5 transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2",
-              active
-                ? "border-brand text-brand-ink"
-                : "border-transparent text-foreground hover:border-border"
+              day.closed
+                ? "cursor-default border-transparent opacity-35"
+                : active
+                  ? "border-brand text-brand-ink"
+                  : "border-transparent text-foreground hover:border-border"
             )}
           >
             <span className="eyebrow text-[0.6rem] text-muted-foreground">
