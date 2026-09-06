@@ -7,7 +7,12 @@ const currencySymbols: Record<string, string> = {
 
 export function formatMoney(cents: number, currency: string): string {
   const symbol = currencySymbols[currency] ?? `${currency.toUpperCase()} `;
-  const amount = (cents / 100).toFixed(cents % 100 === 0 ? 0 : 2);
+  // Turkish grouping: 1.500, and 1.500,50 when there are kuruş to show.
+  const whole = cents % 100 === 0;
+  const amount = new Intl.NumberFormat("tr-TR", {
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: whole ? 0 : 2,
+  }).format(cents / 100);
   return `${symbol}${amount}`;
 }
 

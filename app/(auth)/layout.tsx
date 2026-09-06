@@ -1,4 +1,3 @@
-import { ThemeToggle } from "@/components/brand/theme-toggle";
 import { Wordmark } from "@/components/brand/wordmark";
 
 export default function AuthLayout({
@@ -7,10 +6,7 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative flex min-h-svh flex-col items-center justify-center gap-8 p-6">
-      <div className="absolute top-4 right-4">
-        <ThemeToggle />
-      </div>
+    <div className="flex min-h-svh flex-col items-center justify-center gap-8 p-6">
       <Wordmark className="text-4xl" />
       <div className="rise w-full max-w-sm">{children}</div>
     </div>

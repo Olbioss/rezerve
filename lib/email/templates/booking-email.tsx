@@ -22,18 +22,24 @@ export type BookingEmailProps = {
   depositLine?: string;
 };
 
-// Gece palette. Email clients have no web fonts, so the display face falls
-// back to Georgia — the closest widely installed high-contrast serif.
-const INK = "#0c1210";
+// Gece palette, night ground — the email should feel like the page the
+// booking was made on. Email clients have no web fonts, so the display face
+// falls back to Georgia, the closest widely installed high-contrast serif.
+//
+// Every container carries an explicit background-color and the hairline is a
+// solid hex rather than an alpha blend: clients that run their own dark-mode
+// transform (Gmail on Android, Outlook.com) mangle transparency and inherited
+// grounds, and would otherwise leave ivory text on a bleached card.
+const NIGHT = "#0c1210";
+const CARD = "#131b18";
 const IVORY = "#f3eee4";
-const CARD = "#fbf8f1";
-const BRAND = "#7a5a1e";
-const MUTED = "#575f59";
-const HAIR = "#e2d8c4";
+const BRAND = "#d4b070";
+const MUTED = "#97a698";
+const HAIR = "#494531";
 const SERIF = "Georgia, 'Times New Roman', serif";
 const SANS = "'Helvetica Neue', Helvetica, Arial, sans-serif";
 
-const row = { color: INK, fontSize: 15, margin: "6px 0" } as const;
+const row = { color: IVORY, fontSize: 15, margin: "6px 0" } as const;
 const rowLabel = {
   color: MUTED,
   fontSize: 11,
@@ -53,16 +59,27 @@ export function BookingEmail({
   depositLine,
 }: BookingEmailProps) {
   return (
-    <Html>
-      <Head />
+    <Html dir="ltr" lang="tr">
+      <Head>
+        <meta content="dark" name="color-scheme" />
+        <meta content="dark" name="supported-color-schemes" />
+      </Head>
       <Preview>{preview}</Preview>
-      <Body style={{ backgroundColor: IVORY, fontFamily: SANS, margin: 0 }}>
+      <Body
+        style={{
+          backgroundColor: NIGHT,
+          color: IVORY,
+          fontFamily: SANS,
+          margin: 0,
+          padding: "40px 0",
+        }}
+      >
         <Container
           style={{
             backgroundColor: CARD,
             border: `1px solid ${HAIR}`,
             borderRadius: 16,
-            margin: "40px auto",
+            margin: "0 auto",
             maxWidth: 480,
             padding: "36px 32px",
           }}
@@ -80,7 +97,7 @@ export function BookingEmail({
           <Heading
             as="h2"
             style={{
-              color: INK,
+              color: IVORY,
               fontFamily: SERIF,
               fontSize: 30,
               fontWeight: 400,
@@ -91,8 +108,8 @@ export function BookingEmail({
             {heading}
           </Heading>
           <Text style={{ color: MUTED, fontSize: 15, margin: 0 }}>{intro}</Text>
-          <Hr style={{ borderColor: HAIR, margin: "24px 0" }} />
-          <Section>
+          <Hr style={{ borderTop: `1px solid ${HAIR}`, margin: "24px 0" }} />
+          <Section style={{ backgroundColor: CARD }}>
             <Text style={row}>
               <span style={rowLabel}>İşletme</span>
               <br />
@@ -124,7 +141,7 @@ export function BookingEmail({
               </Text>
             )}
           </Section>
-          <Hr style={{ borderColor: HAIR, margin: "24px 0" }} />
+          <Hr style={{ borderTop: `1px solid ${HAIR}`, margin: "24px 0" }} />
           <Text style={{ color: MUTED, fontSize: 12, margin: 0 }}>
             {businessName} adına Rezerve tarafından gönderilmiştir.
           </Text>

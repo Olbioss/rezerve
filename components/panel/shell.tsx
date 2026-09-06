@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ThemeToggle } from "@/components/brand/theme-toggle";
 import { Wordmark } from "@/components/brand/wordmark";
 import { cn } from "@/lib/utils";
 
@@ -42,12 +41,7 @@ export function PanelShell({
   return (
     <div className="flex min-h-svh flex-col md:flex-row">
       <aside className="surface-night flex shrink-0 flex-col gap-6 px-4 py-5 md:w-60 md:px-5 md:py-7">
-        <div className="flex items-center justify-between md:block">
-          <Wordmark href="/panel" className="text-2xl" />
-          <div className="md:hidden">
-            <ThemeToggle />
-          </div>
-        </div>
+        <Wordmark href="/panel" className="text-2xl" />
         <nav className="-mx-1 flex gap-1 overflow-x-auto md:mx-0 md:flex-col">
           {NAV.map((item) => {
             const active =
@@ -87,7 +81,7 @@ export function PanelShell({
         )}
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="surface-ivory flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-4 border-border border-b px-5 py-3.5 md:px-8">
           <span className="eyebrow text-muted-foreground">
             {new Date().toLocaleDateString("tr-TR", {
@@ -98,9 +92,6 @@ export function PanelShell({
           </span>
           <div className="flex items-center gap-3">
             <span className="hidden text-sm sm:inline">{userName}</span>
-            <div className="hidden md:block">
-              <ThemeToggle />
-            </div>
             {signOut}
           </div>
         </header>

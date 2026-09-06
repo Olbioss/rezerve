@@ -11,7 +11,7 @@ export function PageHeader({
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="font-display text-4xl leading-none">{title}</h1>
+        <h1 className="font-display text-5xl leading-none">{title}</h1>
         {description && (
           <p className="mt-3 text-muted-foreground text-sm">{description}</p>
         )}

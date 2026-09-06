@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Bodoni_Moda, Hanken_Grotesk } from "next/font/google";
-import { ThemeProvider } from "@/components/brand/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -36,14 +35,11 @@ export default function RootLayout({
   return (
     <html
       lang="tr"
-      suppressHydrationWarning
       className={`${bodoni.variable} ${hanken.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <ThemeProvider>
-          {children}
-          <Toaster />
-        </ThemeProvider>
+        {children}
+        <Toaster />
       </body>
     </html>
   );

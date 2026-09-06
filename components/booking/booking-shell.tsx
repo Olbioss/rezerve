@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ThemeToggle } from "@/components/brand/theme-toggle";
 import { cn } from "@/lib/utils";
 
 /** First letter of the business name, uppercased with Turkish casing. */
@@ -24,10 +23,7 @@ export function BookingShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative flex min-h-svh flex-1 flex-col">
-      <div className="absolute top-4 right-4 z-10">
-        <ThemeToggle />
-      </div>
+    <div className="flex min-h-svh flex-1 flex-col">
       <main className="mx-auto w-full max-w-lg flex-1 px-5 pb-16">
         <header
           className={cn(
@@ -61,7 +57,7 @@ export function BookingShell({
       <footer className="border-border/60 border-t py-6 text-center">
         <Link
           href="/"
-          className="eyebrow text-muted-foreground transition-colors hover:text-brand-ink"
+          className="underline-draw eyebrow text-muted-foreground transition-colors hover:text-brand-ink"
         >
           Rezerve ile alındı
         </Link>

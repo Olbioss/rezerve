@@ -17,7 +17,7 @@ export function BookingSummary({
   currency: string;
 }) {
   return (
-    <div className="surface-contrast rounded-2xl p-5 ring-1 ring-hair">
+    <div className="surface-ivory rounded-2xl p-5 ring-1 ring-hair">
       <p className="font-display text-2xl leading-tight">{serviceName}</p>
       <p className="mt-1 font-display text-brand-ink text-xl italic">{when}</p>
       <dl className="mt-4 grid gap-0 text-sm">

@@ -143,7 +143,7 @@ export default async function ConfirmationPage({
 
         <Link
           href={`/r/${slug}`}
-          className="eyebrow mt-10 inline-block text-muted-foreground underline underline-offset-4 transition-colors hover:text-brand-ink"
+          className="underline-draw eyebrow mt-10 inline-block text-muted-foreground transition-colors hover:text-brand-ink"
         >
           {business.orgName} sayfasına dön
         </Link>

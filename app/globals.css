@@ -2,8 +2,6 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -23,68 +21,44 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-lit: var(--primary-lit);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-ink: var(--brand-ink);
+  --color-brand-lit: var(--brand-lit);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  /*
+   * Spec radii: chips 14, cards 16–18, floating ivory 20–24, phone 28.
+   * Tuned so the class names already in use land on those numbers.
+   */
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: calc(var(--radius) * 0.875);
+  --radius-xl: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.125);
+  --radius-3xl: calc(var(--radius) * 1.375);
+  --radius-4xl: calc(var(--radius) * 1.75);
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /*
  * ── Gece ──────────────────────────────────────────────────────
- * Two grounds: ivory (default) and night (.dark). Two scoped
- * surfaces let a subtree opt out of the page ground:
- *   .surface-night    always night   → panel rail
- *   .surface-contrast opposite ground → hero mock, CTA band
- * Order matters: ivory is declared first so `.dark` overrides it
- * on <html> at equal specificity.
+ * Dark-first by design. Night is the page ground everywhere the
+ * customer looks; the owner's workspace is the one ivory room.
+ *
+ * Two absolute scopes opt a subtree out of the ground:
+ *   .surface-ivory  always ivory  → panel workspace, cards on night
+ *   .surface-night  always night  → panel rail
+ * Absolute, not relative to the current ground: a surface names the
+ * colour it wants, so nesting one cannot silently invert it.
  */
 
-/* IVORY */
+/* NIGHT — the ground */
 :root,
-.dark .surface-contrast {
-  --background: #f3eee4;
-  --foreground: #0c1210;
-  --card: #fbf8f1;
-  --card-foreground: #0c1210;
-  --popover: #fbf8f1;
-  --popover-foreground: #0c1210;
-  --primary: #0c1210;
-  --primary-foreground: #e6c98f;
-  --secondary: #e9e2d4;
-  --secondary-foreground: #0c1210;
-  --muted: #e9e2d4;
-  --muted-foreground: #575f59;
-  --accent: #ece2ce;
-  --accent-foreground: #0c1210;
-  --brand: #d4b070;
-  --brand-foreground: #0c1210;
-  --brand-ink: #7a5a1e;
-  --destructive: #a8433a;
-  --border: rgb(12 18 16 / 0.12);
-  --input: rgb(12 18 16 / 0.24);
-  --ring: #b98f3f;
-  --hair: rgb(122 90 30 / 0.28);
-  --glow: rgb(212 176 112 / 0.18);
-  --grain-opacity: 0.04;
-  --radius: 1rem;
-  color-scheme: light;
-}
-
-/* NIGHT */
-.dark,
-.surface-night,
-:root:not(.dark) .surface-contrast {
+.surface-night {
   --background: #0c1210;
   --foreground: #f3eee4;
   --card: #131b18;
@@ -93,6 +67,7 @@
   --popover-foreground: #f3eee4;
   --primary: #d4b070;
   --primary-foreground: #0c1210;
+  --primary-lit: #e6c98f;
   --secondary: #1b2521;
   --secondary-foreground: #f3eee4;
   --muted: #1b2521;
@@ -102,29 +77,62 @@
   --brand: #d4b070;
   --brand-foreground: #0c1210;
   --brand-ink: #ddbc81;
+  --brand-lit: #e6c98f;
   --destructive: #e58c80;
   --border: rgb(212 176 112 / 0.16);
   --input: rgb(212 176 112 / 0.32);
   --ring: #d4b070;
   --hair: rgb(212 176 112 / 0.3);
   --glow: rgb(212 176 112 / 0.13);
-  --grain-opacity: 0.07;
   --radius: 1rem;
   color-scheme: dark;
 }
 
-/* The rail sits a shade below the workspace when the page is already night. */
-.dark .surface-night {
-  --background: #080d0b;
-  --card: #0f1614;
-  --muted: #16201c;
-  --accent: #1b2521;
+/* IVORY — scoped */
+.surface-ivory {
+  --background: #f3eee4;
+  --foreground: #0c1210;
+  --card: #fbf8f1;
+  --card-foreground: #0c1210;
+  --popover: #fbf8f1;
+  --popover-foreground: #0c1210;
+  --primary: #0c1210;
+  --primary-foreground: #e6c98f;
+  --primary-lit: #1b2521;
+  --secondary: #e9e2d4;
+  --secondary-foreground: #0c1210;
+  --muted: #e9e2d4;
+  --muted-foreground: #575f59;
+  --accent: #ece2ce;
+  --accent-foreground: #0c1210;
+  --brand: #d4b070;
+  --brand-foreground: #0c1210;
+  --brand-ink: #7a5a1e;
+  --brand-lit: #e6c98f;
+  --destructive: #a8433a;
+  --border: rgb(12 18 16 / 0.12);
+  --input: rgb(12 18 16 / 0.24);
+  --ring: #b98f3f;
+  --hair: rgb(122 90 30 / 0.28);
+  --glow: rgb(212 176 112 / 0.18);
+  --radius: 1rem;
+  color-scheme: light;
 }
 
-.surface-night,
-.surface-contrast {
+.surface-ivory,
+.surface-night {
   background-color: var(--background);
   color: var(--foreground);
+}
+
+/* The rail carries the same glow the body does, at its own scale. */
+.surface-night {
+  background-image: radial-gradient(
+    420px 320px at 50% 0%,
+    var(--glow),
+    transparent 62%
+  );
+  background-repeat: no-repeat;
 }
 
 @layer base {
@@ -151,7 +159,7 @@
     inset: 0;
     z-index: 9999;
     pointer-events: none;
-    opacity: var(--grain-opacity);
+    opacity: 0.07;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
   }
   ::selection {
@@ -184,6 +192,18 @@
   font-family: var(--font-bodoni), "Didot", Georgia, serif;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
+}
+
+/* A champagne rule drawn left to right on hover. */
+@utility underline-draw {
+  background-image: linear-gradient(var(--brand), var(--brand));
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 0% 1px;
+  transition: background-size 200ms var(--ease-out-quint);
+  &:hover {
+    background-size: 100% 1px;
+  }
 }
 
 /* ── Motion ─────────────────────────────────────────────────── */
@@ -227,5 +247,8 @@
   .marquee,
   .ring-draw {
     animation: none !important;
+  }
+  .underline-draw {
+    transition: none;
   }
 }

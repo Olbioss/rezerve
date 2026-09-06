@@ -24,7 +24,7 @@ export function ServiceCard({
     <button
       type="button"
       onClick={onSelect}
-      className="group flex w-full items-center gap-4 rounded-2xl bg-card px-5 py-4 text-left ring-1 ring-border transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:ring-brand/60 focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2"
+      className="surface-ivory group flex w-full items-center gap-4 rounded-2xl px-5 py-4 text-left ring-1 ring-hair transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:ring-brand/60 focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2"
     >
       <span className="min-w-0 flex-1">
         <span className="block font-display text-xl leading-tight">

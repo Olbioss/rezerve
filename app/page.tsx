@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ThemeToggle } from "@/components/brand/theme-toggle";
 import { Wordmark } from "@/components/brand/wordmark";
 import { Button } from "@/components/ui/button";
 
@@ -94,7 +93,7 @@ function SlotTicker() {
 function HeroMockup() {
   return (
     <div aria-hidden className="relative mx-auto w-full max-w-sm">
-      <div className="surface-contrast -rotate-[1.5deg] rounded-3xl p-6 shadow-[0_40px_80px_-30px_rgb(0_0_0/0.55)] ring-1 ring-hair">
+      <div className="surface-ivory -rotate-[1.5deg] rounded-3xl p-6 shadow-[0_40px_80px_-30px_rgb(0_0_0/0.55)] ring-1 ring-hair">
         <p className="font-display text-2xl leading-none">
           Günnur <em className="text-brand-ink">Estetik</em>
         </p>
@@ -143,11 +142,20 @@ export default function Home() {
       <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-6">
         <Wordmark href={null} />
         <nav className="flex items-center gap-2 sm:gap-3">
-          <ThemeToggle />
-          <Button variant="ghost" size="sm" render={<Link href="/giris" />}>
+          <Button
+            nativeButton={false}
+            variant="ghost"
+            size="sm"
+            render={<Link href="/giris" />}
+          >
             Giriş yap
           </Button>
-          <Button variant="outline" size="sm" render={<Link href="/kayit" />}>
+          <Button
+            nativeButton={false}
+            variant="outline"
+            size="sm"
+            render={<Link href="/kayit" />}
+          >
             Hemen başla
           </Button>
         </nav>
@@ -156,7 +164,7 @@ export default function Home() {
       <main className="flex-1">
         {/* Hero */}
         <section className="mx-auto grid w-full max-w-6xl items-center gap-14 px-5 pt-10 pb-20 lg:grid-cols-[1.05fr_0.95fr]">
-          <div>
+          <div className="min-w-0">
             <p
               className="eyebrow rise text-brand-ink"
               style={{ animationDelay: "0ms" }}
@@ -164,7 +172,7 @@ export default function Home() {
               Yerel işletmeler için online randevu
             </p>
             <h1
-              className="rise mt-5 font-display text-5xl leading-[0.95] sm:text-6xl lg:text-7xl"
+              className="rise mt-5 break-words font-display text-[2.5rem] leading-[0.95] sm:text-6xl lg:text-7xl xl:text-[5rem]"
               style={{ animationDelay: "60ms" }}
             >
               Müşterileriniz kendi randevusunu{" "}
@@ -182,10 +190,16 @@ export default function Home() {
               className="rise mt-9 flex flex-wrap items-center gap-3"
               style={{ animationDelay: "180ms" }}
             >
-              <Button variant="brand" size="lg" render={<Link href="/kayit" />}>
+              <Button
+                nativeButton={false}
+                variant="brand"
+                size="lg"
+                render={<Link href="/kayit" />}
+              >
                 Ücretsiz başlayın
               </Button>
               <Button
+                nativeButton={false}
                 variant="outline"
                 size="lg"
                 render={<Link href="/r/demo" />}
@@ -230,7 +244,7 @@ export default function Home() {
         {/* Features */}
         <section className="mx-auto w-full max-w-6xl px-5 pb-24">
           <p className="eyebrow text-brand-ink">Neden Rezerve</p>
-          <h2 className="mt-4 max-w-[18ch] font-display text-4xl leading-[1.05] sm:text-5xl">
+          <h2 className="mt-4 max-w-[18ch] font-display text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">
             Küçük işletme, büyük dertler. Rezerve{" "}
             <em className="text-brand-ink">dördünü de</em> çözer.
           </h2>
@@ -254,8 +268,8 @@ export default function Home() {
 
         {/* CTA */}
         <section className="mx-auto w-full max-w-6xl px-5 pb-24">
-          <div className="surface-contrast rounded-3xl px-6 py-20 text-center ring-1 ring-hair">
-            <h2 className="mx-auto max-w-[20ch] font-display text-4xl leading-[1.05] sm:text-5xl">
+          <div className="surface-ivory rounded-3xl px-6 py-20 text-center ring-1 ring-hair">
+            <h2 className="mx-auto max-w-[20ch] font-display text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">
               Bugün kurun,{" "}
               <em className="text-brand-ink">yarın dolu başlayın.</em>
             </h2>
@@ -263,6 +277,7 @@ export default function Home() {
               Randevu sayfanız 5 dakikada yayında. Kredi kartı gerekmez.
             </p>
             <Button
+              nativeButton={false}
               variant="brand"
               size="lg"
               className="mt-9"
@@ -283,13 +298,13 @@ export default function Home() {
           <div className="flex gap-5 text-sm">
             <Link
               href="/giris"
-              className="text-muted-foreground transition-colors hover:text-brand-ink"
+              className="underline-draw text-muted-foreground transition-colors hover:text-brand-ink"
             >
               Giriş yap
             </Link>
             <Link
               href="/kayit"
-              className="text-muted-foreground transition-colors hover:text-brand-ink"
+              className="underline-draw text-muted-foreground transition-colors hover:text-brand-ink"
             >
               Kayıt ol
             </Link>
