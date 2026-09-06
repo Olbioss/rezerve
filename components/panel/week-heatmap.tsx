@@ -24,7 +24,7 @@ export function WeekHeatmap({ week }: { week: WeekGrid }) {
   return (
     <div className="rounded-2xl bg-card p-5 ring-1 ring-border">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="font-display text-2xl">Bu hafta</h2>
+        <h2 className="font-display text-2xl">Önümüzdeki 7 gün</h2>
         <span className="eyebrow text-muted-foreground">{week.rangeLabel}</span>
       </div>
 
@@ -34,10 +34,13 @@ export function WeekHeatmap({ week }: { week: WeekGrid }) {
             <span />
             {week.days.map((day) => (
               <span
-                key={day.weekday + day.dayNumber}
-                className="pb-1 text-center text-[0.6rem] text-muted-foreground"
+                key={day.dateISO}
+                className="flex flex-col items-center pb-1 text-[0.6rem] text-muted-foreground leading-tight"
               >
                 {day.weekday}
+                <span className="numeral text-foreground text-xs">
+                  {day.dayNumber}
+                </span>
               </span>
             ))}
 
@@ -89,8 +92,8 @@ function Row({
       </span>
       {states.map((state, dayIndex) => (
         <span
-          key={days[dayIndex].weekday + days[dayIndex].dayNumber}
-          title={`${days[dayIndex].weekday} ${String(hour).padStart(2, "0")}:00`}
+          key={days[dayIndex].dateISO}
+          title={`${days[dayIndex].weekday} ${days[dayIndex].dayNumber} · ${String(hour).padStart(2, "0")}:00`}
           className={cn("h-5 rounded-[4px]", CELL[state])}
         />
       ))}

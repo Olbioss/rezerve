@@ -34,9 +34,10 @@ describe("WeekHeatmap", () => {
     expect(cells).toHaveLength(56);
   });
 
-  it("labels the columns Monday-first in Turkish", () => {
+  it("labels the columns from today forward in Turkish", () => {
     const html = markup();
-    const order = ["PZT", "SAL", "ÇAR", "PER", "CUM", "CMT", "PAZ"];
+    // now is Wednesday 9 Sep.
+    const order = ["ÇAR", "PER", "CUM", "CMT", "PAZ", "PZT", "SAL"];
     let cursor = -1;
     for (const day of order) {
       const at = html.indexOf(day, cursor + 1);
@@ -72,10 +73,19 @@ describe("WeekHeatmap", () => {
 
   it("renders the legend and the date range", () => {
     const html = markup();
-    for (const label of ["Onaylı", "Bekliyor", "Boş", "Bu hafta"]) {
+    for (const label of ["Onaylı", "Bekliyor", "Boş", "Önümüzdeki 7 gün"]) {
       expect(html).toContain(label);
     }
-    expect(html).toMatch(/7–13 Eyl/);
+    // now is Wednesday 9 Sep, so the window runs 9–15 Eyl.
+    expect(html).toMatch(/9–15 Eyl/);
+  });
+
+  it("labels each column with its date, since the columns roll", () => {
+    const html = markup();
+    // Without a date, a rolling "PZT" column is ambiguous.
+    for (const day of ["9", "10", "11", "12", "13", "14", "15"]) {
+      expect(html).toContain(`>${day}<`);
+    }
   });
 
   it("survives a business with no opening hours", () => {

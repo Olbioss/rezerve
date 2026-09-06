@@ -4,17 +4,20 @@ import { db } from "@/lib/db";
 import { availabilityRules } from "@/lib/db/schema/availability-schema";
 import { bookings } from "@/lib/db/schema/booking-schema";
 import type { WeekGrid } from "./week-grid";
-import { buildWeekGrid, localMidnight, weekDayISOs } from "./week-grid";
+import { buildWeekGrid, localMidnight, windowDayISOs } from "./week-grid";
 
 export type { CellState, WeekGrid } from "./week-grid";
 
-/** Loads the week's rules and bookings, then hands them to `buildWeekGrid`. */
+/**
+ * Loads the rules and bookings for the next seven days, then hands them to
+ * `buildWeekGrid`. The window matches the stat tiles on the same page.
+ */
 export async function getWeekOverview(
   organizationId: string,
   timezone: string,
   now: Date = new Date()
 ): Promise<WeekGrid> {
-  const dayISOs = weekDayISOs(now, timezone);
+  const dayISOs = windowDayISOs(now, timezone);
   const weekStart = localMidnight(dayISOs[0], timezone);
   const weekEnd = new Date(
     localMidnight(dayISOs[6], timezone).getTime() + 86_400_000

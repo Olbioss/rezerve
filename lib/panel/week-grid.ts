@@ -1,5 +1,5 @@
 import { TZDate } from "@date-fns/tz";
-import type { AvailabilityInterval } from "@/lib/booking/slots";
+import { type AvailabilityInterval, weekdayFor } from "@/lib/booking/slots";
 
 /** What one hour of one day looks like on the overview grid. */
 export type CellState = "closed" | "free" | "pending" | "confirmed";
@@ -19,7 +19,7 @@ export type WeekGridInput = {
 };
 
 export type WeekGrid = {
-  /** Monday-first, in the business's own week. */
+  /** Today first, then the six days after it. */
   days: { dateISO: string; weekday: string; dayNumber: string }[];
   /** Hour labels down the left edge, derived from the opening hours. */
   hours: number[];
@@ -45,14 +45,19 @@ export function localMidnight(dateISO: string, timezone: string): Date {
   return new Date(new TZDate(y, m - 1, d, timezone).getTime());
 }
 
-/** The seven local dates of the week `now` falls in, Monday first. */
-export function weekDayISOs(now: Date, timezone: string): string[] {
+/**
+ * The next seven local dates, starting today.
+ *
+ * Deliberately a rolling window rather than the Monday–Sunday week the
+ * artifact draws: the stat tiles beside this grid count `now` to `now + 7d`,
+ * and two windows labelled "bu hafta" on one screen disagreed with each
+ * other. A calendar week is also dead weight by Sunday, when every column
+ * is spent and tomorrow's bookings fall outside it.
+ */
+export function windowDayISOs(now: Date, timezone: string): string[] {
   const today = new TZDate(now.getTime(), timezone);
-  const mondayOffset = (today.getDay() + 6) % 7;
   return Array.from({ length: 7 }, (_, i) =>
-    isoOf(
-      new TZDate(today.getTime() + (i - mondayOffset) * 86_400_000, timezone)
-    )
+    isoOf(new TZDate(today.getTime() + i * 86_400_000, timezone))
   );
 }
 
@@ -66,7 +71,7 @@ export function weekDayISOs(now: Date, timezone: string): string[] {
  */
 export function buildWeekGrid(input: WeekGridInput): WeekGrid {
   const { now, timezone, rules, bookings } = input;
-  const dayISOs = weekDayISOs(now, timezone);
+  const dayISOs = windowDayISOs(now, timezone);
 
   // Row range follows the opening hours, so a salon open 12–21 doesn't get
   // a grid of empty mornings.
@@ -101,8 +106,9 @@ export function buildWeekGrid(input: WeekGridInput): WeekGrid {
     });
 
   const cells: CellState[][] = hours.map((hour) =>
-    dayISOs.map((dateISO, dayIndex) => {
-      const weekday = (dayIndex + 1) % 7; // Monday-first → 0 = Sunday
+    dayISOs.map((dateISO) => {
+      // Columns roll, so the weekday comes from the date itself.
+      const weekday = weekdayFor(dateISO, timezone);
       const hourStart = hour * 60;
       const hourEnd = hourStart + 60;
 
