@@ -4,7 +4,7 @@ import { requireEnv } from "@/lib/env";
 
 let client: Iyzipay | null = null;
 
-function getIyzipay(): Iyzipay {
+export function getIyzipay(): Iyzipay {
   if (!client) {
     client = new Iyzipay({
       apiKey: requireEnv("IYZICO_API_KEY"),
@@ -30,6 +30,12 @@ export type DepositCheckoutInput = {
   businessName: string;
   depositCents: number;
   currency: string;
+  /**
+   * The business's iyzico submerchant. Required, not optional: without it the
+   * deposit settles into the *platform's* account instead of the business's,
+   * so making it mandatory turns that mistake into a compile error.
+   */
+  subMerchantKey: string;
   customerName: string;
   customerEmail: string;
   customerIp: string;
@@ -110,6 +116,10 @@ export function createDepositCheckout(
             category1: "Randevu",
             itemType: Iyzipay.BASKET_ITEM_TYPE.VIRTUAL,
             price,
+            subMerchantKey: input.subMerchantKey,
+            // Equal to price: the platform takes no commission, the whole
+            // kapora goes to the business.
+            subMerchantPrice: price,
           },
         ],
       } as unknown as InitParams,
@@ -153,6 +163,163 @@ export function retrieveCheckout(token: string): Promise<CheckoutResult> {
             result.status === "success" && result.paymentStatus === "SUCCESS",
           paidPrice: result.paidPrice != null ? String(result.paidPrice) : null,
         });
+      }
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Marketplace submerchants — where a business's kapora actually settles.
+// ---------------------------------------------------------------------------
+
+export type SubMerchantType =
+  | "personal"
+  | "private_company"
+  | "limited_or_joint_stock_company";
+
+const SUB_MERCHANT_TYPE_MAP: Record<SubMerchantType, string> = {
+  personal: Iyzipay.SUB_MERCHANT_TYPE.PERSONAL,
+  private_company: Iyzipay.SUB_MERCHANT_TYPE.PRIVATE_COMPANY,
+  limited_or_joint_stock_company:
+    Iyzipay.SUB_MERCHANT_TYPE.LIMITED_OR_JOINT_STOCK_COMPANY,
+};
+
+export type SubMerchantInput = {
+  /** Always the organization id — deterministic, so create is recoverable. */
+  subMerchantExternalId: string;
+  merchantType: SubMerchantType;
+  name: string;
+  email: string;
+  gsmNumber: string;
+  address: string;
+  iban: string;
+  legalCompanyTitle?: string | null;
+  contactName?: string | null;
+  contactSurname?: string | null;
+  identityNumber?: string | null;
+  taxNumber?: string | null;
+  taxOffice?: string | null;
+};
+
+/**
+ * @types/iyzipay declares identityNumber as required and omits taxNumber
+ * entirely, but the SDK's CreateSubMerchantRequest reads taxNumber and the
+ * limited-company flow sends it *instead of* identityNumber. Ours is the
+ * shape the wire actually takes.
+ */
+type SubMerchantResult = {
+  status: string;
+  subMerchantKey?: string;
+  errorCode?: string;
+  errorMessage?: string;
+};
+
+function subMerchantBody(input: SubMerchantInput) {
+  return {
+    locale: Iyzipay.LOCALE.TR,
+    conversationId: input.subMerchantExternalId,
+    subMerchantExternalId: input.subMerchantExternalId,
+    subMerchantType: SUB_MERCHANT_TYPE_MAP[input.merchantType],
+    address: input.address,
+    name: input.name,
+    email: input.email,
+    gsmNumber: input.gsmNumber,
+    iban: input.iban,
+    currency: Iyzipay.CURRENCY.TRY,
+    ...(input.legalCompanyTitle
+      ? { legalCompanyTitle: input.legalCompanyTitle }
+      : {}),
+    ...(input.contactName ? { contactName: input.contactName } : {}),
+    ...(input.contactSurname ? { contactSurname: input.contactSurname } : {}),
+    ...(input.identityNumber ? { identityNumber: input.identityNumber } : {}),
+    ...(input.taxNumber ? { taxNumber: input.taxNumber } : {}),
+    ...(input.taxOffice ? { taxOffice: input.taxOffice } : {}),
+  };
+}
+
+function unwrapKey(result: SubMerchantResult, action: string): string {
+  if (result.status !== "success" || !result.subMerchantKey) {
+    throw new Error(
+      `iyzico ${action} failed: ${result.errorMessage ?? result.status}`
+    );
+  }
+  return result.subMerchantKey;
+}
+
+/** Create the submerchant and return its key. */
+export function createSubMerchant(input: SubMerchantInput): Promise<string> {
+  return new Promise((resolve, reject) => {
+    getIyzipay().subMerchant.create(
+      subMerchantBody(input) as never,
+      (err, raw) => {
+        if (err) return reject(err);
+        try {
+          resolve(
+            unwrapKey(raw as unknown as SubMerchantResult, "submerchant create")
+          );
+        } catch (e) {
+          reject(e);
+        }
+      }
+    );
+  });
+}
+
+/** Update an existing submerchant in place. */
+export function updateSubMerchant(
+  input: SubMerchantInput & { subMerchantKey: string }
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    getIyzipay().subMerchant.update(
+      {
+        ...subMerchantBody(input),
+        subMerchantKey: input.subMerchantKey,
+      } as never,
+      (err, raw) => {
+        if (err) return reject(err);
+        try {
+          const result = raw as unknown as SubMerchantResult;
+          if (result.status !== "success") {
+            throw new Error(
+              `iyzico submerchant update failed: ${result.errorMessage ?? result.status}`
+            );
+          }
+          resolve(input.subMerchantKey);
+        } catch (e) {
+          reject(e);
+        }
+      }
+    );
+  });
+}
+
+/**
+ * Look a submerchant up by our own external id.
+ *
+ * This is the recovery path: subMerchant.create is not retry-safe, so if we
+ * crash between iyzico accepting and us storing the key, this is how the key
+ * is found again instead of the org being stranded forever.
+ *
+ * Returns null when iyzico has no such submerchant.
+ */
+export function retrieveSubMerchant(
+  subMerchantExternalId: string
+): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    getIyzipay().subMerchant.retrieve(
+      {
+        locale: Iyzipay.LOCALE.TR,
+        conversationId: subMerchantExternalId,
+        subMerchantExternalId,
+      },
+      (err, raw) => {
+        if (err) return reject(err);
+        const result = raw as unknown as SubMerchantResult;
+        resolve(
+          result.status === "success" && result.subMerchantKey
+            ? result.subMerchantKey
+            : null
+        );
       }
     );
   });

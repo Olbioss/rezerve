@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/panel/empty-state";
@@ -35,9 +37,12 @@ type Service = ServiceInput & { id: string };
 export function ServicesManager({
   services,
   currency,
+  onlineDeposit,
 }: {
   services: Service[];
   currency: string;
+  /** Kapora amounts stay stored when Pro lapses, but stop being charged. */
+  onlineDeposit: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Service | null>(null);
@@ -126,9 +131,20 @@ export function ServicesManager({
                   {formatMoney(service.priceCents, currency)}
                 </TableCell>
                 <TableCell className="numeral">
-                  {service.depositCents
-                    ? formatMoney(service.depositCents, currency)
-                    : "—"}
+                  {service.depositCents ? (
+                    onlineDeposit ? (
+                      formatMoney(service.depositCents, currency)
+                    ) : (
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <s className="text-muted-foreground">
+                          {formatMoney(service.depositCents, currency)}
+                        </s>
+                        <Badge variant="ghost">Pasif — Pro gerekli</Badge>
+                      </span>
+                    )
+                  ) : (
+                    "—"
+                  )}
                 </TableCell>
                 <TableCell>
                   <Badge variant={service.active ? "default" : "ghost"}>
@@ -227,12 +243,25 @@ export function ServicesManager({
                   type="number"
                   min={0}
                   step="0.01"
+                  disabled={!onlineDeposit}
                   defaultValue={
                     editing?.depositCents
                       ? (editing.depositCents / 100).toString()
                       : ""
                   }
                 />
+                {!onlineDeposit && (
+                  <p className="text-muted-foreground text-xs">
+                    Online kapora Pro planına özel.{" "}
+                    <Link
+                      href="/panel/abonelik"
+                      className="underline underline-offset-2"
+                    >
+                      Pro'ya geçin
+                    </Link>
+                    .
+                  </p>
+                )}
               </div>
             </div>
             <Button type="submit" variant="brand" disabled={pending}>

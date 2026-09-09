@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/brand/wordmark";
 import { Button } from "@/components/ui/button";
+import { PLANS } from "@/lib/billing/plans";
+import { formatMoney } from "@/lib/format";
 
 const TICKER_SLOTS = [
   "09:00",
@@ -211,7 +213,8 @@ export default function Home() {
               className="eyebrow rise mt-6 text-muted-foreground"
               style={{ animationDelay: "240ms" }}
             >
-              Kurulum 5 dakika · Müşterileriniz için üyelik gerekmez
+              Kurulum 5 dakika · Müşterileriniz için üyelik gerekmez · Online
+              kapora Pro'da
             </p>
           </div>
           <div className="rise" style={{ animationDelay: "160ms" }}>
@@ -266,6 +269,65 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Fiyatlandırma */}
+        <section
+          id="fiyatlandirma"
+          className="mx-auto w-full max-w-6xl px-5 pb-24"
+        >
+          <h2 className="font-display text-4xl leading-[1.05] sm:text-5xl">
+            Basit fiyat, <em className="text-brand-ink">gizli kesinti yok.</em>
+          </h2>
+          <p className="mt-4 max-w-lg text-muted-foreground">
+            Randevu almak her zaman ücretsiz. Online kapora toplamak isterseniz
+            Pro'ya geçin — kaporanın tamamı sizin hesabınıza geçer.
+          </p>
+          <div className="mt-10 grid gap-5 sm:grid-cols-2">
+            {(["free", "pro"] as const).map((key) => {
+              const plan = PLANS[key];
+              const isPro = key === "pro";
+              return (
+                <div
+                  key={key}
+                  className={
+                    isPro
+                      ? "surface-ivory grid content-start gap-4 rounded-3xl px-7 py-9 ring-1 ring-brand/30"
+                      : "grid content-start gap-4 rounded-3xl px-7 py-9 ring-1 ring-hair"
+                  }
+                >
+                  <p className="eyebrow text-muted-foreground">{plan.name}</p>
+                  <p className="font-display text-5xl">
+                    {formatMoney(plan.priceCents, "try")}
+                    <span className="text-muted-foreground text-xl">
+                      {plan.interval}
+                    </span>
+                  </p>
+                  <p className="text-muted-foreground">{plan.tagline}</p>
+                  <ul className="grid gap-2 text-sm">
+                    {plan.bullets.map((bullet) => (
+                      <li key={bullet} className="flex gap-2">
+                        <span className="text-brand-ink">·</span>
+                        <span>{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="eyebrow text-muted-foreground">
+                    {plan.footnote}
+                  </p>
+                  <div className="mt-2">
+                    <Button
+                      nativeButton={false}
+                      variant={isPro ? "brand" : "outline"}
+                      render={<Link href="/kayit" />}
+                    >
+                      {isPro ? "Pro ile başlayın" : "Ücretsiz başlayın"}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
         {/* CTA */}
         <section className="mx-auto w-full max-w-6xl px-5 pb-24">
           <div className="surface-ivory rounded-3xl px-6 py-20 text-center ring-1 ring-hair">
@@ -274,7 +336,8 @@ export default function Home() {
               <em className="text-brand-ink">yarın dolu başlayın.</em>
             </h2>
             <p className="mx-auto mt-5 max-w-md text-muted-foreground">
-              Randevu sayfanız 5 dakikada yayında. Kredi kartı gerekmez.
+              Randevu sayfanız 5 dakikada yayında. Ücretsiz planda kredi kartı
+              gerekmez.
             </p>
             <Button
               nativeButton={false}

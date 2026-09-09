@@ -4,6 +4,7 @@ import {
   ArrowUpRightIcon,
   CalendarDaysIcon,
   ClockIcon,
+  CreditCardIcon,
   LayoutGridIcon,
   ListIcon,
   SettingsIcon,
@@ -18,6 +19,7 @@ const NAV = [
   { href: "/panel/randevular", label: "Randevular", icon: CalendarDaysIcon },
   { href: "/panel/hizmetler", label: "Hizmetler", icon: ListIcon },
   { href: "/panel/saatler", label: "Çalışma saatleri", icon: ClockIcon },
+  { href: "/panel/abonelik", label: "Abonelik", icon: CreditCardIcon },
   { href: "/panel/ayarlar", label: "Ayarlar", icon: SettingsIcon },
 ];
 

@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth-guard";
+import { getBilling } from "@/lib/billing/get-billing";
 import {
   getAvailableSlots,
   getBusinessBySlug,
@@ -19,7 +20,7 @@ import {
   sendBookingConfirmedEmails,
 } from "@/lib/email/booking-notifications";
 import { requireEnv } from "@/lib/env";
-import { createDepositCheckout } from "@/lib/payments/iyzico";
+import { getPaymentProvider } from "@/lib/payments";
 
 const createBookingSchema = z.object({
   slug: z.string().min(1),
@@ -89,10 +90,17 @@ export async function createBooking(
 
   await cancelExpiredHolds(business.organizationId);
 
+  // Public path — no requireOwner() here, so entitlements come straight from
+  // the business's own rows. A DB read only: never poll iyzico on a booking.
+  const billing = await getBilling(business.organizationId);
+
   const endsAt = new Date(
     startsAt.getTime() + service.durationMinutes * 60_000
   );
-  const requiresDeposit = service.depositCents != null;
+  // A stored kapora on a lapsed plan is kept but not collected, so the
+  // snapshot below must follow this flag rather than the service row —
+  // otherwise the booking claims a deposit nobody was ever charged.
+  const requiresDeposit = service.depositCents != null && billing.onlineDeposit;
 
   let created: typeof bookings.$inferSelect;
   try {
@@ -106,7 +114,7 @@ export async function createBooking(
         startsAt,
         endsAt,
         status: requiresDeposit ? "pending" : "confirmed",
-        depositCents: service.depositCents,
+        depositCents: requiresDeposit ? service.depositCents : null,
         expiresAt: requiresDeposit ? new Date(Date.now() + 30 * 60_000) : null,
       })
       .returning();
@@ -122,11 +130,19 @@ export async function createBooking(
   if (requiresDeposit && service.depositCents != null) {
     let checkoutUrl: string;
     try {
+      const subMerchantKey = billing.payoutAccount?.subMerchantKey;
+      if (!subMerchantKey) {
+        // Unreachable in practice — onlineDeposit requires an active payout
+        // account, and payout_accounts_active_has_key requires an active
+        // account to carry a key. Throwing reuses the hold release below
+        // rather than inventing a second failure path.
+        throw new Error("Entitled for deposits but no submerchant key");
+      }
       const requestHeaders = await headers();
       const customerIp =
         requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
         "85.34.78.112";
-      const checkout = await createDepositCheckout({
+      const checkout = await getPaymentProvider().createDepositCheckout({
         bookingId: created.id,
         serviceName: service.name,
         businessName: business.orgName,
@@ -135,8 +151,12 @@ export async function createBooking(
         customerName,
         customerEmail,
         customerIp,
+        subMerchantKey,
         appUrl: requireEnv("NEXT_PUBLIC_APP_URL"),
       });
+      if (!checkout.paymentPageUrl) {
+        throw new Error("Payment provider returned no hosted page URL");
+      }
       checkoutUrl = checkout.paymentPageUrl;
       await db
         .update(bookings)

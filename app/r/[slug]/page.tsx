@@ -1,6 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { BookingShell } from "@/components/booking/booking-shell";
+import { getBilling } from "@/lib/billing/get-billing";
 import {
   getBusinessBySlug,
   getOpenWeekdays,
@@ -18,7 +19,7 @@ export default async function BookingPage({
   const business = await getBusinessBySlug(slug);
   if (!business) notFound();
 
-  const [rows, openWeekdays] = await Promise.all([
+  const [rows, openWeekdays, billing] = await Promise.all([
     db.query.services.findMany({
       where: and(
         eq(services.organizationId, business.organizationId),
@@ -27,6 +28,7 @@ export default async function BookingPage({
       orderBy: [asc(services.createdAt)],
     }),
     getOpenWeekdays(business.organizationId),
+    getBilling(business.organizationId),
   ]);
 
   return (
@@ -46,7 +48,9 @@ export default async function BookingPage({
           description: s.description,
           durationMinutes: s.durationMinutes,
           priceCents: s.priceCents,
-          depositCents: s.depositCents,
+          // Gated here so the service card, the summary and the submit
+          // label can't advertise a kapora that createBooking won't collect.
+          depositCents: billing.onlineDeposit ? s.depositCents : null,
         }))}
       />
     </BookingShell>

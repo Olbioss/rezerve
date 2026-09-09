@@ -4,11 +4,12 @@ import { db } from "@/lib/db";
 import { organization } from "@/lib/db/schema/auth-schema";
 import { bookings } from "@/lib/db/schema/booking-schema";
 import { requireEnv } from "@/lib/env";
+import { getPaymentProvider } from "@/lib/payments";
 import {
   cancelFailedPayment,
   confirmPaidBooking,
 } from "@/lib/payments/handle-payment-result";
-import { retrieveCheckout } from "@/lib/payments/iyzico";
+import type { CheckoutResult } from "@/lib/payments/provider";
 
 /**
  * iyzico Checkout Form callback. The customer's browser is POSTed here after
@@ -23,9 +24,9 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL("/", appUrl), 303);
   }
 
-  let result: Awaited<ReturnType<typeof retrieveCheckout>>;
+  let result: CheckoutResult;
   try {
-    result = await retrieveCheckout(token);
+    result = await getPaymentProvider().retrieveCheckout(token);
   } catch (err) {
     console.error("iyzico retrieve failed:", err);
     return NextResponse.redirect(new URL("/", appUrl), 303);

@@ -6,6 +6,7 @@ const RESERVED_SLUGS = new Set([
   "b",
   "r",
   "demo",
+  "demo-ucretsiz",
   "rezerve",
   "giris",
   "kayit",
@@ -19,6 +20,7 @@ const RESERVED_SLUGS = new Set([
   "settings",
   "about",
   "pricing",
+  "fiyatlandirma",
   "terms",
   "privacy",
 ]);

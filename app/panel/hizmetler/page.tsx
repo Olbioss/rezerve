@@ -7,7 +7,7 @@ import { ServicesManager } from "./services-manager";
 export const metadata = { title: "Hizmetler" };
 
 export default async function ServicesPage() {
-  const { organizationId, profile } = await requireOwner();
+  const { organizationId, profile, billing } = await requireOwner();
   const rows = await db.query.services.findMany({
     where: eq(services.organizationId, organizationId),
     orderBy: [asc(services.createdAt)],
@@ -25,6 +25,7 @@ export default async function ServicesPage() {
         active: s.active,
       }))}
       currency={profile.currency}
+      onlineDeposit={billing.onlineDeposit}
     />
   );
 }

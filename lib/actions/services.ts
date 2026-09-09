@@ -19,13 +19,19 @@ const serviceSchema = z.object({
 export type ServiceInput = z.infer<typeof serviceSchema>;
 export type ActionResult = { error: string } | undefined;
 
+const DEPOSIT_LOCKED =
+  "Online kapora Pro planına özel. Pro'ya geçtiğinizde kapora ekleyebilirsiniz.";
+
 export async function createService(
   input: ServiceInput
 ): Promise<ActionResult> {
-  const { organizationId } = await requireOwner();
+  const { organizationId, billing } = await requireOwner();
   const parsed = serviceSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Geçersiz bilgi" };
+  }
+  if (parsed.data.depositCents !== null && !billing.onlineDeposit) {
+    return { error: DEPOSIT_LOCKED };
   }
   if (
     parsed.data.depositCents !== null &&
@@ -41,7 +47,7 @@ export async function updateService(
   id: string,
   input: ServiceInput
 ): Promise<ActionResult> {
-  const { organizationId } = await requireOwner();
+  const { organizationId, billing } = await requireOwner();
   const parsed = serviceSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Geçersiz bilgi" };
@@ -51,6 +57,24 @@ export async function updateService(
     parsed.data.depositCents > parsed.data.priceCents
   ) {
     return { error: "Kapora fiyattan büyük olamaz" };
+  }
+  // A downgraded owner keeps their stored kapora amounts and must still be
+  // able to rename or reprice the service — so gate only *introducing* or
+  // *raising* a deposit, never merely carrying one forward.
+  if (parsed.data.depositCents !== null && !billing.onlineDeposit) {
+    const existing = await db.query.services.findFirst({
+      where: and(
+        eq(services.id, id),
+        eq(services.organizationId, organizationId)
+      ),
+    });
+    if (!existing) return { error: "Hizmet bulunamadı" };
+    if (
+      existing.depositCents === null ||
+      parsed.data.depositCents > existing.depositCents
+    ) {
+      return { error: DEPOSIT_LOCKED };
+    }
   }
   await db
     .update(services)
