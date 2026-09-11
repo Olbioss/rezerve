@@ -4,17 +4,29 @@ import { iyzicoProvider } from "./drivers/iyzico";
 import type { PaymentProvider } from "./provider";
 
 /**
- * Which driver backs payments.
+ * Which driver backs payments — chosen per capability, because the two halves
+ * of the integration are in genuinely different states.
  *
- * Defaults to `fake` deliberately: the real driver needs Marketplace and
- * Abonelik provisioned on the iyzico merchant account, and without them every
- * submerchant and subscription call fails. Set PAYMENTS_DRIVER=iyzico once
- * iyzico has enabled both.
+ * `deposits` covers the kapora checkout and submerchant onboarding, which are
+ * verified working against a marketplace-enabled account. `billing` covers the
+ * platform's own subscription revenue on stored cards.
+ *
+ * Both default to `fake` so a clone with no iyzico credentials still runs the
+ * whole product end to end.
  */
-export function getPaymentProvider(): PaymentProvider {
-  return process.env.PAYMENTS_DRIVER === "iyzico"
+export type Capability = "deposits" | "billing";
+
+const ENV_VAR: Record<Capability, string> = {
+  deposits: "PAYMENTS_DRIVER_DEPOSITS",
+  billing: "PAYMENTS_DRIVER_BILLING",
+};
+
+export function getPaymentProvider(capability: Capability): PaymentProvider {
+  return process.env[ENV_VAR[capability]] === "iyzico"
     ? iyzicoProvider
     : fakeProvider;
 }
 
-export const PAYMENTS_DRIVER = process.env.PAYMENTS_DRIVER ?? "fake";
+export function driverName(capability: Capability): "iyzico" | "fake" {
+  return process.env[ENV_VAR[capability]] === "iyzico" ? "iyzico" : "fake";
+}

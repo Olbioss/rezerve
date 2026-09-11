@@ -78,31 +78,38 @@ export type SubMerchantInput = {
 
 export type SubscriptionCheckoutInput = {
   organizationId: string;
+  amountCents: number;
   customerName: string;
   customerEmail: string;
   appUrl: string;
+  /** Reuse the org's existing card vault, when it has one. */
+  cardUserKey?: string | null;
 };
 
 export type SubscriptionCheckoutResult = {
   organizationId: string | null;
   paid: boolean;
-  subscriptionRef: string | null;
-  customerRef: string | null;
+  /** The card the first payment stored, for charging renewals. */
+  cardUserKey: string | null;
+  cardToken: string | null;
+  paymentRef: string | null;
 };
 
-/** Mirrors Iyzipay.SUBSCRIPTION_STATUS; mapped to our enum by the caller. */
-export type ProviderSubscriptionStatus =
-  | "ACTIVE"
-  | "PENDING"
-  | "UNPAID"
-  | "EXPIRED"
-  | "CANCELED"
-  | "UPGRADED";
+export type StoredCardChargeInput = {
+  organizationId: string;
+  cardUserKey: string;
+  cardToken: string;
+  amountCents: number;
+  customerName: string;
+  customerEmail: string;
+  /** Human-readable, shows on the statement/basket. */
+  label: string;
+};
 
-export type SubscriptionState = {
-  status: ProviderSubscriptionStatus;
-  trialEndsAt: Date | null;
-  currentPeriodEndsAt: Date | null;
+export type StoredCardChargeResult = {
+  paid: boolean;
+  paymentRef: string | null;
+  errorMessage: string | null;
 };
 
 export type PaymentProvider = {
@@ -117,17 +124,26 @@ export type PaymentProvider = {
   ): Promise<string>;
   retrieveSubMerchant(externalId: string): Promise<string | null>;
 
+  /**
+   * Opens a hosted checkout for the first subscription payment, which is also
+   * how the card gets stored: iyzico has no card-storage-without-payment on a
+   * marketplace account (/v2/ucs/init → 42205), and the alternatives in their
+   * docs put the card form — and therefore the PAN — on our own server.
+   *
+   * Doubles as the card-update path: paying again re-stores the card.
+   */
   initSubscriptionCheckout(
     input: SubscriptionCheckoutInput
   ): Promise<HostedCheckout>;
   retrieveSubscriptionCheckout(
     token: string
   ): Promise<SubscriptionCheckoutResult>;
-  retrieveSubscription(subscriptionRef: string): Promise<SubscriptionState>;
-  cancelSubscription(subscriptionRef: string): Promise<void>;
-  /** Re-collect card details after a failed renewal. */
-  updateSubscriptionCard(
-    subscriptionRef: string,
-    callbackUrl: string
-  ): Promise<HostedCheckout>;
+  /** Renewals: charge the stored card with nobody present. */
+  chargeStoredCard(
+    input: StoredCardChargeInput
+  ): Promise<StoredCardChargeResult>;
 };
+
+// Note: there is deliberately no retrieveSubscription/cancelSubscription here.
+// With Abonelik unavailable, Rezerve owns the billing schedule, so
+// subscription state is ours and there is nothing upstream to reconcile.

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   CancelSubscriptionButton,
+  StartTrialButton,
   SubscribeButton,
 } from "@/components/billing/subscription-actions";
 import { PageHeader } from "@/components/panel/page-header";
@@ -8,8 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireOwner } from "@/lib/auth-guard";
 import type { EntitlementReason } from "@/lib/billing/entitlements";
-import { PLANS } from "@/lib/billing/plans";
-import { reconcileIfStale } from "@/lib/billing/sync-subscription";
+import { PLANS, TRIAL_DAYS } from "@/lib/billing/plans";
 import { IS_TEST_MODE } from "@/lib/billing/test-mode";
 import { formatMoney } from "@/lib/format";
 
@@ -23,7 +23,8 @@ const REASON_COPY: Record<EntitlementReason, string> = {
     "Pro aktif. Kapora toplayabilmek için ödeme hesabınızı tanımlayın.",
   payout_pending:
     "Ödeme hesabınız henüz doğrulanmadı. Doğrulanınca kapora açılır.",
-  trialing: "Deneme sürümündesiniz. Online kapora açık.",
+  trialing:
+    "Deneme sürümündesiniz. Online kapora açık — deneme bitince karta geçmeniz gerekir.",
   active: "Pro aktif. Online kapora açık.",
   past_due:
     "Son ödeme alınamadı. Kartınızı güncelleyin — kapora kısa süre daha açık.",
@@ -42,11 +43,6 @@ export default async function BillingPage({
 }: {
   searchParams: Promise<{ abonelik?: string }>;
 }) {
-  const { organizationId } = await requireOwner();
-  // Synchronous on purpose: the owner is looking at billing, so correctness
-  // beats the round-trip. Everywhere else this runs via after().
-  await reconcileIfStale(organizationId);
-
   const { billing } = await requireOwner();
   const { abonelik } = await searchParams;
   const { subscription, payoutAccount, plan, reason, onlineDeposit } = billing;
@@ -88,8 +84,13 @@ export default async function BillingPage({
           </p>
         )}
         <div className="mt-2 flex flex-wrap gap-2">
+          {reason === "free" && !subscription && (
+            <StartTrialButton label={`${TRIAL_DAYS} gün ücretsiz deneyin`} />
+          )}
           {(reason === "free" || reason === "expired") && (
-            <SubscribeButton label="Pro'ya geç" />
+            <SubscribeButton
+              label={subscription ? "Pro'ya geç" : "Kartla hemen başla"}
+            />
           )}
           {(reason === "no_payout_account" || reason === "payout_pending") && (
             <Button

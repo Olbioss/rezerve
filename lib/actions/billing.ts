@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth-guard";
-import { applySubscriptionState } from "@/lib/billing/sync-subscription";
+import { PRO_PRICE_CENTS, TRIAL_DAYS } from "@/lib/billing/plans";
 import {
   gsmSchema,
   ibanSchema,
@@ -19,7 +19,10 @@ import {
 } from "@/lib/db/schema/billing-schema";
 import { requireEnv } from "@/lib/env";
 import { getPaymentProvider } from "@/lib/payments";
-import type { SubMerchantInput } from "@/lib/payments/provider";
+import type {
+  PaymentProvider,
+  SubMerchantInput,
+} from "@/lib/payments/provider";
 
 export type ActionResult = { error: string } | undefined;
 
@@ -152,7 +155,7 @@ export async function savePayoutAccount(
     where: eq(orgPayoutAccounts.organizationId, organizationId),
   });
   const sdkInput = toSubMerchantInput(organizationId, data);
-  const payments = getPaymentProvider();
+  const payments = getPaymentProvider("deposits");
 
   let subMerchantKey: string;
   try {
@@ -197,18 +200,45 @@ export async function savePayoutAccount(
 }
 
 /**
+ * Start the free trial — no card, no payment.
+ *
+ * Capturing a card requires a payment on this account (iyzico has no
+ * card-storage-without-payment here: /v2/ucs/init returns 42205), so a trial
+ * that took a card would have to charge for it. The trial therefore grants
+ * Pro outright and lapses to free at the end unless the owner subscribes,
+ * which also makes "kredi kartı gerekmez" literally true.
+ */
+export async function startTrial(): Promise<ActionResult> {
+  const { organizationId, billing } = await requireOwner();
+  if (billing.subscription) {
+    return { error: "Deneme hakkınızı zaten kullandınız." };
+  }
+
+  const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 86_400_000);
+  await db.insert(orgSubscriptions).values({
+    organizationId,
+    plan: "pro",
+    status: "trialing",
+    trialEndsAt,
+    currentPeriodEndsAt: trialEndsAt,
+    // The cron picks this up at trial end and lapses it (no card to charge).
+    nextChargeAt: trialEndsAt,
+  });
+
+  revalidatePath("/panel/abonelik");
+  revalidatePath("/panel/hizmetler");
+}
+
+/**
  * Open a Pro subscription checkout.
  *
  * The row is marked `pending` with the checkout token *before* the visitor
  * leaves, so the callback has something to match against — the same
  * token-bound idempotency the booking deposit flow uses.
  *
- * Returns form HTML only when the provider gives an embeddable blob instead
- * of a hosted URL; otherwise it redirects and never returns.
+ * Redirects to the hosted page and never returns on success.
  */
-export async function startProSubscription(): Promise<
-  ActionResult | { formContent: string }
-> {
+export async function startProSubscription(): Promise<ActionResult> {
   const { organizationId, session, billing } = await requireOwner();
   if (billing.plan === "pro") {
     return { error: "Aboneliğiniz zaten aktif." };
@@ -216,16 +246,16 @@ export async function startProSubscription(): Promise<
 
   const appUrl = requireEnv("NEXT_PUBLIC_APP_URL");
   let checkout: Awaited<
-    ReturnType<
-      ReturnType<typeof getPaymentProvider>["initSubscriptionCheckout"]
-    >
+    ReturnType<PaymentProvider["initSubscriptionCheckout"]>
   >;
   try {
-    checkout = await getPaymentProvider().initSubscriptionCheckout({
+    checkout = await getPaymentProvider("billing").initSubscriptionCheckout({
       organizationId,
+      amountCents: PRO_PRICE_CENTS,
       customerName: session.user.name ?? session.user.email,
       customerEmail: session.user.email,
       appUrl,
+      cardUserKey: billing.subscription?.cardUserKey,
     });
   } catch (err) {
     console.error("Failed to start subscription checkout:", err);
@@ -244,65 +274,34 @@ export async function startProSubscription(): Promise<
       set: { status: "pending", checkoutToken: checkout.token },
     });
 
-  if (checkout.paymentPageUrl) redirect(checkout.paymentPageUrl);
-  if (checkout.checkoutFormContent) {
-    return { formContent: checkout.checkoutFormContent };
+  if (!checkout.paymentPageUrl) {
+    return { error: "Ödeme sayfası alınamadı — lütfen tekrar deneyin." };
   }
-  return { error: "Ödeme sayfası alınamadı — lütfen tekrar deneyin." };
+  redirect(checkout.paymentPageUrl);
 }
 
 /**
- * Cancel at iyzico, then take the provider's own end date as truth rather
- * than assuming whether the paid period is served out — the entitlement rule
- * ("cancelled but not yet lapsed still counts") then matches reality.
+ * Cancel: stop renewing, but serve out the period already paid for.
+ *
+ * There is nothing to cancel upstream — Rezerve owns the schedule, so
+ * clearing nextChargeAt *is* the cancellation. The entitlement rule
+ * ("cancelled but not yet lapsed still counts") then does the rest.
  */
 export async function cancelProSubscription(): Promise<ActionResult> {
   const { organizationId, billing } = await requireOwner();
-  const ref = billing.subscription?.iyzicoSubscriptionRef;
-  if (!ref) return { error: "Aktif abonelik bulunamadı." };
+  if (billing.plan !== "pro") return { error: "Aktif abonelik bulunamadı." };
 
-  const payments = getPaymentProvider();
-  try {
-    await payments.cancelSubscription(ref);
-    const state = await payments.retrieveSubscription(ref);
-    await applySubscriptionState(organizationId, state, "manual");
-  } catch (err) {
-    console.error("Failed to cancel subscription:", err);
-    return { error: "Abonelik iptal edilemedi — lütfen tekrar deneyin." };
-  }
+  await db
+    .update(orgSubscriptions)
+    .set({ status: "cancelled", cancelAtPeriodEnd: true, nextChargeAt: null })
+    .where(eq(orgSubscriptions.organizationId, organizationId));
 
   revalidatePath("/panel/abonelik");
+  revalidatePath("/panel/hizmetler");
 }
 
-/**
- * Re-collect card details after a failed renewal. This is the difference
- * between a billing page and a billing system: past_due otherwise has no way
- * out except cancelling and re-subscribing.
- */
-export async function updateSubscriptionCard(): Promise<
-  ActionResult | { formContent: string }
-> {
-  const { billing } = await requireOwner();
-  const ref = billing.subscription?.iyzicoSubscriptionRef;
-  if (!ref) return { error: "Aktif abonelik bulunamadı." };
-
-  const appUrl = requireEnv("NEXT_PUBLIC_APP_URL");
-  let checkout: Awaited<
-    ReturnType<ReturnType<typeof getPaymentProvider>["updateSubscriptionCard"]>
-  >;
-  try {
-    checkout = await getPaymentProvider().updateSubscriptionCard(
-      ref,
-      `${appUrl}/api/odeme/abonelik`
-    );
-  } catch (err) {
-    console.error("Failed to start card update:", err);
-    return { error: "Kart güncelleme başlatılamadı — lütfen tekrar deneyin." };
-  }
-
-  if (checkout.paymentPageUrl) redirect(checkout.paymentPageUrl);
-  if (checkout.checkoutFormContent) {
-    return { formContent: checkout.checkoutFormContent };
-  }
-  return { error: "Ödeme sayfası alınamadı — lütfen tekrar deneyin." };
+export async function updateSubscriptionCard(): Promise<ActionResult> {
+  // Re-running the checkout is the card update: iyzico stores whatever card
+  // pays, so a successful payment replaces the mandate.
+  return startProSubscription();
 }

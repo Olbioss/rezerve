@@ -1,26 +1,24 @@
 import "server-only";
-import { requireEnv } from "@/lib/env";
 import {
+  chargeStoredCard,
   createDepositCheckout,
   createSubMerchant,
+  createSubscriptionCheckout,
   retrieveCheckout,
   retrieveSubMerchant,
+  retrieveSubscriptionCheckoutResult,
   updateSubMerchant,
 } from "../iyzico";
-import {
-  cancelSubscription,
-  initSubscriptionCheckout,
-  retrieveSubscription,
-  retrieveSubscriptionCheckout,
-  updateSubscriptionCard,
-} from "../iyzico-subscription";
 import type { PaymentProvider } from "../provider";
 
 /**
- * The real integration. Requires the merchant account to have Marketplace
- * (pazaryeri) and Abonelik provisioned — without them iyzico answers
- * submerchant creation with error 2000 and every subscription endpoint with
- * 100001, so the fake driver stands in until they are enabled.
+ * The real integration.
+ *
+ * Requires Marketplace (pazaryeri) on the merchant account — verified working.
+ * Note that Abonelik is *not* used and cannot be: iyzico does not offer the
+ * subscription product on a marketplace account, and directs recurring billing
+ * through card storage instead. Rezerve therefore owns the billing schedule
+ * (see lib/billing/charge-subscription.ts).
  */
 export const iyzicoProvider: PaymentProvider = {
   name: "iyzico",
@@ -32,43 +30,19 @@ export const iyzicoProvider: PaymentProvider = {
   retrieveSubMerchant,
 
   async initSubscriptionCheckout(input) {
-    const result = await initSubscriptionCheckout({
+    return createSubscriptionCheckout({
       organizationId: input.organizationId,
-      pricingPlanReferenceCode: requireEnv("IYZICO_PRICING_PLAN_REF"),
-      callbackUrl: `${input.appUrl}/api/odeme/abonelik`,
-      name: input.customerName.split(/\s+/)[0] ?? input.customerName,
-      surname: input.customerName.split(/\s+/).slice(1).join(" ") || ".",
-      email: input.customerEmail,
+      amountCents: input.amountCents,
+      customerName: input.customerName,
+      customerEmail: input.customerEmail,
+      appUrl: input.appUrl,
+      cardUserKey: input.cardUserKey,
     });
-    return {
-      token: result.token,
-      paymentPageUrl: result.paymentPageUrl,
-      checkoutFormContent: result.checkoutFormContent,
-    };
   },
 
-  async retrieveSubscriptionCheckout(token) {
-    const data = await retrieveSubscriptionCheckout(token);
-    return {
-      organizationId: data.conversationId ?? null,
-      paid: (data.subscriptionStatus ?? "").toUpperCase() === "ACTIVE",
-      subscriptionRef: data.referenceCode ?? null,
-      customerRef: data.customerReferenceCode ?? null,
-    };
-  },
+  retrieveSubscriptionCheckout: retrieveSubscriptionCheckoutResult,
 
-  retrieveSubscription,
-  cancelSubscription,
-
-  async updateSubscriptionCard(subscriptionRef, callbackUrl) {
-    const result = await updateSubscriptionCard({
-      subscriptionReferenceCode: subscriptionRef,
-      callbackUrl,
-    });
-    return {
-      token: result.token,
-      paymentPageUrl: result.paymentPageUrl,
-      checkoutFormContent: result.checkoutFormContent,
-    };
+  async chargeStoredCard(input) {
+    return chargeStoredCard(input);
   },
 };

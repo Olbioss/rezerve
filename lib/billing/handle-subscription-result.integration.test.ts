@@ -14,10 +14,7 @@ import {
 } from "vitest";
 
 const { providerMock } = vi.hoisted(() => ({
-  providerMock: {
-    retrieveSubscriptionCheckout: vi.fn(),
-    retrieveSubscription: vi.fn(),
-  },
+  providerMock: { retrieveSubscriptionCheckout: vi.fn() },
 }));
 vi.mock("@/lib/payments", () => ({
   getPaymentProvider: () => providerMock,
@@ -28,16 +25,15 @@ const { handleSubscriptionResult } = await import(
 );
 const { db } = await import("@/lib/db");
 const { organization } = await import("@/lib/db/schema/auth-schema");
-const { billingEvents, orgSubscriptions } = await import(
+const { billingEvents, orgSubscriptions, subscriptionCharges } = await import(
   "@/lib/db/schema/billing-schema"
 );
 
 const ORG_ID = "org_itest_subs";
 const SLUG = "itest-subs";
 const TOKEN = "checkout_token_itest";
-const SUB_REF = "sub_ref_itest";
-
-const PERIOD_END = new Date(Date.now() + 30 * 86_400_000);
+const CARD_USER_KEY = "cuk_itest";
+const CARD_TOKEN = "tok_itest";
 
 beforeAll(async () => {
   await db.delete(organization).where(eq(organization.id, ORG_ID));
@@ -59,11 +55,9 @@ beforeEach(async () => {
     status: "pending",
     checkoutToken: TOKEN,
   });
-  providerMock.retrieveSubscription.mockResolvedValue({
-    status: "ACTIVE",
-    trialEndsAt: null,
-    currentPeriodEndsAt: PERIOD_END,
-  });
+  await db
+    .delete(subscriptionCharges)
+    .where(eq(subscriptionCharges.organizationId, ORG_ID));
 });
 
 afterAll(async () => {
@@ -75,8 +69,9 @@ function paid(value: boolean) {
   providerMock.retrieveSubscriptionCheckout.mockResolvedValue({
     organizationId: ORG_ID,
     paid: value,
-    subscriptionRef: value ? SUB_REF : null,
-    customerRef: value ? "cus_itest" : null,
+    cardUserKey: value ? CARD_USER_KEY : null,
+    cardToken: value ? CARD_TOKEN : null,
+    paymentRef: value ? "pay_itest" : null,
   });
 }
 
@@ -95,7 +90,10 @@ describe("handleSubscriptionResult (integration)", () => {
     const subscription = await row();
     expect(subscription?.status).toBe("active");
     expect(subscription?.plan).toBe("pro");
-    expect(subscription?.iyzicoSubscriptionRef).toBe(SUB_REF);
+    // The mandate for every future renewal.
+    expect(subscription?.cardUserKey).toBe(CARD_USER_KEY);
+    expect(subscription?.cardToken).toBe(CARD_TOKEN);
+    expect(subscription?.nextChargeAt).not.toBeNull();
     // Consumed, so a replay can't match it again.
     expect(subscription?.checkoutToken).toBeNull();
   });
@@ -133,6 +131,18 @@ describe("handleSubscriptionResult (integration)", () => {
     const { outcome } = await handleSubscriptionResult(TOKEN);
     expect(outcome).toBe("noop");
     expect((await row())?.status).toBe("none");
+  });
+
+  it("records the paid period so the cron cannot re-bill it", async () => {
+    paid(true);
+    await handleSubscriptionResult(TOKEN);
+    const rows = await db
+      .select()
+      .from(subscriptionCharges)
+      .where(eq(subscriptionCharges.organizationId, ORG_ID));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe("succeeded");
+    expect(rows[0].paymentRef).toBe("pay_itest");
   });
 
   it("records exactly one audit row per real transition", async () => {

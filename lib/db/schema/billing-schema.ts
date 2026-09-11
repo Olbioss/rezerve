@@ -2,12 +2,15 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  date,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 import { organization } from "./auth-schema";
@@ -49,6 +52,11 @@ export const billingEventSource = pgEnum("billing_event_source", [
   "manual",
 ]);
 
+export const chargeStatus = pgEnum("subscription_charge_status", [
+  "succeeded",
+  "failed",
+]);
+
 /**
  * Platform subscription, 1:1 with the organization. Created lazily on the
  * first checkout — an absent row means the free tier, which the entitlement
@@ -75,7 +83,17 @@ export const orgSubscriptions = pgTable(
       withTimezone: true,
     }),
     cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
-    /** Drives lazy reconciliation; see lib/billing/sync-subscription.ts. */
+    /**
+     * The stored card renewals are charged against. Captured by the first
+     * checkout — iyzico has no card-storage-without-payment on this account
+     * (/v2/ucs/init returns 42205), so capture rides a real payment and the
+     * card number never reaches this server.
+     */
+    cardUserKey: text("card_user_key"),
+    cardToken: text("card_token"),
+    /** When the renewal cron should next attempt a charge. */
+    nextChargeAt: timestamp("next_charge_at", { withTimezone: true }),
+    /** Retained for the audit trail; no longer drives polling. */
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -85,7 +103,48 @@ export const orgSubscriptions = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [index("org_subscriptions_status_idx").on(table.status)]
+  (table) => [
+    index("org_subscriptions_status_idx").on(table.status),
+    // The cron's working set: due subscriptions, cheaply.
+    index("org_subscriptions_next_charge_idx").on(table.nextChargeAt),
+  ]
+);
+
+/**
+ * One row per billing period, per organization.
+ *
+ * The unique constraint is the whole point: a retried or overlapping cron run
+ * cannot charge the same period twice, because the second insert loses. This
+ * is the same doctrine as bookings_no_overlap — make the bad state
+ * unrepresentable rather than trusting the caller to be careful.
+ */
+export const subscriptionCharges = pgTable(
+  "subscription_charges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    /** The period being paid for — the idempotency key, not a timestamp. */
+    periodStart: date("period_start").notNull(),
+    status: chargeStatus("status").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    /** iyzico paymentId on success. */
+    paymentRef: text("payment_ref"),
+    /** 1-based; dunning gives up after RETRY_DAYS attempts. */
+    attempt: integer("attempt").notNull().default(1),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("subscription_charges_org_period").on(
+      table.organizationId,
+      table.periodStart
+    ),
+    index("subscription_charges_org_idx").on(table.organizationId),
+  ]
 );
 
 /**

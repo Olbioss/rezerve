@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,9 +14,9 @@ import {
 import {
   cancelProSubscription,
   startProSubscription,
+  startTrial,
   updateSubscriptionCard,
 } from "@/lib/actions/billing";
-import { IyzicoCheckoutForm } from "./iyzico-checkout-form";
 
 /**
  * Opens a hosted checkout. Both entry points behave the same way: the action
@@ -31,20 +31,17 @@ export function SubscribeButton({
   action?: "subscribe" | "updateCard";
 }) {
   const [pending, startTransition] = useTransition();
-  const [formContent, setFormContent] = useState<string | null>(null);
 
   function subscribe() {
     startTransition(async () => {
+      // Always redirects to the hosted page on success; only errors return.
       const result =
         action === "updateCard"
           ? await updateSubscriptionCard()
           : await startProSubscription();
-      if (result && "formContent" in result) setFormContent(result.formContent);
-      else if (result?.error) toast.error(result.error);
+      if (result?.error) toast.error(result.error);
     });
   }
-
-  if (formContent) return <IyzicoCheckoutForm content={formContent} />;
 
   return (
     <Button onClick={subscribe} disabled={pending}>
@@ -87,5 +84,23 @@ export function CancelSubscriptionButton() {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function StartTrialButton({ label }: { label: string }) {
+  const [pending, startTransition] = useTransition();
+
+  function begin() {
+    startTransition(async () => {
+      const result = await startTrial();
+      if (result?.error) toast.error(result.error);
+      else toast.success("Deneme süreniz başladı");
+    });
+  }
+
+  return (
+    <Button onClick={begin} disabled={pending}>
+      {pending ? "Başlatılıyor…" : label}
+    </Button>
   );
 }

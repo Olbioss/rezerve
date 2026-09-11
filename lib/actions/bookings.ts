@@ -142,7 +142,9 @@ export async function createBooking(
       const customerIp =
         requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
         "85.34.78.112";
-      const checkout = await getPaymentProvider().createDepositCheckout({
+      const checkout = await getPaymentProvider(
+        "deposits"
+      ).createDepositCheckout({
         bookingId: created.id,
         serviceName: service.name,
         businessName: business.orgName,

@@ -131,11 +131,13 @@ async function seedBusiness(demo: Demo) {
 async function seedProBilling(orgId: string) {
   const subMerchantKey =
     process.env.DEMO_SUBMERCHANT_KEY ??
-    (process.env.PAYMENTS_DRIVER === "iyzico" ? null : `fake_sm_${orgId}`);
+    (process.env.PAYMENTS_DRIVER_DEPOSITS === "iyzico"
+      ? null
+      : `fake_sm_${orgId}`);
 
   if (!subMerchantKey) {
     console.warn(
-      "! PAYMENTS_DRIVER=iyzico but DEMO_SUBMERCHANT_KEY is unset — skipping the demo payout account."
+      "! PAYMENTS_DRIVER_DEPOSITS=iyzico but DEMO_SUBMERCHANT_KEY is unset — skipping the demo payout account."
     );
     return;
   }
@@ -147,6 +149,11 @@ async function seedProBilling(orgId: string) {
       plan: "pro",
       status: "active",
       currentPeriodEndsAt: new Date(Date.now() + 365 * 86_400_000),
+      // A year out so the demo never lapses on its own, and the renewal cron
+      // has nothing to do until someone deliberately brings the date forward.
+      nextChargeAt: new Date(Date.now() + 365 * 86_400_000),
+      cardUserKey: `fake_cuk_${orgId}`,
+      cardToken: `fake_tok_${orgId}`,
       lastSyncedAt: new Date(),
     })
     .onConflictDoNothing({ target: orgSubscriptions.organizationId });

@@ -5,7 +5,8 @@
  * can never claim "test mode" while pointing at production keys.
  */
 export const IS_TEST_MODE =
-  process.env.PAYMENTS_DRIVER !== "iyzico" ||
+  process.env.PAYMENTS_DRIVER_DEPOSITS !== "iyzico" ||
+  process.env.PAYMENTS_DRIVER_BILLING !== "iyzico" ||
   (process.env.IYZICO_BASE_URL ?? "").includes("sandbox");
 
 /**

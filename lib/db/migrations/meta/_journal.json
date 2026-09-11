@@ -36,6 +36,13 @@
       "when": 1788772779517,
       "tag": "0004_ancient_wallop",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789118113760,
+      "tag": "0005_slow_black_tom",
+      "breakpoints": true
     }
   ]
 }

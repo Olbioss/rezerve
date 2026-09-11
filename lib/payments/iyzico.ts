@@ -60,6 +60,13 @@ function toPrice(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
+/** iyzico wants name and surname apart; we only ever collect one field. */
+export function splitName(full: string): { name: string; surname: string } {
+  const parts = full.trim().split(/\s+/);
+  const surname = parts.length > 1 ? (parts.pop() as string) : ".";
+  return { name: parts.join(" ") || full, surname };
+}
+
 /**
  * Initialize an iyzico Checkout Form for a booking deposit.
  *
@@ -71,9 +78,7 @@ export function createDepositCheckout(
   input: DepositCheckoutInput
 ): Promise<DepositCheckout> {
   const price = toPrice(input.depositCents);
-  const nameParts = input.customerName.trim().split(/\s+/);
-  const surname = nameParts.length > 1 ? (nameParts.pop() as string) : ".";
-  const name = nameParts.join(" ") || input.customerName;
+  const { name, surname } = splitName(input.customerName);
   const address = {
     contactName: input.customerName,
     city: "Istanbul",
@@ -323,4 +328,235 @@ export function retrieveSubMerchant(
       }
     );
   });
+}
+
+// ---------------------------------------------------------------------------
+// Platform subscription billing on stored cards.
+//
+// Abonelik is unavailable on a marketplace account, so Rezerve owns the
+// billing schedule: the first payment stores a card, and renewals are
+// ordinary merchant-initiated charges against the stored token.
+// ---------------------------------------------------------------------------
+
+const PLACEHOLDER_IDENTITY = "11111111111";
+
+function billingParties(name: string, email: string, organizationId: string) {
+  const { name: first, surname } = splitName(name);
+  const address = {
+    contactName: name,
+    city: "Istanbul",
+    country: "Turkey",
+    address: "Rezerve",
+  };
+  return {
+    buyer: {
+      id: organizationId,
+      name: first,
+      surname,
+      gsmNumber: "+905000000000",
+      email,
+      identityNumber: PLACEHOLDER_IDENTITY,
+      registrationAddress: "Rezerve",
+      ip: "85.34.78.112",
+      city: "Istanbul",
+      country: "Turkey",
+    },
+    billingAddress: address,
+    shippingAddress: address,
+  };
+}
+
+/** Hosted checkout for the first subscription payment; stores the card. */
+export function createSubscriptionCheckout(input: {
+  organizationId: string;
+  amountCents: number;
+  customerName: string;
+  customerEmail: string;
+  appUrl: string;
+  /** Reuse an existing card vault when the org has one (card update). */
+  cardUserKey?: string | null;
+}): Promise<DepositCheckout> {
+  const price = toPrice(input.amountCents);
+  type InitParams = Parameters<Iyzipay["checkoutFormInitialize"]["create"]>[0];
+  return new Promise((resolve, reject) => {
+    getIyzipay().checkoutFormInitialize.create(
+      {
+        locale: Iyzipay.LOCALE.TR,
+        conversationId: input.organizationId,
+        price,
+        paidPrice: price,
+        currency: Iyzipay.CURRENCY.TRY,
+        basketId: input.organizationId,
+        paymentGroup: Iyzipay.PAYMENT_GROUP.SUBSCRIPTION,
+        callbackUrl: `${input.appUrl}/api/odeme/abonelik`,
+        // Platform revenue: no submerchant, nothing to split.
+        ...(input.cardUserKey ? { cardUserKey: input.cardUserKey } : {}),
+        ...billingParties(
+          input.customerName,
+          input.customerEmail,
+          input.organizationId
+        ),
+        basketItems: [
+          {
+            id: "rezerve-pro",
+            name: "Rezerve Pro — aylık abonelik",
+            category1: "Abonelik",
+            itemType: Iyzipay.BASKET_ITEM_TYPE.VIRTUAL,
+            price,
+          },
+        ],
+      } as unknown as InitParams,
+      (err, rawResult) => {
+        if (err) return reject(err);
+        const result = rawResult as unknown as CheckoutInitResult;
+        if (
+          result.status !== "success" ||
+          !result.token ||
+          !result.paymentPageUrl
+        ) {
+          return reject(
+            new Error(
+              `iyzico subscription checkout init failed: ${result.errorMessage ?? result.status}`
+            )
+          );
+        }
+        resolve({ token: result.token, paymentPageUrl: result.paymentPageUrl });
+      }
+    );
+  });
+}
+
+/** The stored cards behind a cardUserKey, newest first. */
+export function listStoredCards(
+  cardUserKey: string
+): Promise<{ cardToken: string }[]> {
+  return new Promise((resolve, reject) => {
+    getIyzipay().cardList.retrieve(
+      { locale: Iyzipay.LOCALE.TR, cardUserKey },
+      (err, raw) => {
+        if (err) return reject(err);
+        const result = raw as unknown as {
+          status: string;
+          cardDetails?: { cardToken: string }[];
+        };
+        resolve(result.status === "success" ? (result.cardDetails ?? []) : []);
+      }
+    );
+  });
+}
+
+/** Merchant-initiated renewal charge — the customer is not present. */
+export function chargeStoredCard(input: {
+  organizationId: string;
+  cardUserKey: string;
+  cardToken: string;
+  amountCents: number;
+  customerName: string;
+  customerEmail: string;
+  label: string;
+}): Promise<{
+  paid: boolean;
+  paymentRef: string | null;
+  errorMessage: string | null;
+}> {
+  const price = toPrice(input.amountCents);
+  type PayParams = Parameters<Iyzipay["payment"]["create"]>[0];
+  return new Promise((resolve, reject) => {
+    getIyzipay().payment.create(
+      {
+        locale: Iyzipay.LOCALE.TR,
+        conversationId: `renewal_${input.organizationId}`,
+        price,
+        paidPrice: price,
+        currency: Iyzipay.CURRENCY.TRY,
+        installment: 1,
+        basketId: input.organizationId,
+        paymentChannel: Iyzipay.PAYMENT_CHANNEL.WEB,
+        paymentGroup: Iyzipay.PAYMENT_GROUP.SUBSCRIPTION,
+        paymentCard: {
+          cardUserKey: input.cardUserKey,
+          cardToken: input.cardToken,
+        },
+        ...billingParties(
+          input.customerName,
+          input.customerEmail,
+          input.organizationId
+        ),
+        basketItems: [
+          {
+            id: "rezerve-pro",
+            name: input.label,
+            category1: "Abonelik",
+            itemType: Iyzipay.BASKET_ITEM_TYPE.VIRTUAL,
+            price,
+          },
+        ],
+      } as unknown as PayParams,
+      (err, raw) => {
+        if (err) return reject(err);
+        const result = raw as unknown as {
+          status: string;
+          paymentId?: string;
+          errorMessage?: string;
+        };
+        resolve({
+          paid: result.status === "success",
+          paymentRef: result.paymentId ?? null,
+          errorMessage: result.errorMessage ?? null,
+        });
+      }
+    );
+  });
+}
+
+/**
+ * Subscription checkout result, including the card iyzico stored.
+ *
+ * @types/iyzipay models the retrieve result without the card fields, but it
+ * omits fields the live API returns elsewhere too (paymentPageUrl is the
+ * proven case), so we read them and fall back to cardList when absent.
+ */
+export async function retrieveSubscriptionCheckoutResult(
+  token: string
+): Promise<{
+  organizationId: string | null;
+  paid: boolean;
+  cardUserKey: string | null;
+  cardToken: string | null;
+  paymentRef: string | null;
+}> {
+  const raw = await new Promise<{
+    status: string;
+    paymentStatus?: string;
+    conversationId?: string;
+    basketId?: string;
+    paymentId?: string;
+    cardUserKey?: string;
+    cardToken?: string;
+  }>((resolve, reject) => {
+    getIyzipay().checkoutForm.retrieve(
+      { locale: Iyzipay.LOCALE.TR, token },
+      (err, result) =>
+        err ? reject(err) : resolve(result as unknown as typeof raw)
+    );
+  });
+
+  const paid = raw.status === "success" && raw.paymentStatus === "SUCCESS";
+  const cardUserKey = raw.cardUserKey ?? null;
+  let cardToken = raw.cardToken ?? null;
+
+  // The retrieve response is the documented place for this, but if the card
+  // arrives only in the vault, look it up rather than losing the mandate.
+  if (paid && cardUserKey && !cardToken) {
+    const cards = await listStoredCards(cardUserKey);
+    cardToken = cards[0]?.cardToken ?? null;
+  }
+
+  return {
+    organizationId: raw.conversationId ?? raw.basketId ?? null,
+    paid,
+    cardUserKey,
+    cardToken,
+    paymentRef: raw.paymentId ?? null,
+  };
 }

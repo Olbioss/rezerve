@@ -20,7 +20,14 @@ import type { PaymentProvider } from "../provider";
 
 const KIND_INIT = "fake.checkout_opened";
 const KIND_DECISION = "fake.checkout_decided";
-const KIND_CANCELLED = "fake.subscription_cancelled";
+const KIND_CHARGE = "fake.stored_card_charged";
+
+/**
+ * Declines on demand so dunning is demonstrable: a card token containing
+ * "decline" always fails. Nothing else can fail, which keeps the demo
+ * predictable.
+ */
+const DECLINE_MARKER = "decline";
 
 type Payload = {
   flow: "deposit" | "subscription";
@@ -141,6 +148,8 @@ export const fakeProvider: PaymentProvider = {
       {
         flow: "subscription",
         organizationId: input.organizationId,
+        amountCents: input.amountCents,
+        currency: "try",
         callbackUrl: `${input.appUrl}/api/odeme/abonelik`,
       },
       input.organizationId
@@ -154,44 +163,40 @@ export const fakeProvider: PaymentProvider = {
   async retrieveSubscriptionCheckout(t) {
     const decision = await readPayload(t, KIND_DECISION);
     const organizationId = decision?.organizationId ?? null;
+    const paid = decision?.paid === true;
     return {
       organizationId,
-      paid: decision?.paid === true,
-      subscriptionRef: organizationId ? `fake_sub_${organizationId}` : null,
-      customerRef: organizationId ? `fake_cus_${organizationId}` : null,
+      paid,
+      // Deterministic, so a re-subscribe reuses the same synthetic vault.
+      cardUserKey: paid && organizationId ? `fake_cuk_${organizationId}` : null,
+      cardToken: paid && organizationId ? `fake_tok_${organizationId}` : null,
+      paymentRef: paid ? `fake_pay_${t}` : null,
     };
   },
 
-  async retrieveSubscription(subscriptionRef) {
-    const cancelled = await readPayload(subscriptionRef, KIND_CANCELLED);
-    const monthOut = new Date(Date.now() + 30 * 86_400_000);
-    return {
-      status: cancelled ? "CANCELED" : "ACTIVE",
-      trialEndsAt: null,
-      currentPeriodEndsAt: monthOut,
-    };
-  },
-
-  async updateSubscriptionCard(subscriptionRef, callbackUrl) {
-    // The org id is embedded in the synthetic reference by design.
-    const organizationId = subscriptionRef.replace(/^fake_sub_/, "");
-    const t = token("fkcard");
+  async chargeStoredCard(input) {
+    const declined = input.cardToken.includes(DECLINE_MARKER);
     await writeEvent(
-      t,
-      KIND_INIT,
-      { flow: "subscription", organizationId, callbackUrl },
-      organizationId
+      `${input.organizationId}_${Date.now()}`,
+      KIND_CHARGE,
+      {
+        flow: "subscription",
+        organizationId: input.organizationId,
+        amountCents: input.amountCents,
+        paid: !declined,
+      },
+      input.organizationId
     );
-    const origin = new URL(callbackUrl).origin;
-    return { token: t, paymentPageUrl: `${origin}/demo-odeme?token=${t}` };
-  },
-
-  async cancelSubscription(subscriptionRef) {
-    await writeEvent(
-      subscriptionRef,
-      KIND_CANCELLED,
-      { flow: "subscription" },
-      null
-    );
+    return declined
+      ? {
+          paid: false,
+          paymentRef: null,
+          errorMessage: "Kart reddedildi (demo)",
+        }
+      : {
+          paid: true,
+          paymentRef: `fake_pay_${crypto.randomUUID().slice(0, 8)}`,
+          errorMessage: null,
+        };
   },
 };
