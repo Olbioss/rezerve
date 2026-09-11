@@ -29,6 +29,22 @@ export const auth = betterAuth({
     maxPasswordLength: 128,
     autoSignIn: true,
   },
+  session: {
+    /**
+     * Sign a short-lived copy of the session into a cookie so getSession()
+     * stops hitting the database on most requests — it sits on the critical
+     * path of every authenticated page and action.
+     *
+     * The cost is revocation latency: a signed-out or deleted session stays
+     * readable for up to maxAge. Five minutes is the usual trade; anything
+     * genuinely sensitive is re-checked against the database anyway, because
+     * requireOwner() still reads membership and the business profile.
+     */
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60,
+    },
+  },
   advanced: {
     useSecureCookies: process.env.NODE_ENV === "production",
     defaultCookieAttributes: {

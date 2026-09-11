@@ -25,24 +25,28 @@ export const requireOwner = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/giris");
 
-  const membership = await db.query.member.findFirst({
-    where: eq(member.userId, session.user.id),
-  });
-  if (!membership) redirect("/kurulum");
+  // One round trip instead of two: the profile lookup only needed the
+  // organization id, which the membership row already carries.
+  const [row] = await db
+    .select({
+      organizationId: member.organizationId,
+      profile: businessProfiles,
+    })
+    .from(member)
+    .leftJoin(
+      businessProfiles,
+      eq(businessProfiles.organizationId, member.organizationId)
+    )
+    .where(eq(member.userId, session.user.id))
+    .limit(1);
 
-  const profile = await db.query.businessProfiles.findFirst({
-    where: eq(businessProfiles.organizationId, membership.organizationId),
-  });
+  if (!row) redirect("/kurulum");
+  const { organizationId, profile } = row;
   if (!profile) redirect("/kurulum");
 
-  const billing = await getBilling(membership.organizationId);
+  const billing = await getBilling(organizationId);
 
-  return {
-    session,
-    organizationId: membership.organizationId,
-    profile,
-    billing,
-  };
+  return { session, organizationId, profile, billing };
 });
 
 /** Signed-in user (no business required) — used by the onboarding page. */

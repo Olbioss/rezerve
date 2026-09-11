@@ -1,5 +1,5 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   orgPayoutAccounts,
@@ -23,17 +23,30 @@ export type Billing = Entitlements & {
  * panel render or the public booking path can block on an API call.
  */
 export async function getBilling(organizationId: string): Promise<Billing> {
-  const [subscription, payoutAccount] = await Promise.all([
-    db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.organizationId, organizationId),
-    }),
-    db.query.orgPayoutAccounts.findFirst({
-      where: eq(orgPayoutAccounts.organizationId, organizationId),
-    }),
-  ]);
+  // Both rows are 1:1 with the organization, so one join beats two queries.
+  const [row] = await db
+    .select({
+      subscription: orgSubscriptions,
+      payoutAccount: orgPayoutAccounts,
+    })
+    .from(orgSubscriptions)
+    .fullJoin(
+      orgPayoutAccounts,
+      eq(orgPayoutAccounts.organizationId, orgSubscriptions.organizationId)
+    )
+    .where(
+      or(
+        eq(orgSubscriptions.organizationId, organizationId),
+        eq(orgPayoutAccounts.organizationId, organizationId)
+      )
+    )
+    .limit(1);
+
+  const subscription = row?.subscription ?? null;
+  const payoutAccount = row?.payoutAccount ?? null;
   return {
-    ...resolveEntitlements(subscription ?? null, payoutAccount ?? null),
-    subscription: subscription ?? null,
-    payoutAccount: payoutAccount ?? null,
+    ...resolveEntitlements(subscription, payoutAccount),
+    subscription,
+    payoutAccount,
   };
 }
