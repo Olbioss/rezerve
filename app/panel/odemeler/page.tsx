@@ -17,34 +17,33 @@ import { totalNetCents } from "@/lib/panel/payouts";
 
 export const metadata = { title: "Ödemeler" };
 
-function localDay(offsetDays = 0): string {
-  const d = new Date(Date.now() + offsetDays * 86_400_000);
-  return d.toISOString().slice(0, 10);
-}
+const RANGES = [
+  { days: 7, label: "Son 7 gün" },
+  { days: 30, label: "Son 30 gün" },
+  { days: 90, label: "Son 90 gün" },
+] as const;
 
-const prettyDate = (iso: string) =>
-  new Intl.DateTimeFormat("tr-TR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(`${iso}T00:00:00Z`));
+const prettyDateTime = (value: string | null) =>
+  value
+    ? new Intl.DateTimeFormat("tr-TR", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(value.replace(" ", "T")))
+    : "—";
 
 export default async function PayoutsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tarih?: string }>;
+  searchParams: Promise<{ gun?: string }>;
 }) {
   const { organizationId, profile } = await requireOwner();
-  const { tarih } = await searchParams;
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(tarih ?? "")
-    ? (tarih as string)
-    : localDay();
+  const { gun } = await searchParams;
+  const windowDays =
+    RANGES.find((r) => String(r.days) === gun)?.days ?? RANGES[1].days;
 
-  const { rows, error } = await getPayouts(organizationId, date);
-  const shift = (days: number) =>
-    new Date(new Date(`${date}T00:00:00Z`).getTime() + days * 86_400_000)
-      .toISOString()
-      .slice(0, 10);
+  const { rows, error } = await getPayouts(organizationId, windowDays);
 
   return (
     <div className="grid gap-8">
@@ -59,22 +58,21 @@ export default async function PayoutsPage({
         işlem raporundan gelir.
       </p>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Link
-          href={`/panel/odemeler?tarih=${shift(-1)}`}
-          className="text-muted-foreground text-sm underline underline-offset-4"
-        >
-          ← Önceki gün
-        </Link>
-        <span className="font-medium text-sm">{prettyDate(date)}</span>
-        {date < localDay() && (
+      <div className="flex flex-wrap gap-2">
+        {RANGES.map((range) => (
           <Link
-            href={`/panel/odemeler?tarih=${shift(1)}`}
-            className="text-muted-foreground text-sm underline underline-offset-4"
+            key={range.days}
+            href={`/panel/odemeler?gun=${range.days}`}
+            aria-current={range.days === windowDays ? "page" : undefined}
+            className={
+              range.days === windowDays
+                ? "rounded-full bg-brand/15 px-3.5 py-1.5 font-medium text-brand-ink text-sm"
+                : "rounded-full px-3.5 py-1.5 text-muted-foreground text-sm hover:bg-accent hover:text-foreground"
+            }
           >
-            Sonraki gün →
+            {range.label}
           </Link>
-        )}
+        ))}
       </div>
 
       {error ? (
@@ -82,7 +80,7 @@ export default async function PayoutsPage({
           {error}
         </div>
       ) : rows.length === 0 ? (
-        <EmptyState title="Bu tarihte ödeme yok">
+        <EmptyState title="Bu aralıkta ödeme yok">
           Online kapora tahsil edildiğinde burada görünür.
         </EmptyState>
       ) : (
@@ -98,6 +96,7 @@ export default async function PayoutsPage({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Tarih</TableHead>
                 <TableHead>Müşteri</TableHead>
                 <TableHead>Hizmet</TableHead>
                 <TableHead className="text-right">Tahsil edilen</TableHead>
@@ -108,6 +107,9 @@ export default async function PayoutsPage({
             <TableBody>
               {rows.map((row) => (
                 <TableRow key={row.bookingId}>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                    {prettyDateTime(row.settledOn)}
+                  </TableCell>
                   <TableCell>{row.customerName}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {row.serviceName}

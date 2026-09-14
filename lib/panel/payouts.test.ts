@@ -123,6 +123,14 @@ describe("matchTransactions — the figures", () => {
     expect(row.netCents).toBe(0);
   });
 
+  it("counts a booking once even if reporting lists it twice", () => {
+    // An auth plus a later capture, or an overlapping day window — either
+    // would otherwise double the total the owner is shown.
+    const rows = matchTransactions([tx(), tx()], owned);
+    expect(rows).toHaveLength(1);
+    expect(totalNetCents(rows)).toBe(28_931);
+  });
+
   it("sums only what it matched", () => {
     const rows = matchTransactions([tx(), tx({ basketId: "not-ours" })], owned);
     expect(totalNetCents(rows)).toBe(28_931);

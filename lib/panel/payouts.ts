@@ -63,6 +63,10 @@ export function matchTransactions(
   owned: Map<string, OwnedBooking>
 ): PayoutRow[] {
   const rows: PayoutRow[] = [];
+  // One row per booking. A booking can appear more than once in the reporting
+  // — an auth and a later capture, say, or the same day fetched twice by an
+  // overlapping window — and showing it twice would double the visible total.
+  const seen = new Set<string>();
 
   for (const tx of transactions) {
     const basketId = tx.basketId?.trim();
@@ -71,6 +75,8 @@ export function matchTransactions(
     const booking = owned.get(basketId);
     // The isolation boundary: no booking of ours, no row.
     if (!booking) continue;
+    if (seen.has(booking.id)) continue;
+    seen.add(booking.id);
 
     rows.push({
       bookingId: booking.id,
