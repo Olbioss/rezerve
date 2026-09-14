@@ -2,6 +2,7 @@
 
 import {
   ArrowUpRightIcon,
+  BanknoteIcon,
   CalendarDaysIcon,
   ClockIcon,
   CreditCardIcon,
@@ -19,6 +20,7 @@ const NAV = [
   { href: "/panel/randevular", label: "Randevular", icon: CalendarDaysIcon },
   { href: "/panel/hizmetler", label: "Hizmetler", icon: ListIcon },
   { href: "/panel/saatler", label: "Çalışma saatleri", icon: ClockIcon },
+  { href: "/panel/odemeler", label: "Ödemeler", icon: BanknoteIcon },
   { href: "/panel/abonelik", label: "Abonelik", icon: CreditCardIcon },
   { href: "/panel/ayarlar", label: "Ayarlar", icon: SettingsIcon },
 ];

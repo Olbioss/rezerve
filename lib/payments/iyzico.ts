@@ -560,3 +560,53 @@ export async function retrieveSubscriptionCheckoutResult(
     paymentRef: raw.paymentId ?? null,
   };
 }
+
+/**
+ * Settlement reporting for one calendar day, all pages.
+ *
+ * Platform-wide: this returns every transaction on the merchant account, and
+ * the rows carry no submerchant identifier. Callers must narrow it to their
+ * own bookings — see lib/panel/payouts.ts.
+ */
+export async function listTransactions(
+  dateISO: string
+): Promise<Record<string, unknown>[]> {
+  const fetchPage = (page: number) =>
+    new Promise<{
+      status: string;
+      transactions?: Record<string, unknown>[];
+      totalPageCount?: number;
+      errorMessage?: string;
+    }>((resolve, reject) => {
+      // @types/iyzipay omits the reporting resources entirely.
+      const client = getIyzipay() as unknown as {
+        reportingTransactions: {
+          retrieve: (
+            params: object,
+            cb: (err: Error | null, raw: unknown) => void
+          ) => void;
+        };
+      };
+      client.reportingTransactions.retrieve(
+        { locale: Iyzipay.LOCALE.TR, transactionDate: dateISO, page },
+        (err, raw) => (err ? reject(err) : resolve(raw as never))
+      );
+    });
+
+  const first = await fetchPage(1);
+  if (first.status !== "success") {
+    throw new Error(
+      `iyzico transaction reporting failed: ${first.errorMessage ?? first.status}`
+    );
+  }
+
+  const rows = [...(first.transactions ?? [])];
+  const pages = Math.min(first.totalPageCount ?? 1, 20);
+  if (pages > 1) {
+    const rest = await Promise.all(
+      Array.from({ length: pages - 1 }, (_, i) => fetchPage(i + 2))
+    );
+    for (const page of rest) rows.push(...(page.transactions ?? []));
+  }
+  return rows;
+}

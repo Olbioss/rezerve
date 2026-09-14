@@ -151,6 +151,7 @@ Everything is Turkish, including the URLs:
 | `/` | Marketing landing page |
 | `/giris` · `/kayit` · `/kurulum` | Login, signup, business onboarding |
 | `/panel` (+ `randevular` `hizmetler` `saatler` `ayarlar`) | Owner dashboard |
+| `/panel/odemeler` | Settled kapora, per day, with iyzico's cut itemised |
 | `/panel/abonelik` (+ `odeme-hesabi`) | Plan, and the submerchant payout form |
 | `/r/[slug]` | Public booking page (no customer account) |
 | `/r/[slug]/onay/[bookingId]` | Booking confirmation |
@@ -176,6 +177,10 @@ Everything is Turkish, including the URLs:
   payment; an entitled one holds the slot and passes a `subMerchantKey`
 - `lib/billing/handle-subscription-result.integration.test.ts` — subscription
   callback idempotency and card-mandate capture
+- `lib/panel/payouts.test.ts` — tenant isolation for the payouts view: iyzico's
+  settlement reporting is platform-wide and carries no submerchant id, so the
+  match runs against org-scoped bookings and another business's rows can only
+  ever be dropped
 - `lib/billing/charge-subscription.integration.test.ts` — renewal billing: a
   replayed run and two concurrent runs each charge exactly once, dunning
   retries then expires, and a trial lapses instead of charging
