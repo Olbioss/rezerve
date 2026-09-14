@@ -29,8 +29,7 @@ const DAY_MS = 86_400_000;
 export async function handleSubscriptionResult(
   token: string
 ): Promise<{ outcome: SubscriptionOutcome; organizationId: string | null }> {
-  const result =
-    await getPaymentProvider("billing").retrieveSubscriptionCheckout(token);
+  const result = await getPaymentProvider().retrieveSubscriptionCheckout(token);
 
   // Trust the stored token over anything the browser said.
   const pending = await db.query.orgSubscriptions.findFirst({

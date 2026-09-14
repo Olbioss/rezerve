@@ -1,32 +1,22 @@
 import "server-only";
-import { fakeProvider } from "./drivers/fake";
 import { iyzicoProvider } from "./drivers/iyzico";
 import type { PaymentProvider } from "./provider";
 
 /**
- * Which driver backs payments — chosen per capability, because the two halves
- * of the integration are in genuinely different states.
+ * The payment provider.
  *
- * `deposits` covers the kapora checkout and submerchant onboarding, which are
- * verified working against a marketplace-enabled account. `billing` covers the
- * platform's own subscription revenue on stored cards.
+ * There is exactly one implementation, deliberately. An in-app simulation used
+ * to stand in while iyzico had neither Marketplace nor a usable recurring
+ * path, but a second code path that is never exercised in production is a
+ * place for the real one to rot unnoticed — so the app now always talks to
+ * iyzico and requires credentials to run.
  *
- * Both default to `fake` so a clone with no iyzico credentials still runs the
- * whole product end to end.
+ * Sandbox versus production is a separate axis: IYZICO_BASE_URL decides which
+ * iyzico this reaches. Pointing at sandbox gives real API calls, real hosted
+ * pages and real callbacks, with test cards and no money moving.
+ *
+ * Kept behind the PaymentProvider interface so tests can mock this module.
  */
-export type Capability = "deposits" | "billing";
-
-const ENV_VAR: Record<Capability, string> = {
-  deposits: "PAYMENTS_DRIVER_DEPOSITS",
-  billing: "PAYMENTS_DRIVER_BILLING",
-};
-
-export function getPaymentProvider(capability: Capability): PaymentProvider {
-  return process.env[ENV_VAR[capability]] === "iyzico"
-    ? iyzicoProvider
-    : fakeProvider;
-}
-
-export function driverName(capability: Capability): "iyzico" | "fake" {
-  return process.env[ENV_VAR[capability]] === "iyzico" ? "iyzico" : "fake";
+export function getPaymentProvider(): PaymentProvider {
+  return iyzicoProvider;
 }

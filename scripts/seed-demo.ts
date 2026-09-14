@@ -129,15 +129,15 @@ async function seedBusiness(demo: Demo) {
  * reference code is never sent to the provider.
  */
 async function seedProBilling(orgId: string) {
-  const subMerchantKey =
-    process.env.DEMO_SUBMERCHANT_KEY ??
-    (process.env.PAYMENTS_DRIVER_DEPOSITS === "iyzico"
-      ? null
-      : `fake_sm_${orgId}`);
-
+  // Every payment is a real iyzico call, so the demo needs a real
+  // submerchant: `bun run demo:submerchant` creates one and prints its key.
+  const subMerchantKey = process.env.DEMO_SUBMERCHANT_KEY;
   if (!subMerchantKey) {
     console.warn(
-      "! PAYMENTS_DRIVER_DEPOSITS=iyzico but DEMO_SUBMERCHANT_KEY is unset — skipping the demo payout account."
+      "\n! DEMO_SUBMERCHANT_KEY is unset — the demo business cannot collect kapora."
+    );
+    console.warn(
+      "  Run `bun run demo:submerchant` and put the printed key in .env, then re-run this.\n"
     );
     return;
   }
@@ -149,14 +149,25 @@ async function seedProBilling(orgId: string) {
       plan: "pro",
       status: "active",
       currentPeriodEndsAt: new Date(Date.now() + 365 * 86_400_000),
-      // A year out so the demo never lapses on its own, and the renewal cron
-      // has nothing to do until someone deliberately brings the date forward.
-      nextChargeAt: new Date(Date.now() + 365 * 86_400_000),
-      cardUserKey: `fake_cuk_${orgId}`,
-      cardToken: `fake_tok_${orgId}`,
+      // No card on file: the demo subscription is seeded, not purchased, so
+      // leave nextChargeAt null rather than have the cron try to charge a
+      // card that does not exist.
+      nextChargeAt: null,
       lastSyncedAt: new Date(),
     })
-    .onConflictDoNothing({ target: orgSubscriptions.organizationId });
+    // Authoritative for the demo: an older run may have left values that no
+    // longer work, and there is no real owner whose edits could be lost.
+    .onConflictDoUpdate({
+      target: orgSubscriptions.organizationId,
+      set: {
+        plan: "pro",
+        status: "active",
+        currentPeriodEndsAt: new Date(Date.now() + 365 * 86_400_000),
+        nextChargeAt: null,
+        cardUserKey: null,
+        cardToken: null,
+      },
+    });
 
   await db
     .insert(orgPayoutAccounts)
@@ -175,7 +186,10 @@ async function seedProBilling(orgId: string) {
       gsmNumber: "+905350000000",
       email: "demo@rezerve.app",
     })
-    .onConflictDoNothing({ target: orgPayoutAccounts.organizationId });
+    .onConflictDoUpdate({
+      target: orgPayoutAccounts.organizationId,
+      set: { status: "active", subMerchantKey },
+    });
 
   console.log("✓ demo: Pro subscription + payout account");
 }

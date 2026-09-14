@@ -2,12 +2,12 @@
  * Sandbox affordances, in the spirit of Stripe's test mode.
  *
  * Derived from the iyzico base URL rather than carried as its own flag, so it
- * can never claim "test mode" while pointing at production keys.
+ * can never claim "test mode" while pointing at production keys. Every call is
+ * a real iyzico call either way; this only says which iyzico.
  */
-export const IS_TEST_MODE =
-  process.env.PAYMENTS_DRIVER_DEPOSITS !== "iyzico" ||
-  process.env.PAYMENTS_DRIVER_BILLING !== "iyzico" ||
-  (process.env.IYZICO_BASE_URL ?? "").includes("sandbox");
+export const IS_TEST_MODE = (process.env.IYZICO_BASE_URL ?? "").includes(
+  "sandbox"
+);
 
 /**
  * iyzico sandbox test cards, surfaced at the point of payment rather than

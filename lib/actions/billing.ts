@@ -155,7 +155,7 @@ export async function savePayoutAccount(
     where: eq(orgPayoutAccounts.organizationId, organizationId),
   });
   const sdkInput = toSubMerchantInput(organizationId, data);
-  const payments = getPaymentProvider("deposits");
+  const payments = getPaymentProvider();
 
   let subMerchantKey: string;
   try {
@@ -249,7 +249,7 @@ export async function startProSubscription(): Promise<ActionResult> {
     ReturnType<PaymentProvider["initSubscriptionCheckout"]>
   >;
   try {
-    checkout = await getPaymentProvider("billing").initSubscriptionCheckout({
+    checkout = await getPaymentProvider().initSubscriptionCheckout({
       organizationId,
       amountCents: PRO_PRICE_CENTS,
       customerName: session.user.name ?? session.user.email,

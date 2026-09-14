@@ -48,6 +48,7 @@ bun dev
 
 Useful scripts: `bun run check` (Biome), `bun run typecheck`,
 `bun run test` (unit + DB integration tests), `bun run db:studio`,
+`bun run demo:submerchant` (creates the demo business's iyzico submerchant),
 `bun run seed:demo` (creates two demo businesses: `/r/demo` on Pro, and
 `/r/demo-ucretsiz` on the free plan with the *same* services — the only way to
 see the downgrade rule rather than read about it).
@@ -55,21 +56,28 @@ see the downgrade rule rather than read about it).
 Payments use the iyzico sandbox by default (`IYZICO_BASE_URL`); create
 sandbox keys at sandbox-merchant.iyzipay.com.
 
-### Payment drivers
+### Payments are always real iyzico calls
 
-Two switches, because the two halves of the iyzico integration are in
-different states:
+There is one payment code path. An in-app simulation used to stand in while
+iyzico had neither Marketplace nor a usable recurring path, but a second path
+that production never exercises is somewhere the real one can rot unnoticed —
+so it was removed. The app requires iyzico credentials to run.
 
-| Variable | Covers | Status |
-| --- | --- | --- |
-| `PAYMENTS_DRIVER_DEPOSITS` | Kapora checkout + submerchant onboarding | Works against a Marketplace-enabled account |
-| `PAYMENTS_DRIVER_BILLING` | Rezerve's own subscription revenue | Stored-card billing (see below) |
+Sandbox versus production is a separate axis: `IYZICO_BASE_URL` decides which
+iyzico you reach. Sandbox gives real API calls, real submerchants, real hosted
+payment pages and real callbacks, with test cards and no money moving. That is
+the default, and `IS_TEST_MODE` is derived from it rather than carried as its
+own flag, so the "Test modu" banner can never disagree with reality.
 
-Each takes `fake` (default) or `iyzico`. Everything past the hosted payment
-page — callbacks, server-side verification, token-bound idempotent
-transitions, entitlements — is the same code either way, so the `fake` driver
-simulates only the payment page itself (`/demo-odeme`, where you pick the
-outcome). That keeps a fresh clone fully walkable with no credentials.
+First-time setup for the demo business:
+
+```bash
+bun run demo:submerchant   # creates its iyzico submerchant, prints the key
+# put DEMO_SUBMERCHANT_KEY=... in .env
+bun run seed:demo
+```
+
+`demo:submerchant` runs under **Node, not Bun** — see the SDK note below.
 
 ### Why there is no iyzico Abonelik integration
 
@@ -150,7 +158,6 @@ Everything is Turkish, including the URLs:
 | `/api/odeme/iyzico` | iyzico deposit callback |
 | `/api/odeme/abonelik` | Subscription callback (stores the card mandate) |
 | `/api/cron/abonelik` | Daily renewal run (bearer-authenticated) |
-| `/demo-odeme` | Simulated hosted checkout (fake driver only) |
 
 ## Testing
 

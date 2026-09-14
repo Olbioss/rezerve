@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
   let result: CheckoutResult;
   try {
-    result = await getPaymentProvider("deposits").retrieveCheckout(token);
+    result = await getPaymentProvider().retrieveCheckout(token);
   } catch (err) {
     console.error("iyzico retrieve failed:", err);
     return NextResponse.redirect(new URL("/", appUrl), 303);

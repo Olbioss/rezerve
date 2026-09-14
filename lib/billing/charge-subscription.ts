@@ -142,7 +142,7 @@ export async function chargeSubscription(
     where: eq(organization.id, organizationId),
   });
 
-  const result = await getPaymentProvider("billing").chargeStoredCard({
+  const result = await getPaymentProvider().chargeStoredCard({
     organizationId,
     cardUserKey: subscription.cardUserKey,
     cardToken: subscription.cardToken,
