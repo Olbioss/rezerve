@@ -28,7 +28,7 @@ account, optionally paying a deposit (kapora) via iyzico.
   server-side; a lapsed plan keeps its stored kapora amounts but stops
   charging them, so nothing is lost on re-upgrade
 - **Marketplace payouts** — each business is onboarded as an iyzico
-  submerchant, so a kapora settles into *its* account and not the platform's
+  submerchant, so a kapora settles into _its_ account and not the platform's
   (`subMerchantPrice === price`: no commission)
 
 ## Stack
@@ -50,7 +50,7 @@ Useful scripts: `bun run check` (Biome), `bun run typecheck`,
 `bun run test` (unit + DB integration tests), `bun run db:studio`,
 `bun run demo:submerchant` (creates the demo business's iyzico submerchant),
 `bun run seed:demo` (creates two demo businesses: `/r/demo` on Pro, and
-`/r/demo-ucretsiz` on the free plan with the *same* services — the only way to
+`/r/demo-ucretsiz` on the free plan with the _same_ services — the only way to
 see the downgrade rule rather than read about it).
 
 Payments use the iyzico sandbox by default (`IYZICO_BASE_URL`); create
@@ -82,14 +82,14 @@ bun run seed:demo
 ### Why there is no iyzico Abonelik integration
 
 **iyzico does not offer Abonelik on a marketplace account.** Their integration
-team was explicit: *"Pazaryeri iş modelimizde tekrarlı ödemeler abonelik
-özelliği ile sağlanamamaktadır"* — recurring payments in the marketplace
+team was explicit: _"Pazaryeri iş modelimizde tekrarlı ödemeler abonelik
+özelliği ile sağlanamamaktadır"_ — recurring payments in the marketplace
 business model are done with card storage instead. The API agrees: every
 `/v2/subscription/*` endpoint returns `100001`, before and after the account
 was switched to marketplace.
 
-The two products are account *modes*, not independent flags — the enablement
-email says the account's *iş modeli* was "updated to" marketplace. And the SDK
+The two products are account _modes_, not independent flags — the enablement
+email says the account's _iş modeli_ was "updated to" marketplace. And the SDK
 shows why they can't coexist: **no subscription request model accepts a
 submerchant field**, so iyzico's subscription engine has no way to route a
 recurring charge to a submerchant. On a marketplace account, it is switched
@@ -99,10 +99,10 @@ So Rezerve owns its own billing schedule:
 
 - **The card is entered in Rezerve, not on an iyzico page.** There is no
   hosted way to store a card on a marketplace account: `registerCard` lives
-  only inside the `PaymentCard` model, which only the *direct* payment API
+  only inside the `PaymentCard` model, which only the _direct_ payment API
   sends — the Checkout Form and PayWithIyzico carry no card object at all,
   and the hosted vault (`/v2/ucs/init`) returns `42205 Ucs müşteri için aktif
-  değil`. iyzico's integration team directs recurring billing through card
+değil`. iyzico's integration team directs recurring billing through card
   storage on the direct API, so `/panel/abonelik` collects the card and posts
   it to a server action, which passes it straight to
   `payment.create` with `registerCard: 1`. The number is never logged and
@@ -134,19 +134,25 @@ So Rezerve owns its own billing schedule:
 
 ### Known gap: marketplace transactions are never approved
 
-**Kapora reaches the right submerchant and then stays there.** In iyzico
-Marketplace a payment is held until the platform approves the item
-transaction (`POST /payment/iyzipos/item/approve`) — approval is the "service
-was delivered, release the funds" signal. Rezerve never calls it, so nothing
-ever enters the submerchant's payout queue. That is why
-`reportingPayoutCompleted` returns no rows: not because sandbox refuses to
-settle, but because no transaction has been approved.
+**Kapora reaches the right submerchant and is never released.** In iyzico
+Marketplace the platform sits between buyer and seller, so a payment is held
+until the platform approves the item transaction
+(`POST /payment/iyzipos/item/approve`) — the "service was delivered, release
+the funds" signal, whose twin `Disapproval` refunds instead. Rezerve never
+calls either.
 
 Verified directly: a marketplace payment to the demo submerchant returned
 `subMerchantPayoutAmount: 289.28`, `merchantPayoutAmount: 0`,
 `subMerchantPayoutRate: 100` — the split is correct — and
 `approval.create({ paymentTransactionId })` then succeeded. The call works; it
-simply is not wired in.
+is simply not wired in.
+
+What is *not* established: whether approval is the only thing standing between
+a payment and a payout. `reportingPayoutCompleted` has returned no rows at any
+point, including three days after that approval succeeded, so sandbox may not
+simulate settlement at all, or may settle on a longer cycle. Approval is
+required either way — this note is only to say the payout side remains
+unobserved.
 
 Fixing it needs three things, none of them large:
 
@@ -154,7 +160,7 @@ Fixing it needs three things, none of them large:
    checkout token) but not the transaction id, which arrives in the callback
    as `CheckoutFormRetrieveResult.paymentItems[].paymentTransactionId` and is
    currently discarded.
-2. Decide *when* to approve. For appointments the natural signal is after the
+2. Decide _when_ to approve. For appointments the natural signal is after the
    appointment ends and the booking was not cancelled — which also leaves a
    window to refund a no-show before the money is gone. Approving on payment
    is simpler but removes that protection.
@@ -164,15 +170,16 @@ Fixing it needs three things, none of them large:
 
 Probed directly against the sandbox keys in `.env`:
 
-| Call | Result |
-| --- | --- |
-| `POST /payment/iyzipos/checkoutform/initialize/auth/ecom` | works, returns `paymentPageUrl` |
-| the same **with `subMerchantKey` + `subMerchantPrice`** | works — the kapora split is real |
-| `POST /onboarding/submerchant` | works (after iyzico enabled Marketplace) |
-| `POST /cardstorage/card` → `cardList` → `payment/auth` on the stored card | works |
-| `POST /v2/subscription/*` | `100001` — unavailable on a marketplace account |
-| `POST /v2/ucs/init` | `42205` — hosted card storage not enabled |
-| `POST /payment/iyzipos/item/approve` | works — but nothing in the app calls it (see above) |
+| Call                                                                      | Result                                              |
+| ------------------------------------------------------------------------- | --------------------------------------------------- |
+| `POST /payment/iyzipos/checkoutform/initialize/auth/ecom`                 | works, returns `paymentPageUrl`                     |
+| the same **with `subMerchantKey` + `subMerchantPrice`**                   | works — the kapora split is real                    |
+| `POST /onboarding/submerchant`                                            | works (after iyzico enabled Marketplace)            |
+| `POST /cardstorage/card` → `cardList` → `payment/auth` on the stored card | works                                               |
+| `POST /v2/subscription/*`                                                 | `100001` — unavailable on a marketplace account     |
+| `POST /v2/ucs/init`                                                       | `42205` — hosted card storage not enabled           |
+| `POST /payment/iyzipos/item/approve`                                      | works — but nothing in the app calls it (see above) |
+| fix the approval gap.                                                     |
 
 The iyzico SDK hangs under **Bun** (it uses `postman-request`), so any script
 touching it must run under Node. The app is unaffected: `next.config.ts` marks
@@ -182,18 +189,18 @@ touching it must run under Node. The app is unaffected: `next.config.ts` marks
 
 Everything is Turkish, including the URLs:
 
-| Route | Purpose |
-| --- | --- |
-| `/` | Marketing landing page |
-| `/giris` · `/kayit` · `/kurulum` | Login, signup, business onboarding |
-| `/panel` (+ `randevular` `hizmetler` `saatler` `ayarlar`) | Owner dashboard |
-| `/panel/odemeler` | Kapora over 7/30/90 days, with iyzico's cut itemised |
-| `/panel/abonelik` (+ `odeme-hesabi`) | Plan, and the submerchant payout form |
-| `/r/[slug]` | Public booking page (no customer account) |
-| `/r/[slug]/onay/[bookingId]` | Booking confirmation |
-| `/api/r/[slug]/slots` | Availability API |
-| `/api/odeme/iyzico` | iyzico deposit callback |
-| `/api/cron/abonelik` | Daily renewal run (bearer-authenticated) |
+| Route                                                     | Purpose                                              |
+| --------------------------------------------------------- | ---------------------------------------------------- |
+| `/`                                                       | Marketing landing page                               |
+| `/giris` · `/kayit` · `/kurulum`                          | Login, signup, business onboarding                   |
+| `/panel` (+ `randevular` `hizmetler` `saatler` `ayarlar`) | Owner dashboard                                      |
+| `/panel/odemeler`                                         | Kapora over 7/30/90 days, with iyzico's cut itemised |
+| `/panel/abonelik` (+ `odeme-hesabi`)                      | Plan, and the submerchant payout form                |
+| `/r/[slug]`                                               | Public booking page (no customer account)            |
+| `/r/[slug]/onay/[bookingId]`                              | Booking confirmation                                 |
+| `/api/r/[slug]/slots`                                     | Availability API                                     |
+| `/api/odeme/iyzico`                                       | iyzico deposit callback                              |
+| `/api/cron/abonelik`                                      | Daily renewal run (bearer-authenticated)             |
 
 ## Testing
 
