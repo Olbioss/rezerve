@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TEST_PAYOUT_DEFAULTS } from "./test-mode";
 import {
+  isValidCardNumber,
   isValidTckn,
   isValidTurkishIban,
   isValidVkn,
@@ -47,6 +48,36 @@ describe("isValidVkn", () => {
 
   it("rejects the 7-digit legacy form", () => {
     expect(isValidVkn("9261877")).toBe(false);
+  });
+});
+
+describe("isValidCardNumber", () => {
+  it("accepts the iyzico sandbox test cards", () => {
+    // These must keep passing or the demo cannot be walked at all.
+    expect(isValidCardNumber("5528790000000008")).toBe(true);
+    expect(isValidCardNumber("4111111111111129")).toBe(true);
+    expect(isValidCardNumber("5451030000000000")).toBe(true);
+  });
+
+  it("tolerates the spacing and dashes people type", () => {
+    expect(isValidCardNumber("5528 7900 0000 0008")).toBe(true);
+    expect(isValidCardNumber("5528-7900-0000-0008")).toBe(true);
+  });
+
+  it("rejects a single-digit typo", () => {
+    // The whole point: caught here rather than by a failed payment.
+    expect(isValidCardNumber("5528790000000009")).toBe(false);
+  });
+
+  it("rejects transposed digits", () => {
+    expect(isValidCardNumber("5528970000000008")).toBe(false);
+  });
+
+  it("rejects wrong lengths and non-digits", () => {
+    expect(isValidCardNumber("552879000000")).toBe(false);
+    expect(isValidCardNumber("55287900000000081234")).toBe(false);
+    expect(isValidCardNumber("5528 7900 0000 000a")).toBe(false);
+    expect(isValidCardNumber("")).toBe(false);
   });
 });
 

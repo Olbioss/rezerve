@@ -10,6 +10,7 @@ import { PRO_PRICE_CENTS, TRIAL_DAYS } from "@/lib/billing/plans";
 import {
   gsmSchema,
   ibanSchema,
+  isValidCardNumber,
   tcknSchema,
   vknSchema,
 } from "@/lib/billing/validators";
@@ -233,8 +234,8 @@ const cardSchema = z.object({
   holderName: z.string().trim().min(3, "Kart üzerindeki ismi girin").max(80),
   number: z
     .string()
-    .transform((v) => v.replace(/\s+/g, ""))
-    .refine((v) => /^\d{15,16}$/.test(v), "Geçerli bir kart numarası girin"),
+    .transform((v) => v.replace(/[\s-]/g, ""))
+    .refine(isValidCardNumber, "Geçerli bir kart numarası girin"),
   expireMonth: z
     .string()
     .trim()

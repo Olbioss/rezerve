@@ -37,6 +37,32 @@ export function isValidVkn(value: string): boolean {
   return (10 - (sum % 10)) % 10 === d[9];
 }
 
+/**
+ * Card number: 13-19 digits passing the Luhn checksum.
+ *
+ * iyzico rejects a bad number anyway, so this only saves a round trip — but
+ * it turns "Geçerli bir kart numarası girin" into immediate feedback next to
+ * the field instead of a failed payment, which is the same reason the TCKN
+ * and IBAN checks exist here.
+ */
+export function isValidCardNumber(value: string): boolean {
+  const digits = value.replace(/[\s-]/g, "");
+  if (!/^\d{13,19}$/.test(digits)) return false;
+
+  let sum = 0;
+  let double = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let d = Number(digits[i]);
+    if (double) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+    double = !double;
+  }
+  return sum % 10 === 0;
+}
+
 /** Turkish IBAN: TR + 24 digits, validated with ISO 7064 mod-97. */
 export function isValidTurkishIban(value: string): boolean {
   const compact = value.replace(/\s+/g, "").toUpperCase();

@@ -10,6 +10,7 @@ import {
   startProSubscription,
   updateSubscriptionCard,
 } from "@/lib/actions/billing";
+import { isValidCardNumber } from "@/lib/billing/validators";
 
 const EMPTY: CardInput = {
   holderName: "",
@@ -39,6 +40,12 @@ export function CardForm({
 
   const set = <K extends keyof CardInput>(key: K, value: CardInput[K]) =>
     setCard((c) => ({ ...c, [key]: value }));
+
+  // Same check the action runs, shown while typing rather than after a
+  // failed payment. The action still validates — this is only the hint.
+  const numberTyped = card.number.replace(/[\s-]/g, "");
+  const numberLooksWrong =
+    numberTyped.length >= 13 && !isValidCardNumber(card.number);
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -86,8 +93,14 @@ export function CardForm({
           placeholder="5528 7900 0000 0008"
           value={card.number}
           onChange={(e) => set("number", e.target.value)}
+          aria-invalid={numberLooksWrong || undefined}
           required
         />
+        {numberLooksWrong && (
+          <p className="text-destructive text-xs">
+            Kart numarasını kontrol edin.
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-3">
