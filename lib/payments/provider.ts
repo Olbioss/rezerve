@@ -76,23 +76,33 @@ export type SubMerchantInput = {
   taxOffice?: string | null;
 };
 
-export type SubscriptionCheckoutInput = {
+export type NewCardChargeInput = {
   organizationId: string;
   amountCents: number;
   customerName: string;
   customerEmail: string;
-  appUrl: string;
-  /** Reuse the org's existing card vault, when it has one. */
-  cardUserKey?: string | null;
+  customerIp: string;
+  label: string;
+  /**
+   * Typed by the owner. Passed straight to iyzico and never persisted or
+   * logged — only the token it returns is kept.
+   */
+  card: {
+    holderName: string;
+    number: string;
+    expireMonth: string;
+    expireYear: string;
+    cvc: string;
+  };
 };
 
-export type SubscriptionCheckoutResult = {
-  organizationId: string | null;
+export type NewCardChargeResult = {
   paid: boolean;
-  /** The card the first payment stored, for charging renewals. */
+  /** The stored mandate renewals are charged against. */
   cardUserKey: string | null;
   cardToken: string | null;
   paymentRef: string | null;
+  errorMessage: string | null;
 };
 
 export type StoredCardChargeInput = {
@@ -125,19 +135,14 @@ export type PaymentProvider = {
   retrieveSubMerchant(externalId: string): Promise<string | null>;
 
   /**
-   * Opens a hosted checkout for the first subscription payment, which is also
-   * how the card gets stored: iyzico has no card-storage-without-payment on a
-   * marketplace account (/v2/ucs/init → 42205), and the alternatives in their
-   * docs put the card form — and therefore the PAN — on our own server.
+   * First subscription payment, storing the card for renewals.
    *
-   * Doubles as the card-update path: paying again re-stores the card.
+   * Not a hosted flow: iyzico offers no way to store a card through a hosted
+   * page on a marketplace account, and directs recurring billing through card
+   * storage on the direct API. Doubles as the card-update path — paying again
+   * replaces the mandate.
    */
-  initSubscriptionCheckout(
-    input: SubscriptionCheckoutInput
-  ): Promise<HostedCheckout>;
-  retrieveSubscriptionCheckout(
-    token: string
-  ): Promise<SubscriptionCheckoutResult>;
+  chargeNewCard(input: NewCardChargeInput): Promise<NewCardChargeResult>;
   /** Renewals: charge the stored card with nobody present. */
   chargeStoredCard(
     input: StoredCardChargeInput

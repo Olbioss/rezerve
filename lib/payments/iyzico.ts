@@ -366,31 +366,66 @@ function billingParties(name: string, email: string, organizationId: string) {
   };
 }
 
-/** Hosted checkout for the first subscription payment; stores the card. */
-export function createSubscriptionCheckout(input: {
+/**
+ * First subscription payment, paid with a card the owner types in, stored for
+ * renewals by registerCard.
+ *
+ * iyzico has no hosted way to store a card on a marketplace account — the
+ * Checkout Form carries no paymentCard object, and the hosted vault
+ * (/v2/ucs/init) is not enabled — so their integration team directs recurring
+ * billing through card storage on the direct API. That means the card number
+ * passes through this server on this one request: it is never logged, never
+ * persisted, and only the returned cardToken/cardUserKey are kept.
+ *
+ * Non-3DS. A production build taking real cards would route the first payment
+ * through threedsInitialize instead; renewals stay non-3DS either way, since
+ * the customer is not present.
+ */
+export function payWithNewCard(input: {
   organizationId: string;
   amountCents: number;
   customerName: string;
   customerEmail: string;
-  appUrl: string;
-  /** Reuse an existing card vault when the org has one (card update). */
-  cardUserKey?: string | null;
-}): Promise<DepositCheckout> {
+  customerIp: string;
+  card: {
+    holderName: string;
+    number: string;
+    expireMonth: string;
+    expireYear: string;
+    cvc: string;
+  };
+  label: string;
+}): Promise<{
+  paid: boolean;
+  cardUserKey: string | null;
+  cardToken: string | null;
+  paymentRef: string | null;
+  errorMessage: string | null;
+}> {
   const price = toPrice(input.amountCents);
-  type InitParams = Parameters<Iyzipay["checkoutFormInitialize"]["create"]>[0];
+  type PayParams = Parameters<Iyzipay["payment"]["create"]>[0];
   return new Promise((resolve, reject) => {
-    getIyzipay().checkoutFormInitialize.create(
+    getIyzipay().payment.create(
       {
         locale: Iyzipay.LOCALE.TR,
         conversationId: input.organizationId,
         price,
         paidPrice: price,
         currency: Iyzipay.CURRENCY.TRY,
+        installment: 1,
         basketId: input.organizationId,
+        paymentChannel: Iyzipay.PAYMENT_CHANNEL.WEB,
         paymentGroup: Iyzipay.PAYMENT_GROUP.SUBSCRIPTION,
-        callbackUrl: `${input.appUrl}/api/odeme/abonelik`,
-        // Platform revenue: no submerchant, nothing to split.
-        ...(input.cardUserKey ? { cardUserKey: input.cardUserKey } : {}),
+        paymentCard: {
+          cardHolderName: input.card.holderName,
+          cardNumber: input.card.number,
+          expireYear: input.card.expireYear,
+          expireMonth: input.card.expireMonth,
+          cvc: input.card.cvc,
+          // The whole point: hand back a token we can charge next month.
+          registerCard: 1,
+          cardAlias: "Rezerve Pro",
+        },
         ...billingParties(
           input.customerName,
           input.customerEmail,
@@ -399,28 +434,29 @@ export function createSubscriptionCheckout(input: {
         basketItems: [
           {
             id: "rezerve-pro",
-            name: "Rezerve Pro — aylık abonelik",
+            name: input.label,
             category1: "Abonelik",
             itemType: Iyzipay.BASKET_ITEM_TYPE.VIRTUAL,
             price,
           },
         ],
-      } as unknown as InitParams,
-      (err, rawResult) => {
+      } as unknown as PayParams,
+      (err, raw) => {
         if (err) return reject(err);
-        const result = rawResult as unknown as CheckoutInitResult;
-        if (
-          result.status !== "success" ||
-          !result.token ||
-          !result.paymentPageUrl
-        ) {
-          return reject(
-            new Error(
-              `iyzico subscription checkout init failed: ${result.errorMessage ?? result.status}`
-            )
-          );
-        }
-        resolve({ token: result.token, paymentPageUrl: result.paymentPageUrl });
+        const result = raw as unknown as {
+          status: string;
+          paymentId?: string;
+          cardUserKey?: string;
+          cardToken?: string;
+          errorMessage?: string;
+        };
+        resolve({
+          paid: result.status === "success",
+          cardUserKey: result.cardUserKey ?? null,
+          cardToken: result.cardToken ?? null,
+          paymentRef: result.paymentId ?? null,
+          errorMessage: result.errorMessage ?? null,
+        });
       }
     );
   });
@@ -507,58 +543,6 @@ export function chargeStoredCard(input: {
       }
     );
   });
-}
-
-/**
- * Subscription checkout result, including the card iyzico stored.
- *
- * @types/iyzipay models the retrieve result without the card fields, but it
- * omits fields the live API returns elsewhere too (paymentPageUrl is the
- * proven case), so we read them and fall back to cardList when absent.
- */
-export async function retrieveSubscriptionCheckoutResult(
-  token: string
-): Promise<{
-  organizationId: string | null;
-  paid: boolean;
-  cardUserKey: string | null;
-  cardToken: string | null;
-  paymentRef: string | null;
-}> {
-  const raw = await new Promise<{
-    status: string;
-    paymentStatus?: string;
-    conversationId?: string;
-    basketId?: string;
-    paymentId?: string;
-    cardUserKey?: string;
-    cardToken?: string;
-  }>((resolve, reject) => {
-    getIyzipay().checkoutForm.retrieve(
-      { locale: Iyzipay.LOCALE.TR, token },
-      (err, result) =>
-        err ? reject(err) : resolve(result as unknown as typeof raw)
-    );
-  });
-
-  const paid = raw.status === "success" && raw.paymentStatus === "SUCCESS";
-  const cardUserKey = raw.cardUserKey ?? null;
-  let cardToken = raw.cardToken ?? null;
-
-  // The retrieve response is the documented place for this, but if the card
-  // arrives only in the vault, look it up rather than losing the mandate.
-  if (paid && cardUserKey && !cardToken) {
-    const cards = await listStoredCards(cardUserKey);
-    cardToken = cards[0]?.cardToken ?? null;
-  }
-
-  return {
-    organizationId: raw.conversationId ?? raw.basketId ?? null,
-    paid,
-    cardUserKey,
-    cardToken,
-    paymentRef: raw.paymentId ?? null,
-  };
 }
 
 /**

@@ -11,44 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  cancelProSubscription,
-  startProSubscription,
-  startTrial,
-  updateSubscriptionCard,
-} from "@/lib/actions/billing";
-
-/**
- * Opens a hosted checkout. Both entry points behave the same way: the action
- * usually redirects and never returns, and only falls back to embedded form
- * HTML if the provider gives that instead of a URL.
- */
-export function SubscribeButton({
-  label,
-  action = "subscribe",
-}: {
-  label: string;
-  action?: "subscribe" | "updateCard";
-}) {
-  const [pending, startTransition] = useTransition();
-
-  function subscribe() {
-    startTransition(async () => {
-      // Always redirects to the hosted page on success; only errors return.
-      const result =
-        action === "updateCard"
-          ? await updateSubscriptionCard()
-          : await startProSubscription();
-      if (result?.error) toast.error(result.error);
-    });
-  }
-
-  return (
-    <Button onClick={subscribe} disabled={pending}>
-      {pending ? "Yönlendiriliyor…" : label}
-    </Button>
-  );
-}
+import { cancelProSubscription, startTrial } from "@/lib/actions/billing";
 
 export function CancelSubscriptionButton() {
   const [pending, startTransition] = useTransition();

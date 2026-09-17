@@ -1,8 +1,8 @@
 import Link from "next/link";
+import { CardForm } from "@/components/billing/card-form";
 import {
   CancelSubscriptionButton,
   StartTrialButton,
-  SubscribeButton,
 } from "@/components/billing/subscription-actions";
 import { PageHeader } from "@/components/panel/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { requireOwner } from "@/lib/auth-guard";
 import type { EntitlementReason } from "@/lib/billing/entitlements";
 import { PLANS, TRIAL_DAYS } from "@/lib/billing/plans";
-import { IS_TEST_MODE } from "@/lib/billing/test-mode";
+import { IS_TEST_MODE, TEST_CARDS } from "@/lib/billing/test-mode";
 import { formatMoney } from "@/lib/format";
 
 export const metadata = { title: "Abonelik" };
@@ -87,11 +87,6 @@ export default async function BillingPage({
           {reason === "free" && !subscription && (
             <StartTrialButton label={`${TRIAL_DAYS} gün ücretsiz deneyin`} />
           )}
-          {(reason === "free" || reason === "expired") && (
-            <SubscribeButton
-              label={subscription ? "Pro'ya geç" : "Kartla hemen başla"}
-            />
-          )}
           {(reason === "no_payout_account" || reason === "payout_pending") && (
             <Button
               render={<Link href="/panel/abonelik/odeme-hesabi" />}
@@ -100,17 +95,33 @@ export default async function BillingPage({
               Ödeme hesabınızı tanımlayın
             </Button>
           )}
-          {reason === "past_due" && (
-            <SubscribeButton
-              label="Kartınızı güncelleyin"
-              action="updateCard"
-            />
-          )}
           {(reason === "active" ||
             reason === "trialing" ||
             reason === "past_due") && <CancelSubscriptionButton />}
         </div>
       </div>
+
+      {(reason === "free" || reason === "expired" || reason === "past_due") && (
+        <div className="grid gap-4 rounded-xl border p-5">
+          <div>
+            <p className="font-medium text-sm">
+              {reason === "past_due" ? "Kartınızı güncelleyin" : "Pro'ya geçin"}
+            </p>
+            <p className="mt-1 text-muted-foreground text-sm">
+              Kartınız yenilemeler için iyzico'da saklanır; Rezerve kart
+              numaranızı saklamaz.
+            </p>
+          </div>
+          <CardForm
+            mode={reason === "past_due" ? "update" : "subscribe"}
+            testCard={
+              IS_TEST_MODE
+                ? { number: TEST_CARDS[0].number, hint: TEST_CARDS[0].hint }
+                : null
+            }
+          />
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {(["free", "pro"] as const).map((key) => {

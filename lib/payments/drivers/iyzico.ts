@@ -3,10 +3,9 @@ import {
   chargeStoredCard,
   createDepositCheckout,
   createSubMerchant,
-  createSubscriptionCheckout,
+  payWithNewCard,
   retrieveCheckout,
   retrieveSubMerchant,
-  retrieveSubscriptionCheckoutResult,
   updateSubMerchant,
 } from "../iyzico";
 import type { PaymentProvider } from "../provider";
@@ -29,18 +28,7 @@ export const iyzicoProvider: PaymentProvider = {
   updateSubMerchant,
   retrieveSubMerchant,
 
-  async initSubscriptionCheckout(input) {
-    return createSubscriptionCheckout({
-      organizationId: input.organizationId,
-      amountCents: input.amountCents,
-      customerName: input.customerName,
-      customerEmail: input.customerEmail,
-      appUrl: input.appUrl,
-      cardUserKey: input.cardUserKey,
-    });
-  },
-
-  retrieveSubscriptionCheckout: retrieveSubscriptionCheckoutResult,
+  chargeNewCard: payWithNewCard,
 
   async chargeStoredCard(input) {
     return chargeStoredCard(input);

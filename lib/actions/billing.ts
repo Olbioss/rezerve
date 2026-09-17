@@ -2,9 +2,10 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth-guard";
+import { activateSubscription } from "@/lib/billing/activate-subscription";
 import { PRO_PRICE_CENTS, TRIAL_DAYS } from "@/lib/billing/plans";
 import {
   gsmSchema,
@@ -17,7 +18,6 @@ import {
   orgPayoutAccounts,
   orgSubscriptions,
 } from "@/lib/db/schema/billing-schema";
-import { requireEnv } from "@/lib/env";
 import { getPaymentProvider } from "@/lib/payments";
 import type {
   PaymentProvider,
@@ -229,55 +229,79 @@ export async function startTrial(): Promise<ActionResult> {
   revalidatePath("/panel/hizmetler");
 }
 
+const cardSchema = z.object({
+  holderName: z.string().trim().min(3, "Kart üzerindeki ismi girin").max(80),
+  number: z
+    .string()
+    .transform((v) => v.replace(/\s+/g, ""))
+    .refine((v) => /^\d{15,16}$/.test(v), "Geçerli bir kart numarası girin"),
+  expireMonth: z
+    .string()
+    .trim()
+    .refine((v) => /^(0[1-9]|1[0-2])$/.test(v), "Ay 01-12 olmalı"),
+  expireYear: z
+    .string()
+    .trim()
+    .refine((v) => /^\d{4}$/.test(v), "Yılı 4 haneli girin (örn. 2030)"),
+  cvc: z
+    .string()
+    .trim()
+    .refine((v) => /^\d{3,4}$/.test(v), "Geçerli bir CVC girin"),
+});
+
+export type CardInput = z.input<typeof cardSchema>;
+
 /**
- * Open a Pro subscription checkout.
+ * Start Pro: charge the card now and keep it for renewals.
  *
- * The row is marked `pending` with the checkout token *before* the visitor
- * leaves, so the callback has something to match against — the same
- * token-bound idempotency the booking deposit flow uses.
+ * iyzico offers no hosted way to store a card on a marketplace account, and
+ * directs recurring billing through card storage on the direct API — so the
+ * number is posted here, passed straight to iyzico, and never logged or
+ * persisted. Only the token it returns is kept.
  *
- * Redirects to the hosted page and never returns on success.
+ * Also the card-update path: paying again replaces the stored mandate.
  */
-export async function startProSubscription(): Promise<ActionResult> {
-  const { organizationId, session, billing } = await requireOwner();
-  if (billing.plan === "pro") {
-    return { error: "Aboneliğiniz zaten aktif." };
+export async function startProSubscription(
+  input: CardInput
+): Promise<ActionResult> {
+  const { organizationId, session } = await requireOwner();
+
+  const parsed = cardSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      error: parsed.error.issues[0]?.message ?? "Geçersiz kart bilgisi",
+    };
   }
 
-  const appUrl = requireEnv("NEXT_PUBLIC_APP_URL");
-  let checkout: Awaited<
-    ReturnType<PaymentProvider["initSubscriptionCheckout"]>
-  >;
+  const requestHeaders = await headers();
+  const customerIp =
+    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "85.34.78.112";
+
+  let result: Awaited<ReturnType<PaymentProvider["chargeNewCard"]>>;
   try {
-    checkout = await getPaymentProvider().initSubscriptionCheckout({
+    result = await getPaymentProvider().chargeNewCard({
       organizationId,
       amountCents: PRO_PRICE_CENTS,
       customerName: session.user.name ?? session.user.email,
       customerEmail: session.user.email,
-      appUrl,
-      cardUserKey: billing.subscription?.cardUserKey,
+      customerIp,
+      label: "Rezerve Pro — aylık abonelik",
+      card: parsed.data,
     });
   } catch (err) {
-    console.error("Failed to start subscription checkout:", err);
-    return { error: "Ödeme başlatılamadı — lütfen tekrar deneyin." };
+    console.error("Subscription payment failed:", err);
+    return { error: "Ödeme alınamadı — lütfen tekrar deneyin." };
   }
 
-  await db
-    .insert(orgSubscriptions)
-    .values({
-      organizationId,
-      status: "pending",
-      checkoutToken: checkout.token,
-    })
-    .onConflictDoUpdate({
-      target: orgSubscriptions.organizationId,
-      set: { status: "pending", checkoutToken: checkout.token },
-    });
-
-  if (!checkout.paymentPageUrl) {
-    return { error: "Ödeme sayfası alınamadı — lütfen tekrar deneyin." };
+  if (!result.paid) {
+    return { error: result.errorMessage ?? "Kartınızdan ödeme alınamadı." };
   }
-  redirect(checkout.paymentPageUrl);
+
+  await activateSubscription(organizationId, result);
+
+  revalidatePath("/panel/abonelik");
+  revalidatePath("/panel/hizmetler");
 }
 
 /**
@@ -300,8 +324,9 @@ export async function cancelProSubscription(): Promise<ActionResult> {
   revalidatePath("/panel/hizmetler");
 }
 
-export async function updateSubscriptionCard(): Promise<ActionResult> {
-  // Re-running the checkout is the card update: iyzico stores whatever card
-  // pays, so a successful payment replaces the mandate.
-  return startProSubscription();
+export async function updateSubscriptionCard(
+  input: CardInput
+): Promise<ActionResult> {
+  // Paying again stores the new card, which replaces the mandate.
+  return startProSubscription(input);
 }

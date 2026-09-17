@@ -32,7 +32,7 @@ export function OnboardingForm() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [timezone, setTimezone] = useState(defaultTimezone);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     startTransition(async () => {
       const result = await completeOnboarding({ name, slug, timezone });

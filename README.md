@@ -97,12 +97,19 @@ off wholesale.
 
 So Rezerve owns its own billing schedule:
 
-- **Card capture rides the first payment.** `/v2/ucs/init` (hosted card
-  storage without a payment) returns `42205 Ucs müşteri için aktif değil`, and
-  iyzico's documented alternatives put the card form — and the PAN — on your
-  own server. Instead the first ₺299 checkout stores the card, and the
-  callback reads the token back, falling back to `cardList` if the retrieve
-  response omits it. **The card number never reaches this server.**
+- **The card is entered in Rezerve, not on an iyzico page.** There is no
+  hosted way to store a card on a marketplace account: `registerCard` lives
+  only inside the `PaymentCard` model, which only the *direct* payment API
+  sends — the Checkout Form and PayWithIyzico carry no card object at all,
+  and the hosted vault (`/v2/ucs/init`) returns `42205 Ucs müşteri için aktif
+  değil`. iyzico's integration team directs recurring billing through card
+  storage on the direct API, so `/panel/abonelik` collects the card and posts
+  it to a server action, which passes it straight to
+  `payment.create` with `registerCard: 1`. The number is never logged and
+  never persisted; only the returned `cardToken`/`cardUserKey` are kept.
+  A production build taking real cards would route this first payment through
+  `threedsInitialize` and carry the matching PCI scope (SAQ A-EP); renewals
+  stay non-3DS either way, since the customer is not present.
 - **Renewals are a daily cron** (`vercel.json` → `/api/cron/abonelik`,
   bearer-authenticated with `CRON_SECRET`) charging the stored token. The check
   is timing-safe and **fails closed**: an unset `CRON_SECRET` returns 503 and
@@ -157,7 +164,6 @@ Everything is Turkish, including the URLs:
 | `/r/[slug]/onay/[bookingId]` | Booking confirmation |
 | `/api/r/[slug]/slots` | Availability API |
 | `/api/odeme/iyzico` | iyzico deposit callback |
-| `/api/odeme/abonelik` | Subscription callback (stores the card mandate) |
 | `/api/cron/abonelik` | Daily renewal run (bearer-authenticated) |
 
 ## Testing
@@ -175,8 +181,10 @@ Everything is Turkish, including the URLs:
 - `lib/actions/bookings-billing.integration.test.ts` — the enforcement proof:
   an unentitled org books free with `depositCents = null` and never starts a
   payment; an entitled one holds the slot and passes a `subMerchantKey`
-- `lib/billing/handle-subscription-result.integration.test.ts` — subscription
-  callback idempotency and card-mandate capture
+- `lib/billing/activate-subscription.integration.test.ts` — turning a payment
+  into an active subscription: the mandate is stored, a double-submitted form
+  does not slide the renewal date, and a payment that returns no card leaves
+  the renewal cron disarmed rather than failing daily
 - `lib/panel/payouts.test.ts` — tenant isolation for the payouts view: iyzico's
   settlement reporting is platform-wide and carries no submerchant id, so the
   match runs against org-scoped bookings and another business's rows can only
