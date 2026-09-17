@@ -132,6 +132,34 @@ So Rezerve owns its own billing schedule:
   true. A production build wanting auto-conversion would capture the card up
   front with a pre-auth (`checkoutFormInitializePreAuth`) instead.
 
+### Known gap: marketplace transactions are never approved
+
+**Kapora reaches the right submerchant and then stays there.** In iyzico
+Marketplace a payment is held until the platform approves the item
+transaction (`POST /payment/iyzipos/item/approve`) — approval is the "service
+was delivered, release the funds" signal. Rezerve never calls it, so nothing
+ever enters the submerchant's payout queue. That is why
+`reportingPayoutCompleted` returns no rows: not because sandbox refuses to
+settle, but because no transaction has been approved.
+
+Verified directly: a marketplace payment to the demo submerchant returned
+`subMerchantPayoutAmount: 289.28`, `merchantPayoutAmount: 0`,
+`subMerchantPayoutRate: 100` — the split is correct — and
+`approval.create({ paymentTransactionId })` then succeeded. The call works; it
+simply is not wired in.
+
+Fixing it needs three things, none of them large:
+
+1. Store the item transaction id. `bookings` keeps `paymentToken` (the
+   checkout token) but not the transaction id, which arrives in the callback
+   as `CheckoutFormRetrieveResult.paymentItems[].paymentTransactionId` and is
+   currently discarded.
+2. Decide *when* to approve. For appointments the natural signal is after the
+   appointment ends and the booking was not cancelled — which also leaves a
+   window to refund a no-show before the money is gone. Approving on payment
+   is simpler but removes that protection.
+3. A daily approval run, alongside the renewal cron.
+
 ### What the sandbox account can and cannot do
 
 Probed directly against the sandbox keys in `.env`:
@@ -144,6 +172,7 @@ Probed directly against the sandbox keys in `.env`:
 | `POST /cardstorage/card` → `cardList` → `payment/auth` on the stored card | works |
 | `POST /v2/subscription/*` | `100001` — unavailable on a marketplace account |
 | `POST /v2/ucs/init` | `42205` — hosted card storage not enabled |
+| `POST /payment/iyzipos/item/approve` | works — but nothing in the app calls it (see above) |
 
 The iyzico SDK hangs under **Bun** (it uses `postman-request`), so any script
 touching it must run under Node. The app is unaffected: `next.config.ts` marks
@@ -158,7 +187,7 @@ Everything is Turkish, including the URLs:
 | `/` | Marketing landing page |
 | `/giris` · `/kayit` · `/kurulum` | Login, signup, business onboarding |
 | `/panel` (+ `randevular` `hizmetler` `saatler` `ayarlar`) | Owner dashboard |
-| `/panel/odemeler` | Settled kapora, per day, with iyzico's cut itemised |
+| `/panel/odemeler` | Kapora over 7/30/90 days, with iyzico's cut itemised |
 | `/panel/abonelik` (+ `odeme-hesabi`) | Plan, and the submerchant payout form |
 | `/r/[slug]` | Public booking page (no customer account) |
 | `/r/[slug]/onay/[bookingId]` | Booking confirmation |
