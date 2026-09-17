@@ -1,7 +1,7 @@
 import "server-only";
 import { and, eq, isNotNull, lte, or } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { organization } from "@/lib/db/schema/auth-schema";
+import { member, organization, user } from "@/lib/db/schema/auth-schema";
 import {
   billingEvents,
   orgSubscriptions,
@@ -138,17 +138,36 @@ export async function chargeSubscription(
     charge = bumped;
   }
 
-  const org = await db.query.organization.findFirst({
-    where: eq(organization.id, organizationId),
-  });
+  // The owner's real email: iyzico validates it, and a synthetic address is
+  // rejected outright ("email hatalı format ile gönderilmiştir"). There is no
+  // session here, so it comes from the organization's owning member.
+  const [owner] = await db
+    .select({ orgName: organization.name, email: user.email, name: user.name })
+    .from(organization)
+    .innerJoin(member, eq(member.organizationId, organization.id))
+    .innerJoin(user, eq(user.id, member.userId))
+    .where(eq(organization.id, organizationId))
+    .limit(1);
+
+  if (!owner?.email) {
+    // Nobody to bill against; retrying daily would not help.
+    await db
+      .update(orgSubscriptions)
+      .set({ status: "expired", plan: "free", nextChargeAt: null })
+      .where(eq(orgSubscriptions.organizationId, organizationId));
+    await logEvent(organizationId, "subscription.no_billable_owner", {
+      period,
+    });
+    return "exhausted";
+  }
 
   const result = await getPaymentProvider().chargeStoredCard({
     organizationId,
     cardUserKey: subscription.cardUserKey,
     cardToken: subscription.cardToken,
     amountCents: PRO_PRICE_CENTS,
-    customerName: org?.name ?? "Rezerve",
-    customerEmail: `${organizationId}@rezerve.local`,
+    customerName: owner.name ?? owner.orgName ?? "Rezerve",
+    customerEmail: owner.email,
     label: "Rezerve Pro — aylık abonelik",
   });
 

@@ -22,13 +22,18 @@ const { chargeSubscription, dueSubscriptions, RETRY_DAYS } = await import(
   "./charge-subscription"
 );
 const { db } = await import("@/lib/db");
-const { organization } = await import("@/lib/db/schema/auth-schema");
+const { member, organization, user } = await import(
+  "@/lib/db/schema/auth-schema"
+);
 const { orgSubscriptions, subscriptionCharges } = await import(
   "@/lib/db/schema/billing-schema"
 );
 
 const ORG_ID = "org_itest_charge";
 const SLUG = "itest-charge";
+const USER_ID = "user_itest_charge";
+const OWNER_EMAIL = "owner@itest.dev";
+const MEMBER_ID = "member_itest_charge";
 const DAY = 86_400_000;
 const NOW = new Date("2026-04-01T06:00:00Z");
 
@@ -47,10 +52,27 @@ const decline = () =>
 
 beforeAll(async () => {
   await db.delete(organization).where(eq(organization.id, ORG_ID));
+  await db.delete(user).where(eq(user.id, USER_ID));
   await db.insert(organization).values({
     id: ORG_ID,
     name: "ITest Charge",
     slug: SLUG,
+    createdAt: new Date(),
+  });
+  // The renewal has no session, so the billable email comes from the owner.
+  await db.insert(user).values({
+    id: USER_ID,
+    name: "Ada Lovelace",
+    email: OWNER_EMAIL,
+    emailVerified: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  await db.insert(member).values({
+    id: MEMBER_ID,
+    organizationId: ORG_ID,
+    userId: USER_ID,
+    role: "owner",
     createdAt: new Date(),
   });
 });
@@ -81,6 +103,7 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await db.delete(organization).where(eq(organization.id, ORG_ID));
+  await db.delete(user).where(eq(user.id, USER_ID));
   await db.$client.end();
 });
 
@@ -118,6 +141,45 @@ describe("chargeSubscription — the happy path", () => {
     succeed();
     expect(await chargeSubscription(ORG_ID, NOW)).toBe("noop");
     expect(chargeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("chargeSubscription — who gets billed", () => {
+  it("bills the owner's real email, not a synthetic one", async () => {
+    // A fabricated address (org-id@rezerve.local) is rejected outright by
+    // iyzico — "email hatalı format ile gönderilmiştir" — and every renewal
+    // failed. There is no session in a cron, so it comes from the member row.
+    succeed();
+    await chargeSubscription(ORG_ID, NOW);
+
+    expect(chargeMock).toHaveBeenCalledTimes(1);
+    expect(chargeMock.mock.calls[0][0]).toMatchObject({
+      organizationId: ORG_ID,
+      customerEmail: OWNER_EMAIL,
+      customerName: "Ada Lovelace",
+      cardUserKey: "cuk_itest",
+      cardToken: "tok_itest",
+    });
+  });
+
+  it("gives up rather than retrying when the org has no owner", async () => {
+    await db.delete(member).where(eq(member.organizationId, ORG_ID));
+    succeed();
+
+    expect(await chargeSubscription(ORG_ID, NOW)).toBe("exhausted");
+    expect(chargeMock).not.toHaveBeenCalled();
+    const sub = await subscription();
+    expect(sub?.status).toBe("expired");
+    expect(sub?.nextChargeAt).toBeNull();
+
+    // Restore it for the tests that follow.
+    await db.insert(member).values({
+      id: MEMBER_ID,
+      organizationId: ORG_ID,
+      userId: USER_ID,
+      role: "owner",
+      createdAt: new Date(),
+    });
   });
 });
 
