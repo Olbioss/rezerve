@@ -306,6 +306,43 @@ export async function startProSubscription(
 }
 
 /**
+ * Undo a cancellation while the paid period is still running.
+ *
+ * No payment: the card is still on file and the period was already bought, so
+ * resuming is just re-arming the cron for the end of it.
+ */
+export async function resumeProSubscription(): Promise<ActionResult> {
+  const { organizationId, billing } = await requireOwner();
+  const subscription = billing.subscription;
+
+  if (subscription?.status !== "cancelled") {
+    return { error: "İptal edilmiş bir abonelik bulunamadı." };
+  }
+  if (
+    !subscription.currentPeriodEndsAt ||
+    subscription.currentPeriodEndsAt.getTime() <= Date.now()
+  ) {
+    return { error: "Dönem sona ermiş — yeniden abone olmanız gerekiyor." };
+  }
+  if (!subscription.cardToken) {
+    return { error: "Kayıtlı kart bulunamadı — kartınızı tekrar girin." };
+  }
+
+  await db
+    .update(orgSubscriptions)
+    .set({
+      status: "active",
+      plan: "pro",
+      cancelAtPeriodEnd: false,
+      nextChargeAt: subscription.currentPeriodEndsAt,
+    })
+    .where(eq(orgSubscriptions.organizationId, organizationId));
+
+  revalidatePath("/panel/abonelik");
+  revalidatePath("/panel/hizmetler");
+}
+
+/**
  * Cancel: stop renewing, but serve out the period already paid for.
  *
  * There is nothing to cancel upstream — Rezerve owns the schedule, so

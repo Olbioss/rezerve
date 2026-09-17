@@ -11,7 +11,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { cancelProSubscription, startTrial } from "@/lib/actions/billing";
+import {
+  cancelProSubscription,
+  resumeProSubscription,
+  startTrial,
+} from "@/lib/actions/billing";
 
 export function CancelSubscriptionButton() {
   const [pending, startTransition] = useTransition();
@@ -78,6 +82,24 @@ export function StartTrialButton({ label }: { label: string }) {
   return (
     <Button onClick={begin} disabled={pending}>
       {pending ? "Başlatılıyor…" : label}
+    </Button>
+  );
+}
+
+export function ResumeSubscriptionButton() {
+  const [pending, startTransition] = useTransition();
+
+  function resume() {
+    startTransition(async () => {
+      const result = await resumeProSubscription();
+      if (result?.error) toast.error(result.error);
+      else toast.success("Aboneliğiniz devam ediyor");
+    });
+  }
+
+  return (
+    <Button onClick={resume} disabled={pending}>
+      {pending ? "Açılıyor…" : "Aboneliği sürdür"}
     </Button>
   );
 }

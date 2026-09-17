@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CardForm } from "@/components/billing/card-form";
 import {
   CancelSubscriptionButton,
+  ResumeSubscriptionButton,
   StartTrialButton,
 } from "@/components/billing/subscription-actions";
 import { PageHeader } from "@/components/panel/page-header";
@@ -28,6 +29,8 @@ const REASON_COPY: Record<EntitlementReason, string> = {
   active: "Pro aktif. Online kapora açık.",
   past_due:
     "Son ödeme alınamadı. Kartınızı güncelleyin — kapora kısa süre daha açık.",
+  cancelled:
+    "Aboneliğiniz iptal edildi. Dönem sonuna kadar Pro açık kalır, sonra ücretsiz plana döner.",
 };
 
 function formatDate(date: Date) {
@@ -95,6 +98,7 @@ export default async function BillingPage({
               Ödeme hesabınızı tanımlayın
             </Button>
           )}
+          {reason === "cancelled" && <ResumeSubscriptionButton />}
           {(reason === "active" ||
             reason === "trialing" ||
             reason === "past_due") && <CancelSubscriptionButton />}

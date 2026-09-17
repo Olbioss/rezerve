@@ -106,13 +106,20 @@ describe("resolveEntitlements — cancelled", () => {
     expect(resolveEntitlements(s, PAID, NOW)).toEqual({
       plan: "pro",
       onlineDeposit: true,
-      reason: "active",
+      // Not "active": the panel must be able to say it is ending.
+      reason: "cancelled",
     });
   });
 
   it("drops entitlement once the paid period has passed", () => {
     const s = sub("cancelled", { currentPeriodEndsAt: at(-1) });
     expect(resolveEntitlements(s, PAID, NOW).onlineDeposit).toBe(false);
+  });
+
+  it("keeps online kapora on while the cancelled period runs", () => {
+    // Cancelling must not switch off a feature they have already paid for.
+    const s = sub("cancelled", { currentPeriodEndsAt: at(5) });
+    expect(resolveEntitlements(s, PAID, NOW).onlineDeposit).toBe(true);
   });
 
   it("does not trust a cancelled row with no paid-through date", () => {

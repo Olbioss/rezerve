@@ -28,7 +28,9 @@ export type EntitlementReason =
   | "payout_pending"
   | "trialing"
   | "active"
-  | "past_due";
+  | "past_due"
+  /** Still entitled, but not renewing — the period is being served out. */
+  | "cancelled";
 
 export type Entitlements = {
   plan: Plan;
@@ -97,6 +99,9 @@ function lapsedReason(sub: SubscriptionSnapshot | null): EntitlementReason {
 function paidReason(status: SubscriptionStatus): EntitlementReason {
   if (status === "trialing") return "trialing";
   if (status === "past_due") return "past_due";
+  // Distinct from "active" on purpose: entitlement is the same, but the panel
+  // has to say it is ending, and must not offer to cancel it twice.
+  if (status === "cancelled") return "cancelled";
   return "active";
 }
 
