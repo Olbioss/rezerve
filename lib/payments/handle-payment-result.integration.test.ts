@@ -20,6 +20,11 @@ vi.mock("@/lib/email/booking-notifications", () => ({
   sendBookingCancelledEmails: (...args: unknown[]) => sendCancelled(...args),
 }));
 
+const { approveMock } = vi.hoisted(() => ({ approveMock: vi.fn() }));
+vi.mock("@/lib/payments", () => ({
+  getPaymentProvider: () => ({ approveTransaction: approveMock }),
+}));
+
 const { confirmPaidBooking, cancelFailedPayment } = await import(
   "./handle-payment-result"
 );
@@ -124,5 +129,56 @@ describe("handle-payment-result (integration)", () => {
     expect(await confirmPaidBooking(bookingId, TOKEN)).toBe("noop");
     expect(await bookingStatus()).toBe("cancelled");
     expect(sendConfirmed).not.toHaveBeenCalled();
+  });
+});
+
+describe("confirmPaidBooking — releasing the kapora", () => {
+  const TX = "39798795";
+
+  it("approves the transaction so the money leaves escrow", async () => {
+    // Without this the kapora reaches the business's submerchant and stays
+    // held by iyzico forever — the bug this path exists to close.
+    approveMock.mockReset().mockResolvedValue(undefined);
+
+    expect(await confirmPaidBooking(bookingId, TOKEN, TX)).toBe("confirmed");
+    expect(approveMock).toHaveBeenCalledWith(TX);
+
+    const [row] = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, bookingId));
+    expect(row.status).toBe("confirmed");
+    expect(row.paymentTransactionId).toBe(TX);
+  });
+
+  it("releases once, however many times the callback fires", async () => {
+    approveMock.mockReset().mockResolvedValue(undefined);
+
+    await confirmPaidBooking(bookingId, TOKEN, TX);
+    expect(await confirmPaidBooking(bookingId, TOKEN, TX)).toBe("noop");
+    // The guarded update stops the replay before it can approve again.
+    expect(approveMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("still confirms the booking when approval fails", async () => {
+    // The customer has paid; refusing to confirm would be worse than a payout
+    // that needs releasing by hand.
+    approveMock.mockReset().mockRejectedValue(new Error("iyzico down"));
+
+    expect(await confirmPaidBooking(bookingId, TOKEN, TX)).toBe("confirmed");
+    const [row] = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, bookingId));
+    expect(row.status).toBe("confirmed");
+    // Stored, so the stuck payout can be found and released.
+    expect(row.paymentTransactionId).toBe(TX);
+  });
+
+  it("skips approval when iyzico returned no transaction id", async () => {
+    approveMock.mockReset().mockResolvedValue(undefined);
+
+    expect(await confirmPaidBooking(bookingId, TOKEN, null)).toBe("confirmed");
+    expect(approveMock).not.toHaveBeenCalled();
   });
 });

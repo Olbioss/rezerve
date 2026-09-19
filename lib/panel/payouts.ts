@@ -28,6 +28,12 @@ export type IyzicoTransaction = {
   merchantPayoutAmount?: number | null;
   /** What settles to the business's submerchant balance. */
   subMerchantPayoutAmount?: number | null;
+  /**
+   * iyzico's approval state for the split: 2 once the platform has approved
+   * the item transaction and the money is released to the submerchant, 1
+   * while it is still held. Surfaced in their panel as "Onay Durumu".
+   */
+  transactionStatus?: number | null;
 };
 
 /** A booking this organization owns. Built from an org-scoped query. */
@@ -49,9 +55,17 @@ export type PayoutRow = {
   iyzicoCutCents: number;
   /** What actually reaches the business. */
   netCents: number;
+  /**
+   * False while iyzico still holds the money. Showing a held kapora as if it
+   * were the owner's would repeat the mistake this page already made once.
+   */
+  approved: boolean;
   paymentRef: string | null;
   settledOn: string | null;
 };
+
+/** iyzico's transactionStatus for an approved (released) marketplace split. */
+const APPROVED_STATUS = 2;
 
 /** iyzico reports decimals; the rest of the app is integer cents. */
 function toCents(value: number | null | undefined): number {
@@ -89,6 +103,7 @@ export function matchTransactions(
       // platform figure so a mis-routed payment shows up as visibly wrong
       // rather than silently as zero.
       netCents: toCents(tx.subMerchantPayoutAmount || tx.merchantPayoutAmount),
+      approved: tx.transactionStatus === APPROVED_STATUS,
       paymentRef: tx.paymentId != null ? String(tx.paymentId) : null,
       settledOn: tx.transactionDate ?? null,
     });
@@ -99,4 +114,18 @@ export function matchTransactions(
 
 export function totalNetCents(rows: PayoutRow[]): number {
   return rows.reduce((sum, row) => sum + row.netCents, 0);
+}
+
+/** Only what iyzico has actually released. */
+export function releasedNetCents(rows: PayoutRow[]): number {
+  return rows
+    .filter((row) => row.approved)
+    .reduce((sum, row) => sum + row.netCents, 0);
+}
+
+/** Collected, but still held by iyzico pending approval. */
+export function heldNetCents(rows: PayoutRow[]): number {
+  return rows
+    .filter((row) => !row.approved)
+    .reduce((sum, row) => sum + row.netCents, 0);
 }

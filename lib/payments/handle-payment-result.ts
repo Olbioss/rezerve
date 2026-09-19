@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { bookings } from "@/lib/db/schema/booking-schema";
 import { sendBookingConfirmedEmails } from "@/lib/email/booking-notifications";
+import { getPaymentProvider } from "@/lib/payments";
 
 /**
  * Payment-callback business logic, separated from the route for testing.
@@ -14,14 +15,26 @@ import { sendBookingConfirmedEmails } from "@/lib/email/booking-notifications";
 
 export type PaymentOutcome = "confirmed" | "cancelled" | "noop";
 
-/** Successful payment: confirm the held booking and send emails once. */
+/**
+ * Successful payment: confirm the held booking, release the kapora, and send
+ * emails once.
+ *
+ * The release matters. iyzico holds a marketplace payment until the platform
+ * approves the item transaction, so without it the money reaches the
+ * business's submerchant and never leaves. Rezerve approves immediately: a
+ * kapora is a non-refundable booking deposit, so there is nothing to wait for.
+ *
+ * Approval runs inside the same guarded transition, so it happens exactly once
+ * — a replayed callback matches zero rows and never reaches it.
+ */
 export async function confirmPaidBooking(
   bookingId: string,
-  token: string
+  token: string,
+  paymentTransactionId: string | null = null
 ): Promise<PaymentOutcome> {
   const [confirmed] = await db
     .update(bookings)
-    .set({ status: "confirmed", expiresAt: null })
+    .set({ status: "confirmed", expiresAt: null, paymentTransactionId })
     .where(
       and(
         eq(bookings.id, bookingId),
@@ -31,6 +44,20 @@ export async function confirmPaidBooking(
     )
     .returning();
   if (!confirmed) return "noop";
+
+  if (paymentTransactionId) {
+    try {
+      await getPaymentProvider().approveTransaction(paymentTransactionId);
+    } catch (err) {
+      // The booking is paid and confirmed either way; only the payout is
+      // stuck, and the id is stored so it can be released by hand.
+      console.error(
+        `Kapora approval failed for booking ${bookingId} (tx ${paymentTransactionId}):`,
+        err
+      );
+    }
+  }
+
   await sendBookingConfirmedEmails(confirmed);
   return "confirmed";
 }

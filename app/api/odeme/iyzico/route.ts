@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   const slug = org?.slug ?? "";
 
   if (result.paid) {
-    await confirmPaidBooking(booking.id, token);
+    await confirmPaidBooking(booking.id, token, result.paymentTransactionId);
     return NextResponse.redirect(
       new URL(`/r/${slug}/onay/${booking.id}`, appUrl),
       303

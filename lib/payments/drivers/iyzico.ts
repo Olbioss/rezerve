@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  approveTransaction,
   chargeStoredCard,
   createDepositCheckout,
   createSubMerchant,
@@ -24,6 +25,7 @@ export const iyzicoProvider: PaymentProvider = {
 
   createDepositCheckout,
   retrieveCheckout,
+  approveTransaction,
   createSubMerchant,
   updateSubMerchant,
   retrieveSubMerchant,

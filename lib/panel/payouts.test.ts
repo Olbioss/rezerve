@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  heldNetCents,
   type IyzicoTransaction,
   matchTransactions,
   type OwnedBooking,
+  releasedNetCents,
   totalNetCents,
 } from "./payouts";
 
@@ -24,6 +26,7 @@ function tx(overrides: Partial<IyzicoTransaction> = {}): IyzicoTransaction {
     iyzicoFee: 0.25,
     merchantPayoutAmount: 0,
     subMerchantPayoutAmount: 289.3149,
+    transactionStatus: 2,
     ...overrides,
   };
 }
@@ -74,6 +77,52 @@ describe("matchTransactions — tenant isolation", () => {
       owned
     );
     expect(rows).toEqual([]);
+  });
+});
+
+describe("matchTransactions — released or still held", () => {
+  it("marks an approved split as released", () => {
+    const [row] = matchTransactions([tx({ transactionStatus: 2 })], owned);
+    expect(row.approved).toBe(true);
+  });
+
+  it("marks an unapproved split as held", () => {
+    // iyzico still has this money. Presenting it as the owner's would repeat
+    // the overstatement this page was already corrected for once.
+    const [row] = matchTransactions([tx({ transactionStatus: 1 })], owned);
+    expect(row.approved).toBe(false);
+  });
+
+  it("treats an unknown or missing status as held, never released", () => {
+    for (const status of [undefined, null, 0, 3]) {
+      const [row] = matchTransactions(
+        [tx({ transactionStatus: status as number })],
+        owned
+      );
+      expect(row.approved).toBe(false);
+    }
+  });
+
+  it("separates released money from held money", () => {
+    const second: OwnedBooking = {
+      id: "booking-two",
+      customerName: "Mehmet Demir",
+      serviceName: "Cilt Bakımı",
+      startsAt: new Date("2026-09-15T09:00:00Z"),
+    };
+    const both = new Map([...owned, [second.id, second]]);
+    const rows = matchTransactions(
+      [
+        tx({ transactionStatus: 2 }),
+        tx({ basketId: second.id, transactionStatus: 1 }),
+      ],
+      both
+    );
+
+    expect(releasedNetCents(rows)).toBe(28_931);
+    expect(heldNetCents(rows)).toBe(28_931);
+    // The old single total silently mixed the two.
+    expect(totalNetCents(rows)).toBe(57_862);
   });
 });
 

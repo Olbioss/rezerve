@@ -1,0 +1,1 @@
+ALTER TABLE "bookings" ADD COLUMN "payment_transaction_id" text;

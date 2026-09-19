@@ -1,6 +1,8 @@
 import "server-only";
 import Iyzipay from "iyzipay";
 import { requireEnv } from "@/lib/env";
+// Defined once in the provider, so this module cannot drift from the driver.
+import type { CheckoutResult } from "./provider";
 
 let client: Iyzipay | null = null;
 
@@ -148,13 +150,6 @@ export function createDepositCheckout(
   });
 }
 
-export type CheckoutResult = {
-  /** Booking id we set as conversationId at initialize time. */
-  bookingId: string | null;
-  paid: boolean;
-  paidPrice: string | null;
-};
-
 /** Retrieve and verify a checkout form result by its callback token. */
 export function retrieveCheckout(token: string): Promise<CheckoutResult> {
   return new Promise((resolve, reject) => {
@@ -162,11 +157,21 @@ export function retrieveCheckout(token: string): Promise<CheckoutResult> {
       { locale: Iyzipay.LOCALE.TR, token },
       (err, result) => {
         if (err) return reject(err);
+        // paymentItems holds the item-level transaction; a kapora basket has
+        // one entry, and its id is what releases the money afterwards.
+        const items = (
+          result as unknown as {
+            paymentItems?: { paymentTransactionId?: string | number }[];
+          }
+        ).paymentItems;
+        const transactionId = items?.[0]?.paymentTransactionId;
         resolve({
           bookingId: result.conversationId ?? result.basketId ?? null,
           paid:
             result.status === "success" && result.paymentStatus === "SUCCESS",
           paidPrice: result.paidPrice != null ? String(result.paidPrice) : null,
+          paymentTransactionId:
+            transactionId != null ? String(transactionId) : null,
         });
       }
     );
@@ -593,4 +598,41 @@ export async function listTransactions(
     for (const page of rest) rows.push(...(page.transactions ?? []));
   }
   return rows;
+}
+
+/**
+ * Release a held marketplace payment to its submerchant.
+ *
+ * iyzico holds a marketplace payment until the platform confirms delivery, so
+ * without this the kapora reaches the business's submerchant and stays there.
+ * Rezerve approves as soon as the payment succeeds: a kapora is a
+ * non-refundable booking deposit, so there is nothing to wait for.
+ */
+export function approveTransaction(
+  paymentTransactionId: string
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    getIyzipay().approval.create(
+      {
+        locale: Iyzipay.LOCALE.TR,
+        conversationId: paymentTransactionId,
+        paymentTransactionId,
+      } as never,
+      (err, raw) => {
+        if (err) return reject(err);
+        const result = raw as unknown as {
+          status: string;
+          errorMessage?: string;
+        };
+        if (result.status !== "success") {
+          return reject(
+            new Error(
+              `iyzico approval failed: ${result.errorMessage ?? result.status}`
+            )
+          );
+        }
+        resolve();
+      }
+    );
+  });
 }

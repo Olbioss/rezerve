@@ -42,6 +42,13 @@ export const bookings = pgTable(
     depositCents: integer("deposit_cents"),
     /** iyzico Checkout Form token for the deposit payment, if any. */
     paymentToken: text("payment_token").unique(),
+    /**
+     * iyzico's item-level transaction id. Marketplace funds are held until the
+     * platform approves this transaction, so it is what released the kapora to
+     * the business — kept so a failed approval can be retried and a payment
+     * traced or refunded later.
+     */
+    paymentTransactionId: text("payment_transaction_id"),
     /** Only set while status = 'pending'; hold is released after this. */
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),

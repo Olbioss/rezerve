@@ -132,39 +132,36 @@ değil`. iyzico's integration team directs recurring billing through card
   true. A production build wanting auto-conversion would capture the card up
   front with a pre-auth (`checkoutFormInitializePreAuth`) instead.
 
-### Known gap: marketplace transactions are never approved
+### Releasing the kapora
 
-**Kapora reaches the right submerchant and is never released.** In iyzico
-Marketplace the platform sits between buyer and seller, so a payment is held
-until the platform approves the item transaction
-(`POST /payment/iyzipos/item/approve`) — the "service was delivered, release
-the funds" signal, whose twin `Disapproval` refunds instead. Rezerve never
-calls either.
+A marketplace payment is **held** by iyzico until the platform approves the
+item transaction (`POST /payment/iyzipos/item/approve`) — the "service was
+delivered, release the funds" signal. Skip it and the kapora reaches the
+business's submerchant and never leaves; iyzico's own panel shows
+Alt Üye İşyeri Ödemeleri as empty.
 
-Verified directly: a marketplace payment to the demo submerchant returned
-`subMerchantPayoutAmount: 289.28`, `merchantPayoutAmount: 0`,
-`subMerchantPayoutRate: 100` — the split is correct — and
-`approval.create({ paymentTransactionId })` then succeeded. The call works; it
-is simply not wired in.
+Rezerve approves as soon as the payment succeeds, inside `confirmPaidBooking`.
+A kapora is a non-refundable booking deposit, so there is nothing to wait for —
+and doing it in the same guarded transition means it happens exactly once, since
+a replayed callback matches zero rows and never reaches the call.
 
-What is *not* established: whether approval is the only thing standing between
-a payment and a payout. `reportingPayoutCompleted` has returned no rows at any
-point, including three days after that approval succeeded, so sandbox may not
-simulate settlement at all, or may settle on a longer cycle. Approval is
-required either way — this note is only to say the payout side remains
-unobserved.
+If approval fails the booking is still confirmed: the customer has paid, and
+refusing to confirm would be worse than a payout that needs releasing by hand.
+`bookings.payment_transaction_id` is stored precisely so that is possible.
 
-Fixing it needs three things, none of them large:
+`/panel/odemeler` reports released and held money separately rather than as
+one figure — an unapproved kapora is still iyzico's, and showing it as the
+owner's would repeat an overstatement this page has already been corrected for
+once. Approval state comes from `transactionStatus` in the settlement
+reporting (2 = released, 1 = held), read live on every page load rather than
+cached, so the state is never stale. iyzico's own panel surfaces the same
+thing as "Onay Durumu", under Detayı Göster on a single payment.
 
-1. Store the item transaction id. `bookings` keeps `paymentToken` (the
-   checkout token) but not the transaction id, which arrives in the callback
-   as `CheckoutFormRetrieveResult.paymentItems[].paymentTransactionId` and is
-   currently discarded.
-2. Decide _when_ to approve. For appointments the natural signal is after the
-   appointment ends and the booking was not cancelled — which also leaves a
-   window to refund a no-show before the money is gone. Approving on payment
-   is simpler but removes that protection.
-3. A daily approval run, alongside the renewal cron.
+Two notes on the surrounding API, both verified rather than assumed.
+`Disapproval` is *not* a cancellation tool — it only undoes an approval that
+already happened, and returns `5103 Bu ödeme kırılımı onaylanmamıştır` on a
+held payment. Returning money to a customer is `refund`, which does work on a
+held payment; Rezerve does not currently expose one.
 
 ### What the sandbox account can and cannot do
 

@@ -52,6 +52,12 @@ export type CheckoutResult = {
   bookingId: string | null;
   paid: boolean;
   paidPrice: string | null;
+  /**
+   * iyzico's item-level transaction id. A marketplace payment is held until
+   * the platform approves this, so without it the kapora reaches the
+   * business's submerchant and never leaves.
+   */
+  paymentTransactionId: string | null;
 };
 
 export type SubMerchantType =
@@ -127,6 +133,12 @@ export type PaymentProvider = {
 
   createDepositCheckout(input: DepositCheckoutInput): Promise<HostedCheckout>;
   retrieveCheckout(token: string): Promise<CheckoutResult>;
+
+  /**
+   * Release a held marketplace payment to its submerchant — iyzico's "the
+   * service was delivered" signal.
+   */
+  approveTransaction(paymentTransactionId: string): Promise<void>;
 
   createSubMerchant(input: SubMerchantInput): Promise<string>;
   updateSubMerchant(
