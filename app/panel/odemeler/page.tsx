@@ -54,8 +54,9 @@ export default async function PayoutsPage({
 
       <p className="text-muted-foreground text-sm">
         Kaporalar doğrudan iyzico tarafından IBAN'ınıza aktarılır — Rezerve
-        paranızı tutmaz ve aktarımı başlatmaz. Aşağıdaki tutarlar iyzico'nun
-        işlem raporundan gelir.
+        paranızı tutmaz ve aktarımı başlatmaz. Aşağıdaki tutarlar tahsil edilip
+        size ayrılan tutarlardır; banka hesabınıza geçiş iyzico'nun ödeme
+        takvimine göre ayrıca gerçekleşir.
       </p>
 
       <div className="flex flex-wrap gap-2">
@@ -87,7 +88,7 @@ export default async function PayoutsPage({
         <>
           <div className="grid gap-4 sm:grid-cols-2">
             <StatTile
-              label="Hesabınıza geçen"
+              label="Size ayrılan"
               value={formatMoney(totalNetCents(rows), profile.currency)}
             />
             <StatTile label="İşlem sayısı" value={String(rows.length)} />
@@ -101,7 +102,7 @@ export default async function PayoutsPage({
                 <TableHead>Hizmet</TableHead>
                 <TableHead className="text-right">Tahsil edilen</TableHead>
                 <TableHead className="text-right">iyzico kesintisi</TableHead>
-                <TableHead className="text-right">Size geçen</TableHead>
+                <TableHead className="text-right">Size ayrılan</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
