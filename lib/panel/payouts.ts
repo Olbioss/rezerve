@@ -18,6 +18,11 @@
 
 export type IyzicoTransaction = {
   basketId?: string | null;
+  /**
+   * "PAYMENT" or "REFUND". A refund carries the same basketId as the payment
+   * it reverses, so without this the two are indistinguishable by booking.
+   */
+  transactionType?: string | null;
   paymentId?: string | number | null;
   transactionDate?: string | null;
   /** Face amount charged to the customer. */
@@ -42,6 +47,8 @@ export type OwnedBooking = {
   customerName: string;
   serviceName: string;
   startsAt: Date;
+  /** Set once the kapora went back to the customer. Ours, not iyzico's. */
+  refundedAt: Date | null;
 };
 
 export type PayoutRow = {
@@ -60,12 +67,25 @@ export type PayoutRow = {
    * were the owner's would repeat the mistake this page already made once.
    */
   approved: boolean;
+  /** The money came in and went back out; it is not the owner's. */
+  refunded: boolean;
   paymentRef: string | null;
   settledOn: string | null;
 };
 
 /** iyzico's transactionStatus for an approved (released) marketplace split. */
 const APPROVED_STATUS = 2;
+
+/**
+ * Refunds are reported alongside payments under the same basketId, with no
+ * commission and no submerchant payout. Rendering one as income showed a
+ * cancelled booking as ₺0 awaiting approval, and — because only one row per
+ * booking is kept — hid the real payment behind it.
+ */
+function isPayment(tx: IyzicoTransaction): boolean {
+  const type = tx.transactionType?.trim().toUpperCase();
+  return type === undefined || type === "" || type === "PAYMENT";
+}
 
 /** iyzico reports decimals; the rest of the app is integer cents. */
 function toCents(value: number | null | undefined): number {
@@ -83,6 +103,8 @@ export function matchTransactions(
   const seen = new Set<string>();
 
   for (const tx of transactions) {
+    if (!isPayment(tx)) continue;
+
     const basketId = tx.basketId?.trim();
     if (!basketId) continue;
 
@@ -104,6 +126,9 @@ export function matchTransactions(
       // rather than silently as zero.
       netCents: toCents(tx.subMerchantPayoutAmount || tx.merchantPayoutAmount),
       approved: tx.transactionStatus === APPROVED_STATUS,
+      // From our own record rather than iyzico's reporting: we know we
+      // refunded, and a missing refund row would otherwise read as income.
+      refunded: booking.refundedAt !== null,
       paymentRef: tx.paymentId != null ? String(tx.paymentId) : null,
       settledOn: tx.transactionDate ?? null,
     });
@@ -116,16 +141,23 @@ export function totalNetCents(rows: PayoutRow[]): number {
   return rows.reduce((sum, row) => sum + row.netCents, 0);
 }
 
-/** Only what iyzico has actually released. */
+/** Released to the business and not given back. */
 export function releasedNetCents(rows: PayoutRow[]): number {
   return rows
-    .filter((row) => row.approved)
+    .filter((row) => row.approved && !row.refunded)
     .reduce((sum, row) => sum + row.netCents, 0);
 }
 
-/** Collected, but still held by iyzico pending approval. */
+/** Collected, still held by iyzico, and not given back. */
 export function heldNetCents(rows: PayoutRow[]): number {
   return rows
-    .filter((row) => !row.approved)
+    .filter((row) => !row.approved && !row.refunded)
+    .reduce((sum, row) => sum + row.netCents, 0);
+}
+
+/** Taken and returned to the customer — income to neither side. */
+export function refundedNetCents(rows: PayoutRow[]): number {
+  return rows
+    .filter((row) => row.refunded)
     .reduce((sum, row) => sum + row.netCents, 0);
 }

@@ -57,6 +57,7 @@ export async function getPayouts(
       customerName: bookings.customerName,
       serviceName: services.name,
       startsAt: bookings.startsAt,
+      refundedAt: bookings.depositRefundedAt,
       createdAt: bookings.createdAt,
     })
     .from(bookings)

@@ -4,6 +4,7 @@ import {
   type IyzicoTransaction,
   matchTransactions,
   type OwnedBooking,
+  refundedNetCents,
   releasedNetCents,
   totalNetCents,
 } from "./payouts";
@@ -13,6 +14,7 @@ const MINE: OwnedBooking = {
   customerName: "Ayşe Yılmaz",
   serviceName: "Cilt Bakımı",
   startsAt: new Date("2026-09-14T09:00:00Z"),
+  refundedAt: null,
 };
 const owned = new Map([[MINE.id, MINE]]);
 
@@ -109,6 +111,7 @@ describe("matchTransactions — released or still held", () => {
       customerName: "Mehmet Demir",
       serviceName: "Cilt Bakımı",
       startsAt: new Date("2026-09-15T09:00:00Z"),
+      refundedAt: null,
     };
     const both = new Map([...owned, [second.id, second]]);
     const rows = matchTransactions(
@@ -123,6 +126,50 @@ describe("matchTransactions — released or still held", () => {
     expect(heldNetCents(rows)).toBe(28_931);
     // The old single total silently mixed the two.
     expect(totalNetCents(rows)).toBe(57_862);
+  });
+});
+
+describe("matchTransactions — refunds are not income", () => {
+  // A refund is reported under the same basketId as the payment it reverses.
+  const refundRow = () =>
+    tx({
+      transactionType: "REFUND",
+      transactionStatus: undefined,
+      subMerchantPayoutAmount: undefined,
+      iyzicoCommission: undefined,
+      iyzicoFee: undefined,
+    });
+
+  it("ignores the refund row entirely", () => {
+    expect(matchTransactions([refundRow()], owned)).toEqual([]);
+  });
+
+  it("keeps the payment when a refund shares its basket", () => {
+    // The refund arrives first in iyzico's ordering, and one row is kept per
+    // booking — so without a type filter the refund hid the real payment and
+    // the page showed ₺0 awaiting approval for a booking that had been paid.
+    const rows = matchTransactions([refundRow(), tx()], owned);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].netCents).toBe(28_931);
+    expect(rows[0].approved).toBe(true);
+  });
+
+  it("marks a row refunded from our own record", () => {
+    const refundedOwned = new Map([
+      [MINE.id, { ...MINE, refundedAt: new Date("2026-09-20T08:43:27Z") }],
+    ]);
+    const [row] = matchTransactions([tx()], refundedOwned);
+    expect(row.refunded).toBe(true);
+  });
+
+  it("counts refunded money as neither released nor held", () => {
+    const refundedOwned = new Map([
+      [MINE.id, { ...MINE, refundedAt: new Date("2026-09-20T08:43:27Z") }],
+    ]);
+    const rows = matchTransactions([tx()], refundedOwned);
+    expect(releasedNetCents(rows)).toBe(0);
+    expect(heldNetCents(rows)).toBe(0);
+    expect(refundedNetCents(rows)).toBe(28_931);
   });
 });
 

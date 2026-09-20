@@ -14,7 +14,11 @@ import {
 import { requireOwner } from "@/lib/auth-guard";
 import { formatMoney } from "@/lib/format";
 import { getPayouts } from "@/lib/panel/get-payouts";
-import { heldNetCents, releasedNetCents } from "@/lib/panel/payouts";
+import {
+  heldNetCents,
+  refundedNetCents,
+  releasedNetCents,
+} from "@/lib/panel/payouts";
 
 export const metadata = { title: "Ödemeler" };
 
@@ -98,7 +102,15 @@ export default async function PayoutsPage({
               value={formatMoney(heldNetCents(rows), profile.currency)}
               detail="Randevu tamamlanınca serbest bırakılır"
             />
-            <StatTile label="İşlem sayısı" value={String(rows.length)} />
+            {refundedNetCents(rows) > 0 ? (
+              <StatTile
+                label="İade edilen"
+                value={formatMoney(refundedNetCents(rows), profile.currency)}
+                detail="İptal edilen randevular için müşteriye döndü"
+              />
+            ) : (
+              <StatTile label="İşlem sayısı" value={String(rows.length)} />
+            )}
           </div>
 
           <Table>
@@ -130,11 +142,25 @@ export default async function PayoutsPage({
                     −{formatMoney(row.iyzicoCutCents, profile.currency)}
                   </TableCell>
                   <TableCell className="numeral text-right font-medium">
-                    {formatMoney(row.netCents, profile.currency)}
+                    {row.refunded ? (
+                      <s className="font-normal text-muted-foreground">
+                        {formatMoney(row.netCents, profile.currency)}
+                      </s>
+                    ) : (
+                      formatMoney(row.netCents, profile.currency)
+                    )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={row.approved ? "default" : "ghost"}>
-                      {row.approved ? "Serbest" : "Onay bekliyor"}
+                    <Badge
+                      variant={
+                        row.approved && !row.refunded ? "default" : "ghost"
+                      }
+                    >
+                      {row.refunded
+                        ? "İade edildi"
+                        : row.approved
+                          ? "Serbest"
+                          : "Onay bekliyor"}
                     </Badge>
                   </TableCell>
                 </TableRow>
