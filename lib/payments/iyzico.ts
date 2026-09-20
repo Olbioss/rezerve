@@ -62,6 +62,27 @@ function toPrice(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
+/**
+ * The item-level transaction id from a checkout result.
+ *
+ * The live API returns these under `itemTransactions`; @types/iyzipay declares
+ * `paymentItems`, which does not exist on the wire — trusting it meant the id
+ * was silently null and no kapora was ever released. Both names are read so a
+ * future rename cannot break this the same way, and the whole thing is pure so
+ * it can be tested against a recorded response.
+ *
+ * A kapora basket has exactly one item.
+ */
+export function extractTransactionId(result: unknown): string | null {
+  const shape = result as {
+    itemTransactions?: { paymentTransactionId?: string | number | null }[];
+    paymentItems?: { paymentTransactionId?: string | number | null }[];
+  } | null;
+  const items = shape?.itemTransactions ?? shape?.paymentItems;
+  const id = items?.[0]?.paymentTransactionId;
+  return id == null || id === "" ? null : String(id);
+}
+
 /** iyzico wants name and surname apart; we only ever collect one field. */
 export function splitName(full: string): { name: string; surname: string } {
   const parts = full.trim().split(/\s+/);
@@ -157,21 +178,13 @@ export function retrieveCheckout(token: string): Promise<CheckoutResult> {
       { locale: Iyzipay.LOCALE.TR, token },
       (err, result) => {
         if (err) return reject(err);
-        // paymentItems holds the item-level transaction; a kapora basket has
-        // one entry, and its id is what releases the money afterwards.
-        const items = (
-          result as unknown as {
-            paymentItems?: { paymentTransactionId?: string | number }[];
-          }
-        ).paymentItems;
-        const transactionId = items?.[0]?.paymentTransactionId;
+        const transactionId = extractTransactionId(result);
         resolve({
           bookingId: result.conversationId ?? result.basketId ?? null,
           paid:
             result.status === "success" && result.paymentStatus === "SUCCESS",
           paidPrice: result.paidPrice != null ? String(result.paidPrice) : null,
-          paymentTransactionId:
-            transactionId != null ? String(transactionId) : null,
+          paymentTransactionId: transactionId,
         });
       }
     );
