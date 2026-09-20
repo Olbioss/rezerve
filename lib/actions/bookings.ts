@@ -198,11 +198,18 @@ export async function cancelBooking(id: string): Promise<void> {
     // email says so, which is the only way they would know.
     let refunded = false;
     if (cancelled.paymentTransactionId && cancelled.depositCents != null) {
-      const requestHeaders = await headers();
-      const customerIp =
-        requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-        "85.34.78.112";
-      refunded = (await refundDeposit(cancelled.id, customerIp)) === "refunded";
+      try {
+        const requestHeaders = await headers();
+        const customerIp =
+          requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+          "85.34.78.112";
+        refunded =
+          (await refundDeposit(cancelled.id, customerIp)) === "refunded";
+      } catch (err) {
+        // The appointment is already cancelled and this email is the only way
+        // the customer finds out. A refund that blows up must not swallow it.
+        console.error(`Kapora refund threw for booking ${cancelled.id}:`, err);
+      }
     }
     await sendBookingCancelledEmails(cancelled, refunded);
   }
