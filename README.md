@@ -157,6 +157,15 @@ reporting (2 = released, 1 = held), read live on every page load rather than
 cached, so the state is never stale. iyzico's own panel surfaces the same
 thing as "Onay Durumu", under Detayı Göster on a single payment.
 
+**A payment can also land on a booking that no longer exists** — the owner
+cancelled a pending hold while the customer was paying, or `cancelExpiredHolds`
+swept the lapsed hold during someone else's booking attempt, which is the
+likelier of the two. `confirmPaidBooking`'s guard matches nothing in that case,
+so nothing else would ever notice the money. It now stores the transaction id
+and refunds instead. The id is stored *before* refunding: without it the
+payment has no handle at all, so a refund that fails would leave money at
+iyzico with nothing pointing at it.
+
 **Cancelling returns the kapora.** `cancelBooking` sits behind
 `requireOwner()`, so every cancellation in the app is the business calling the
 appointment off — the customer should not be out of pocket, and a kapora only

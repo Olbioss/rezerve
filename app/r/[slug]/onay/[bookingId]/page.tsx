@@ -135,8 +135,9 @@ export default async function ConfirmationPage({
               Randevu <em className="text-muted-foreground">iptal edildi.</em>
             </h2>
             <p className="mt-4 text-muted-foreground text-sm">
-              Bu randevu artık geçerli değil. Dilerseniz yeni bir saat
-              seçebilirsiniz.
+              {booking.depositRefundedAt
+                ? "Bu randevu artık geçerli değil. Ödediğiniz kapora kartınıza iade edildi — bankanıza göre birkaç iş günü sürebilir. Dilerseniz yeni bir saat seçebilirsiniz."
+                : "Bu randevu artık geçerli değil. Dilerseniz yeni bir saat seçebilirsiniz."}
             </p>
           </>
         )}

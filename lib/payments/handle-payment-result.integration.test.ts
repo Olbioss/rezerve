@@ -20,9 +20,15 @@ vi.mock("@/lib/email/booking-notifications", () => ({
   sendBookingCancelledEmails: (...args: unknown[]) => sendCancelled(...args),
 }));
 
-const { approveMock } = vi.hoisted(() => ({ approveMock: vi.fn() }));
+const { approveMock, refundMock } = vi.hoisted(() => ({
+  approveMock: vi.fn(),
+  refundMock: vi.fn(),
+}));
 vi.mock("@/lib/payments", () => ({
-  getPaymentProvider: () => ({ approveTransaction: approveMock }),
+  getPaymentProvider: () => ({
+    approveTransaction: approveMock,
+    refundTransaction: refundMock,
+  }),
 }));
 
 const { confirmPaidBooking, cancelFailedPayment } = await import(
@@ -180,5 +186,82 @@ describe("confirmPaidBooking — releasing the kapora", () => {
 
     expect(await confirmPaidBooking(bookingId, TOKEN, null)).toBe("confirmed");
     expect(approveMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("confirmPaidBooking — payment for a booking that is already gone", () => {
+  const TX = "39806530";
+
+  beforeEach(() => {
+    approveMock.mockReset().mockResolvedValue(undefined);
+    refundMock
+      .mockReset()
+      .mockResolvedValue({ refunded: true, errorMessage: null });
+  });
+
+  async function cancelIt() {
+    await db
+      .update(bookings)
+      .set({ status: "cancelled" })
+      .where(eq(bookings.id, bookingId));
+  }
+
+  it("refunds when the owner cancelled while the customer was paying", async () => {
+    await cancelIt();
+
+    expect(await confirmPaidBooking(bookingId, TOKEN, TX)).toBe("refunded");
+    expect(refundMock).toHaveBeenCalledWith({
+      paymentTransactionId: TX,
+      amountCents: 1000,
+      customerIp: "85.34.78.112",
+    });
+    // Never approved: that would release money for a booking that is gone.
+    expect(approveMock).not.toHaveBeenCalled();
+  });
+
+  it("refunds when the expiry sweep took the hold", async () => {
+    // cancelExpiredHolds runs on any other booking attempt for the org, so
+    // this is the likelier of the two races.
+    await cancelIt();
+    expect(await confirmPaidBooking(bookingId, TOKEN, TX)).toBe("refunded");
+
+    const [row] = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, bookingId));
+    // Stored even though the booking is gone: without it the payment has no
+    // handle and a failed refund would be unrecoverable.
+    expect(row.paymentTransactionId).toBe(TX);
+    expect(row.depositRefundedAt).not.toBeNull();
+    expect(row.status).toBe("cancelled");
+  });
+
+  it("refunds once when the callback is replayed", async () => {
+    await cancelIt();
+    await confirmPaidBooking(bookingId, TOKEN, TX);
+    expect(await confirmPaidBooking(bookingId, TOKEN, TX)).toBe("noop");
+    expect(refundMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a token that does not belong to the booking", async () => {
+    await cancelIt();
+    expect(await confirmPaidBooking(bookingId, "someone-elses-token", TX)).toBe(
+      "noop"
+    );
+    expect(refundMock).not.toHaveBeenCalled();
+  });
+
+  it("leaves it recoverable when the refund fails", async () => {
+    await cancelIt();
+    refundMock.mockResolvedValue({ refunded: false, errorMessage: "nope" });
+
+    expect(await confirmPaidBooking(bookingId, TOKEN, TX)).toBe("noop");
+    const [row] = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, bookingId));
+    // The id is kept so the stuck payment can be found and refunded by hand.
+    expect(row.paymentTransactionId).toBe(TX);
+    expect(row.depositRefundedAt).toBeNull();
   });
 });

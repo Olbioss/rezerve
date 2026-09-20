@@ -1,4 +1,5 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
+import { refundDeposit } from "@/lib/booking/refund-deposit";
 import { db } from "@/lib/db";
 import { bookings } from "@/lib/db/schema/booking-schema";
 import { sendBookingConfirmedEmails } from "@/lib/email/booking-notifications";
@@ -13,7 +14,12 @@ import { getPaymentProvider } from "@/lib/payments";
  * (no second email, no state clobbering).
  */
 
-export type PaymentOutcome = "confirmed" | "cancelled" | "noop";
+export type PaymentOutcome =
+  | "confirmed"
+  | "cancelled"
+  /** Paid, but the booking was already gone — the money went back. */
+  | "refunded"
+  | "noop";
 
 /**
  * Successful payment: confirm the held booking, release the kapora, and send
@@ -30,7 +36,8 @@ export type PaymentOutcome = "confirmed" | "cancelled" | "noop";
 export async function confirmPaidBooking(
   bookingId: string,
   token: string,
-  paymentTransactionId: string | null = null
+  paymentTransactionId: string | null = null,
+  customerIp = "85.34.78.112"
 ): Promise<PaymentOutcome> {
   const [confirmed] = await db
     .update(bookings)
@@ -43,7 +50,20 @@ export async function confirmPaidBooking(
       )
     )
     .returning();
-  if (!confirmed) return "noop";
+  if (!confirmed) {
+    // The booking was cancelled while the customer was paying — by the owner,
+    // or by cancelExpiredHolds sweeping the lapsed hold on someone else's
+    // booking attempt. iyzico still took the money, and the guard above means
+    // nothing else will ever notice, so give it back.
+    return paymentTransactionId
+      ? await refundOrphanedPayment(
+          bookingId,
+          token,
+          paymentTransactionId,
+          customerIp
+        )
+      : "noop";
+  }
 
   if (paymentTransactionId) {
     try {
@@ -79,4 +99,46 @@ export async function cancelFailedPayment(
     )
     .returning();
   return cancelled ? "cancelled" : "noop";
+}
+
+/**
+ * A payment that landed on a booking which no longer exists.
+ *
+ * The transaction id is stored before refunding: without it the payment has no
+ * handle at all, so a refund that fails would leave money at iyzico with
+ * nothing on our side pointing at it. Storing it first makes the failure
+ * recoverable instead of invisible.
+ */
+async function refundOrphanedPayment(
+  bookingId: string,
+  token: string,
+  paymentTransactionId: string,
+  customerIp: string
+): Promise<PaymentOutcome> {
+  const booking = await db.query.bookings.findFirst({
+    where: eq(bookings.id, bookingId),
+  });
+  if (
+    booking?.status !== "cancelled" ||
+    booking.paymentToken !== token ||
+    booking.depositCents == null ||
+    booking.depositRefundedAt !== null
+  ) {
+    return "noop";
+  }
+
+  await db
+    .update(bookings)
+    .set({ paymentTransactionId })
+    .where(
+      and(eq(bookings.id, bookingId), isNull(bookings.paymentTransactionId))
+    );
+
+  const outcome = await refundDeposit(bookingId, customerIp);
+  if (outcome !== "refunded") {
+    console.error(
+      `Orphaned payment for cancelled booking ${bookingId} (tx ${paymentTransactionId}) could not be refunded.`
+    );
+  }
+  return outcome === "refunded" ? "refunded" : "noop";
 }
