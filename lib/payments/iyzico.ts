@@ -636,3 +636,41 @@ export function approveTransaction(
     );
   });
 }
+
+/**
+ * Return a payment to the customer.
+ *
+ * Refund rather than disapproval: disapproval only undoes an approval that
+ * already happened and answers 5103 on a held payment, whereas a refund works
+ * in both states — verified against the sandbox on a held payment and on one
+ * already approved and released.
+ */
+export function refundTransaction(input: {
+  paymentTransactionId: string;
+  amountCents: number;
+  customerIp: string;
+}): Promise<{ refunded: boolean; errorMessage: string | null }> {
+  return new Promise((resolve, reject) => {
+    getIyzipay().refund.create(
+      {
+        locale: Iyzipay.LOCALE.TR,
+        conversationId: input.paymentTransactionId,
+        paymentTransactionId: input.paymentTransactionId,
+        price: toPrice(input.amountCents),
+        currency: Iyzipay.CURRENCY.TRY,
+        ip: input.customerIp,
+      } as never,
+      (err, raw) => {
+        if (err) return reject(err);
+        const result = raw as unknown as {
+          status: string;
+          errorMessage?: string;
+        };
+        resolve({
+          refunded: result.status === "success",
+          errorMessage: result.errorMessage ?? null,
+        });
+      }
+    );
+  });
+}

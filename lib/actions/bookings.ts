@@ -12,6 +12,7 @@ import {
   getBusinessBySlug,
   localDateISO,
 } from "@/lib/booking/get-available-slots";
+import { refundDeposit } from "@/lib/booking/refund-deposit";
 import { db } from "@/lib/db";
 import { bookings } from "@/lib/db/schema/booking-schema";
 import { services } from "@/lib/db/schema/service-schema";
@@ -192,7 +193,19 @@ export async function cancelBooking(id: string): Promise<void> {
       )
     )
     .returning();
-  if (cancelled) await sendBookingCancelledEmails(cancelled);
+  if (cancelled) {
+    // The business called this off, so the customer's kapora goes back. Their
+    // email says so, which is the only way they would know.
+    let refunded = false;
+    if (cancelled.paymentTransactionId && cancelled.depositCents != null) {
+      const requestHeaders = await headers();
+      const customerIp =
+        requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        "85.34.78.112";
+      refunded = (await refundDeposit(cancelled.id, customerIp)) === "refunded";
+    }
+    await sendBookingCancelledEmails(cancelled, refunded);
+  }
   revalidatePath("/panel/randevular");
   revalidatePath("/panel");
 }

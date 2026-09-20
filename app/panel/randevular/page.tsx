@@ -21,6 +21,7 @@ async function loadBookings(
       startsAt: bookings.startsAt,
       status: bookings.status,
       depositCents: bookings.depositCents,
+      depositRefundedAt: bookings.depositRefundedAt,
       serviceName: services.name,
     })
     .from(bookings)
@@ -37,9 +38,10 @@ async function loadBookings(
       which === "upcoming" ? asc(bookings.startsAt) : desc(bookings.startsAt)
     )
     .limit(100);
-  return rows.map((row) => ({
+  return rows.map(({ depositRefundedAt, ...row }) => ({
     ...row,
     startsAtISO: row.startsAt.toISOString(),
+    depositRefunded: depositRefundedAt !== null,
   }));
 }
 

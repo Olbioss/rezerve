@@ -27,6 +27,8 @@ export type BookingRow = {
   startsAtISO: string;
   status: BookingStatus;
   depositCents: number | null;
+  /** Set once the kapora has been returned to the customer. */
+  depositRefunded: boolean;
   serviceName: string;
 };
 
@@ -92,7 +94,9 @@ export function BookingsList({
               </TableCell>
               <TableCell className="numeral">
                 {booking.depositCents
-                  ? formatMoney(booking.depositCents, currency)
+                  ? booking.depositRefunded
+                    ? `${formatMoney(booking.depositCents, currency)} · iade edildi`
+                    : formatMoney(booking.depositCents, currency)
                   : "—"}
               </TableCell>
               <TableCell>

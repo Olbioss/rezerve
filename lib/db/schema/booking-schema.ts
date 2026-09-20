@@ -49,6 +49,12 @@ export const bookings = pgTable(
      * traced or refunded later.
      */
     paymentTransactionId: text("payment_transaction_id"),
+    /**
+     * When the kapora was returned to the customer. Cancelling is the only
+     * thing that sets it, and it doubles as the idempotency guard — a refund
+     * must never run twice.
+     */
+    depositRefundedAt: timestamp("deposit_refunded_at", { withTimezone: true }),
     /** Only set while status = 'pending'; hold is released after this. */
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),

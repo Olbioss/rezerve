@@ -89,7 +89,11 @@ export async function sendBookingConfirmedEmails(booking: Booking) {
   ]);
 }
 
-export async function sendBookingCancelledEmails(booking: Booking) {
+export async function sendBookingCancelledEmails(
+  booking: Booking,
+  /** True when the kapora was returned to the customer. */
+  depositRefunded = false
+) {
   const ctx = await loadContext(booking);
   if (!ctx) return;
   const shared = {
@@ -107,7 +111,16 @@ export async function sendBookingCancelledEmails(booking: Booking) {
         <BookingEmail
           heading="Randevu iptal edildi"
           preview={`${ctx.service.name} randevunuz iptal edildi`}
-          intro={`Merhaba ${booking.customerName}, randevunuz iptal edildi. Bu beklenmedik bir durumsa lütfen doğrudan ${ctx.org.name} ile iletişime geçin.`}
+          intro={`Merhaba ${booking.customerName}, randevunuz iptal edildi.${
+            depositRefunded
+              ? " Ödediğiniz kapora kartınıza iade edildi; bankanıza göre birkaç iş günü sürebilir."
+              : ""
+          } Bu beklenmedik bir durumsa lütfen doğrudan ${ctx.org.name} ile iletişime geçin.`}
+          {...(depositRefunded && booking.depositCents != null
+            ? {
+                depositLine: `${formatMoney(booking.depositCents, ctx.profile.currency)} iade edildi`,
+              }
+            : {})}
           {...shared}
         />
       ),
@@ -120,7 +133,9 @@ export async function sendBookingCancelledEmails(booking: Booking) {
           <BookingEmail
             heading="Randevu iptal edildi"
             preview={`${booking.customerName} adlı müşterinin randevusu iptal edildi`}
-            intro="Bir randevu iptal edildi."
+            intro={`Bir randevu iptal edildi.${
+              depositRefunded ? " Kapora müşteriye iade edildi." : ""
+            }`}
             customerEmail={booking.customerEmail}
             {...shared}
           />

@@ -139,6 +139,16 @@ export type PaymentProvider = {
    * service was delivered" signal.
    */
   approveTransaction(paymentTransactionId: string): Promise<void>;
+  /**
+   * Return a payment to the customer. Works whether or not the split has been
+   * approved — disapproval, by contrast, only undoes an approval that already
+   * happened and refuses on a held payment.
+   */
+  refundTransaction(input: {
+    paymentTransactionId: string;
+    amountCents: number;
+    customerIp: string;
+  }): Promise<{ refunded: boolean; errorMessage: string | null }>;
 
   createSubMerchant(input: SubMerchantInput): Promise<string>;
   updateSubMerchant(

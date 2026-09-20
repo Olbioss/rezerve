@@ -50,6 +50,13 @@
       "when": 1789807060821,
       "tag": "0006_cute_microbe",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789891319713,
+      "tag": "0007_motionless_zaladane",
+      "breakpoints": true
     }
   ]
 }

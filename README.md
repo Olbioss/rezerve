@@ -157,11 +157,20 @@ reporting (2 = released, 1 = held), read live on every page load rather than
 cached, so the state is never stale. iyzico's own panel surfaces the same
 thing as "Onay Durumu", under Detayı Göster on a single payment.
 
+**Cancelling returns the kapora.** `cancelBooking` sits behind
+`requireOwner()`, so every cancellation in the app is the business calling the
+appointment off — the customer should not be out of pocket, and a kapora only
+earns its keep against a no-show, which this is not. The refund is idempotent
+through `bookings.deposit_refunded_at`, claimed before iyzico is called and
+released again on failure so a booking is never silently stuck as refunded.
+The cancellation email tells the customer, since otherwise nothing would.
+
 Two notes on the surrounding API, both verified rather than assumed.
 `Disapproval` is *not* a cancellation tool — it only undoes an approval that
 already happened, and returns `5103 Bu ödeme kırılımı onaylanmamıştır` on a
-held payment. Returning money to a customer is `refund`, which does work on a
-held payment; Rezerve does not currently expose one.
+held payment. `refund` is what returns money, and it works both on a held
+payment and on one already approved and released — which is why approving at
+payment time costs nothing in flexibility.
 
 ### What the sandbox account can and cannot do
 
