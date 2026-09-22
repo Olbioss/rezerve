@@ -17,6 +17,7 @@ import {
 import { refundDeposit } from "@/lib/booking/refund-deposit";
 import { checkBookingThrottle } from "@/lib/booking/throttle";
 import { db } from "@/lib/db";
+import { EXCLUSION_VIOLATION, pgErrorCode } from "@/lib/db/errors";
 import { bookings } from "@/lib/db/schema/booking-schema";
 import { services } from "@/lib/db/schema/service-schema";
 import {
@@ -38,11 +39,7 @@ export type ActionResult = { error: string } | undefined;
 
 /** True when the error is the bookings_no_overlap exclusion violation. */
 function isOverlapError(err: unknown): boolean {
-  if (typeof err !== "object" || err === null) return false;
-  const code =
-    (err as { code?: string }).code ??
-    ((err as { cause?: { code?: string } }).cause?.code as string | undefined);
-  return code === "23P01";
+  return pgErrorCode(err) === EXCLUSION_VIOLATION;
 }
 
 export async function createBooking(

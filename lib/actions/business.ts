@@ -1,13 +1,15 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { requireOwner, requireUser } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
-import { member } from "@/lib/db/schema/auth-schema";
+import { pgErrorCode, UNIQUE_VIOLATION } from "@/lib/db/errors";
+import { member, organization } from "@/lib/db/schema/auth-schema";
 import { businessProfiles } from "@/lib/db/schema/business-schema";
 import { slugSchema } from "@/lib/slug";
 
@@ -97,4 +99,46 @@ export async function updateSettings(
     .set(parsed.data)
     .where(eq(businessProfiles.organizationId, organizationId));
   redirect("/panel/ayarlar");
+}
+
+const identitySchema = z.object({
+  name: z.string().min(2, "İşletme adı en az 2 karakter olmalı").max(80),
+  slug: slugSchema,
+});
+
+/**
+ * Rename the business, or move its public address.
+ *
+ * Separate from updateSettings because these two live on `organization`
+ * rather than `business_profiles`, and because changing the slug is not a
+ * setting: every link anyone has already shared to /r/<old-slug> stops
+ * working the moment it is saved. Until now only completeOnboarding wrote
+ * them, so a typo at signup was permanent.
+ */
+export async function updateBusinessIdentity(
+  input: z.infer<typeof identitySchema>
+): Promise<ActionResult> {
+  const { organizationId } = await requireOwner();
+  const parsed = identitySchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Geçersiz bilgi" };
+  }
+  const { name, slug } = parsed.data;
+
+  try {
+    await db
+      .update(organization)
+      .set({ name, slug })
+      .where(eq(organization.id, organizationId));
+  } catch (err) {
+    // organization.slug is unique, and the reserved-name check in slugSchema
+    // cannot know what other businesses have taken.
+    if (pgErrorCode(err) === UNIQUE_VIOLATION) {
+      return { error: "Bu adres başka bir işletme tarafından kullanılıyor." };
+    }
+    throw err;
+  }
+
+  revalidatePath("/panel/ayarlar");
+  revalidatePath(`/r/${slug}`);
 }
