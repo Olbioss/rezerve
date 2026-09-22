@@ -59,14 +59,12 @@ describe("originOr", () => {
  * module with a different environment.
  */
 async function resolveAppUrl(env: {
-  APP_URL?: string;
   NEXT_PUBLIC_APP_URL?: string;
   VERCEL_URL?: string;
 }) {
   vi.resetModules();
   // "" and unset are the same thing to this module, so stubbing empty is a
   // faithful stand-in for absent.
-  vi.stubEnv("APP_URL", env.APP_URL ?? "");
   vi.stubEnv("NEXT_PUBLIC_APP_URL", env.NEXT_PUBLIC_APP_URL ?? "");
   vi.stubEnv("VERCEL_URL", env.VERCEL_URL ?? "");
   return (await import("./app-url")).APP_URL;
@@ -78,23 +76,13 @@ afterEach(() => {
 });
 
 describe("APP_URL precedence", () => {
-  it("prefers APP_URL over every other source", async () => {
+  it("prefers the configured origin over the deployment's own", async () => {
     expect(
       await resolveAppUrl({
-        APP_URL: "https://chosen.example",
-        NEXT_PUBLIC_APP_URL: "https://legacy.example",
+        NEXT_PUBLIC_APP_URL: "https://chosen.example",
         VERCEL_URL: "deployment.vercel.app",
       })
     ).toBe("https://chosen.example");
-  });
-
-  it("still honours the old public name while it is being renamed", async () => {
-    expect(
-      await resolveAppUrl({
-        NEXT_PUBLIC_APP_URL: "https://legacy.example",
-        VERCEL_URL: "deployment.vercel.app",
-      })
-    ).toBe("https://legacy.example");
   });
 
   it("falls back to the deployment's own origin", async () => {
@@ -110,9 +98,9 @@ describe("APP_URL precedence", () => {
   it("does not let an unparseable value shadow a usable one", async () => {
     expect(
       await resolveAppUrl({
-        APP_URL: "http://",
-        NEXT_PUBLIC_APP_URL: "https://legacy.example",
+        NEXT_PUBLIC_APP_URL: "http://",
+        VERCEL_URL: "deployment.vercel.app",
       })
-    ).toBe("https://legacy.example");
+    ).toBe("https://deployment.vercel.app");
   });
 });

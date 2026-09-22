@@ -3,8 +3,8 @@ import "server-only";
 /**
  * The app's own origin, as one answer instead of three.
  *
- * This has now broken a deployment twice, both times on the *shape* of a
- * value rather than a missing one, so it normalises rather than trusts:
+ * This broke a deployment twice, both times on the *shape* of a value rather
+ * than its absence, so it normalises rather than trusts:
  *
  *   ""                        an empty dashboard field. `??` does not catch
  *                             it, so it reached `new URL("")` and failed the
@@ -35,39 +35,28 @@ function toOrigin(value: string | undefined): string | undefined {
  * Normalise a configured origin, falling back to the app's own.
  *
  * Used for BETTER_AUTH_URL, which has to agree with APP_URL or Better Auth
- * builds callbacks and cookies for the wrong host.
+ * mints callbacks and cookies for the wrong host.
  */
 export function originOr(value: string | undefined, fallback: string): string {
   return toOrigin(value) ?? fallback;
 }
 
 /**
- * APP_URL is the name to set. Every reader of this value is server-side —
- * the root layout's metadata, the auth config, the iyzico callback and
- * createBooking — so the NEXT_PUBLIC_ prefix bought nothing and cost
- * something: a public prefix forces the variable to be readable in the
- * browser, which a host may refuse to combine with a private variable type.
+ * On Vercel the fallback is the deployment's own origin rather than
+ * localhost, which is right for previews and for a production deploy nobody
+ * has given an explicit URL. Set NEXT_PUBLIC_APP_URL to the stable address:
+ * VERCEL_URL is per-deployment, so links built from it outlive nothing.
  *
- * NEXT_PUBLIC_APP_URL is still read, second, so an environment set up under
- * the old name keeps working while it is being renamed. It can go once
- * nothing sets it.
+ * Written as a literal `process.env.NEXT_PUBLIC_APP_URL` on purpose — the
+ * bundler substitutes that exact expression, and reading it through a
+ * variable key would not be substituted at all.
  *
- * Both are written as literal `process.env.X` expressions on purpose: the
- * bundler substitutes that exact form, and a variable key would not be
- * substituted at all.
- *
- * On Vercel the last resort before localhost is the deployment's own origin,
- * which is right for previews and for a production deploy nobody has given an
- * explicit URL. Prefer setting APP_URL to the stable address: VERCEL_URL is
- * per-deployment, so links built from it outlive nothing.
- *
- * `server-only` is deliberate. Without the public prefix this value is not
- * substituted into client bundles, so importing it from a client component
- * would silently yield the fallback rather than the configured origin. This
- * turns that into a build error.
+ * `server-only` because the candidates disagree across the boundary:
+ * VERCEL_URL has no public prefix, so a client import would skip it and fall
+ * to localhost while the server resolved the real origin. Nothing on the
+ * client needs this value; the guard keeps it that way.
  */
 export const APP_URL: string =
-  toOrigin(process.env.APP_URL) ??
   toOrigin(process.env.NEXT_PUBLIC_APP_URL) ??
   toOrigin(process.env.VERCEL_URL) ??
   "http://localhost:3000";
