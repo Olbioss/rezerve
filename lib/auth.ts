@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { organization } from "better-auth/plugins";
-import { APP_URL } from "@/lib/app-url";
+import { APP_URL, originOr } from "@/lib/app-url";
 import { db } from "@/lib/db";
 import {
   account,
@@ -17,15 +17,15 @@ import {
 
 export const auth = betterAuth({
   appName: "Rezerve",
-  // An empty BETTER_AUTH_URL is "not configured", not a base URL — passing
-  // "" through made Better Auth build `new URL("")` and fail the build.
-  baseURL: process.env.BETTER_AUTH_URL || APP_URL,
+  // An empty BETTER_AUTH_URL is "not configured" and a bare hostname is not a
+  // base URL — either one made Better Auth build an invalid URL and fail the
+  // build.
+  baseURL: originOr(process.env.BETTER_AUTH_URL, APP_URL),
   basePath: "/api/auth",
   secret: process.env.BETTER_AUTH_SECRET,
   trustedOrigins: [
-    process.env.BETTER_AUTH_URL,
+    originOr(process.env.BETTER_AUTH_URL, APP_URL),
     APP_URL,
-    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
   ].filter((origin): origin is string => Boolean(origin)),
   emailAndPassword: {
     enabled: true,
