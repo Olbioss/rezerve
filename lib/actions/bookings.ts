@@ -1,12 +1,13 @@
 "use server";
 
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth-guard";
 import { getBilling } from "@/lib/billing/get-billing";
+import { expireHoldsForOrg } from "@/lib/booking/expire-holds";
 import {
   getAvailableSlots,
   getBusinessBySlug,
@@ -43,20 +44,6 @@ function isOverlapError(err: unknown): boolean {
   return code === "23P01";
 }
 
-/** Release expired pending holds so they stop blocking the constraint. */
-async function cancelExpiredHolds(organizationId: string) {
-  await db
-    .update(bookings)
-    .set({ status: "cancelled", cancelledAt: sql`now()` })
-    .where(
-      and(
-        eq(bookings.organizationId, organizationId),
-        eq(bookings.status, "pending"),
-        lt(bookings.expiresAt, sql`now()`)
-      )
-    );
-}
-
 export async function createBooking(
   input: CreateBookingInput
 ): Promise<ActionResult> {
@@ -89,7 +76,7 @@ export async function createBooking(
     };
   }
 
-  await cancelExpiredHolds(business.organizationId);
+  await expireHoldsForOrg(business.organizationId);
 
   // Public path — no requireOwner() here, so entitlements come straight from
   // the business's own rows. A DB read only: never poll iyzico on a booking.
