@@ -6,7 +6,7 @@
  * one reached `new URL()` and took the whole build down during "Collecting
  * page data", naming neither the variable nor the file.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { originOr } from "./app-url";
 
 const FALLBACK = "https://fallback.example";
@@ -51,5 +51,68 @@ describe("originOr", () => {
     expect(originOr("preview.rezerve.app:8443", FALLBACK)).toBe(
       "https://preview.rezerve.app:8443"
     );
+  });
+});
+
+/**
+ * APP_URL is resolved once at module scope, so each case re-imports the
+ * module with a different environment.
+ */
+async function resolveAppUrl(env: {
+  APP_URL?: string;
+  NEXT_PUBLIC_APP_URL?: string;
+  VERCEL_URL?: string;
+}) {
+  vi.resetModules();
+  // "" and unset are the same thing to this module, so stubbing empty is a
+  // faithful stand-in for absent.
+  vi.stubEnv("APP_URL", env.APP_URL ?? "");
+  vi.stubEnv("NEXT_PUBLIC_APP_URL", env.NEXT_PUBLIC_APP_URL ?? "");
+  vi.stubEnv("VERCEL_URL", env.VERCEL_URL ?? "");
+  return (await import("./app-url")).APP_URL;
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.resetModules();
+});
+
+describe("APP_URL precedence", () => {
+  it("prefers APP_URL over every other source", async () => {
+    expect(
+      await resolveAppUrl({
+        APP_URL: "https://chosen.example",
+        NEXT_PUBLIC_APP_URL: "https://legacy.example",
+        VERCEL_URL: "deployment.vercel.app",
+      })
+    ).toBe("https://chosen.example");
+  });
+
+  it("still honours the old public name while it is being renamed", async () => {
+    expect(
+      await resolveAppUrl({
+        NEXT_PUBLIC_APP_URL: "https://legacy.example",
+        VERCEL_URL: "deployment.vercel.app",
+      })
+    ).toBe("https://legacy.example");
+  });
+
+  it("falls back to the deployment's own origin", async () => {
+    expect(await resolveAppUrl({ VERCEL_URL: "deployment.vercel.app" })).toBe(
+      "https://deployment.vercel.app"
+    );
+  });
+
+  it("falls back to localhost when nothing is configured", async () => {
+    expect(await resolveAppUrl({})).toBe("http://localhost:3000");
+  });
+
+  it("does not let an unparseable value shadow a usable one", async () => {
+    expect(
+      await resolveAppUrl({
+        APP_URL: "http://",
+        NEXT_PUBLIC_APP_URL: "https://legacy.example",
+      })
+    ).toBe("https://legacy.example");
   });
 });
