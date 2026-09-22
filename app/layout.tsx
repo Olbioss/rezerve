@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bodoni_Moda, Hanken_Grotesk } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { APP_URL } from "@/lib/app-url";
 import "./globals.css";
 
 const bodoni = Bodoni_Moda({
@@ -19,9 +20,7 @@ const hanken = Hanken_Grotesk({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-  ),
+  metadataBase: new URL(APP_URL),
   title: { default: "Rezerve", template: "%s · Rezerve" },
   description:
     "İşletmeniz için online randevu. Hizmetlerinizi ve çalışma saatlerinizi belirleyin — müşterileriniz kendi randevusunu alsın.",

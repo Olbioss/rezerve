@@ -4,6 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { APP_URL } from "@/lib/app-url";
 import { requireOwner } from "@/lib/auth-guard";
 import { getBilling } from "@/lib/billing/get-billing";
 import { clientIp, FALLBACK_IP } from "@/lib/booking/client-ip";
@@ -22,7 +23,6 @@ import {
   sendBookingCancelledEmails,
   sendBookingConfirmedEmails,
 } from "@/lib/email/booking-notifications";
-import { requireEnv } from "@/lib/env";
 import { getPaymentProvider } from "@/lib/payments";
 
 const createBookingSchema = z.object({
@@ -148,7 +148,7 @@ export async function createBooking(
         customerEmail,
         customerIp,
         subMerchantKey,
-        appUrl: requireEnv("NEXT_PUBLIC_APP_URL"),
+        appUrl: APP_URL,
       });
       if (!checkout.paymentPageUrl) {
         throw new Error("Payment provider returned no hosted page URL");
