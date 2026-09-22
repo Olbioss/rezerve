@@ -1,7 +1,7 @@
+// TRY is the only currency the product offers: iyzico Marketplace settles in
+// it, so anything else was a dropdown entry that could never be saved. The
+// code fallback below stays for rows written before that was enforced.
 const currencySymbols: Record<string, string> = {
-  usd: "$",
-  eur: "€",
-  gbp: "£",
   try: "₺",
 };
 

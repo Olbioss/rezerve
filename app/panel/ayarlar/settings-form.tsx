@@ -16,7 +16,6 @@ import {
 import { updateSettings } from "@/lib/actions/business";
 
 const timezones = Intl.supportedValuesOf("timeZone");
-const currencies = ["usd", "eur", "gbp", "try"] as const;
 
 type Settings = {
   timezone: string;
@@ -24,7 +23,7 @@ type Settings = {
   minLeadTimeMinutes: number;
   bookingWindowDays: number;
   contactEmail: string | null;
-  currency: (typeof currencies)[number];
+  currency: "try";
 };
 
 export function SettingsForm({ initial }: { initial: Settings }) {
@@ -119,27 +118,10 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="currency">Para birimi</Label>
-            <Select
-              value={settings.currency}
-              onValueChange={(value) =>
-                value &&
-                setSettings((s) => ({
-                  ...s,
-                  currency: value as Settings["currency"],
-                }))
-              }
-            >
-              <SelectTrigger id="currency">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {currencies.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c.toUpperCase()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input id="currency" value="₺ TRY" disabled readOnly />
+            <p className="text-muted-foreground text-xs">
+              iyzico Marketplace TRY ile ödeme aldığı için sabittir.
+            </p>
           </div>
         </div>
         <div className="grid gap-1.5">

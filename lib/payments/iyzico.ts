@@ -17,15 +17,6 @@ export function getIyzipay(): Iyzipay {
   return client;
 }
 
-type IyzicoCurrency = (typeof Iyzipay.CURRENCY)[keyof typeof Iyzipay.CURRENCY];
-
-const CURRENCY_MAP: Record<string, IyzicoCurrency> = {
-  try: Iyzipay.CURRENCY.TRY,
-  usd: Iyzipay.CURRENCY.USD,
-  eur: Iyzipay.CURRENCY.EUR,
-  gbp: Iyzipay.CURRENCY.GBP,
-};
-
 export type DepositCheckoutInput = {
   bookingId: string;
   serviceName: string;
@@ -119,7 +110,9 @@ export function createDepositCheckout(
         conversationId: input.bookingId,
         price,
         paidPrice: price,
-        currency: CURRENCY_MAP[input.currency] ?? Iyzipay.CURRENCY.TRY,
+        // Marketplace settles in TRY, and updateSettings no longer accepts
+        // anything else, so this is the only currency a basket can carry.
+        currency: Iyzipay.CURRENCY.TRY,
         basketId: input.bookingId,
         paymentGroup: Iyzipay.PAYMENT_GROUP.PRODUCT,
         callbackUrl: `${input.appUrl}/api/odeme/iyzico`,

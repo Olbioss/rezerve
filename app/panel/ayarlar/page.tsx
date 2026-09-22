@@ -14,7 +14,11 @@ export default async function SettingsPage() {
         minLeadTimeMinutes: profile.minLeadTimeMinutes,
         bookingWindowDays: profile.bookingWindowDays,
         contactEmail: profile.contactEmail,
-        currency: profile.currency as "usd" | "eur" | "gbp" | "try",
+        // The column is text and predates the single-currency rule, so a row
+        // written earlier could still say usd. TRY is the only value the form
+        // offers or updateSettings accepts, so asserting it here also
+        // normalises such a row the next time settings are saved.
+        currency: "try",
       }}
     />
   );

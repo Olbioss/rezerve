@@ -81,23 +81,16 @@ const settingsSchema = z.object({
     .email()
     .nullable()
     .or(z.literal("").transform(() => null)),
-  currency: z.enum(["usd", "eur", "gbp", "try"]),
+  currency: z.enum(["try"]),
 });
 
 export async function updateSettings(
   input: z.infer<typeof settingsSchema>
 ): Promise<ActionResult> {
-  const { organizationId, billing } = await requireOwner();
+  const { organizationId } = await requireOwner();
   const parsed = settingsSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Geçersiz bilgi" };
-  }
-  // iyzico Marketplace settles in TRY and the submerchant record carries a
-  // fixed currency — switching away would make iyzico reject every basket.
-  if (parsed.data.currency !== "try" && billing.onlineDeposit) {
-    return {
-      error: "Online kapora açıkken para birimi ₺ (TRY) olmalı.",
-    };
   }
   await db
     .update(businessProfiles)

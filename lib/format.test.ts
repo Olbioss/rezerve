@@ -22,12 +22,6 @@ describe("formatMoney", () => {
   it("falls back to the code for unmapped currencies", () => {
     expect(formatMoney(150_000, "chf")).toBe("CHF 1.500");
   });
-
-  it("maps the known symbols", () => {
-    expect(formatMoney(100, "usd")).toBe("$1");
-    expect(formatMoney(100, "eur")).toBe("€1");
-    expect(formatMoney(100, "gbp")).toBe("£1");
-  });
 });
 
 describe("time helpers", () => {
