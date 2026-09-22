@@ -12,7 +12,7 @@ scope](#deliberately-out-of-scope), which is the section worth reading if
 you are evaluating the project rather than working on it.
 
 Current state, verified: `typecheck` clean, `biome check` clean but for one
-deliberate `!important` under `prefers-reduced-motion`, 177 tests across 18
+deliberate `!important` under `prefers-reduced-motion`, 190 tests across 20
 files passing, production build green across 21 routes, no TODO or FIXME in
 the tree.
 
@@ -25,7 +25,7 @@ Effort figures are focused working days for one developer.
 A portfolio piece nobody can open is worth nothing, whatever the code does.
 Everything here is hours.
 
-- [ ] **Seed an owner account so `/panel` can be reached at all.** `0.5d`
+- [x] **Seed an owner account so `/panel` can be reached at all.** `0.5d`
 
   `scripts/seed-demo.ts` inserts organizations, services, availability, a Pro
   subscription and an active payout account — but never a `user`, `account`
@@ -43,7 +43,7 @@ Everything here is hours.
   rows directly, so the password hashes the way the login path expects, and
   publish the credentials on the landing page.
 
-- [ ] **Push `feat/billing-subscriptions` and merge to `main`.** `0.5d`
+- [x] **Push `feat/billing-subscriptions` and merge to `main`.** `0.5d`
 
   Twenty-one commits ahead of `main` and absent from `origin` —
   subscriptions, entitlements, payouts, refunds, the renewal cron. For a
@@ -74,7 +74,7 @@ What a reviewer forms an opinion from before they read a single function.
   the database, entitlements resolved server-side in one place, and a real
   API integration with its dead ends written down.
 
-- [ ] **Add CI, so the tests are visible.** `0.5d`
+- [x] **Add CI, so the tests are visible.** `0.5d`
 
   No `.github/` at all. The suite is one of the best things here — a real
   parallel double-submit race, payment-callback idempotency, DST spring-
@@ -94,12 +94,12 @@ What a reviewer forms an opinion from before they read a single function.
   SAQ A-EP), and why a sandbox build stops short. The same code reads as a
   liability or as a decision depending on that paragraph.
 
-- [ ] **Delete create-next-app's leftovers.** `0.1d`
+- [ ] **Replace create-next-app's leftovers with original marks.** `0.5d`
 
   `next.svg`, `vercel.svg`, `window.svg`, `globe.svg` and `file.svg` sit in
   `public/`, referenced by nothing.
 
-- [ ] **Fix the comment that contradicts its own function.** `0.1d`
+- [x] **Fix the comment that contradicts its own function.** `0.1d`
 
   `lib/billing/plans.ts:42` reads "the Pro trial does ask for a card up
   front". `startTrial` takes no card, and the README says so. Billing is
@@ -126,7 +126,7 @@ None of this is needed to publish; all of it is needed to look finished.
   public holiday days plus two multi-day bayrams, and today a business
   closing for a week deletes its hours and restores them by hand.
 
-- [ ] **Reminder emails.** `1d`
+- [ ] ~~**Reminder emails.**~~ `1d` — deselected for v1.0
 
   Confirmation and cancellation only. The daily cron and the React Email
   templates both already exist, so this is the cheapest way to make the
@@ -139,7 +139,10 @@ None of this is needed to publish; all of it is needed to look finished.
   address or description. The cancellation email tells the customer to
   contact the business directly and gives them no way to.
 
-- [ ] **Demo integrity — throttle the booking form, reseed nightly.** `0.7d`
+- [~] **Demo integrity — throttle the booking form, reseed nightly.** `0.7d`
+
+  Throttle done; the nightly reseed lands after the depth items, so its
+  desired state covers everything they add.
 
   `createBooking` has no rate limit and no captcha, and every booking holds
   its slot permanently through the exclusion constraint. Once the URL is
@@ -157,19 +160,19 @@ None of this is needed to publish; all of it is needed to look finished.
 
   Both tabs hard-limit to 100 rows with no way to find one customer.
 
-- [ ] **`robots.ts`, `sitemap.ts`, `manifest.ts`.** `0.3d`
+- [ ] ~~**`robots.ts`, `sitemap.ts`, `manifest.ts`.**~~ `0.3d` — deselected for v1.0
 
   Every `/r/[slug]` page is public surface and nothing tells a crawler it
   exists.
 
-- [ ] **Sweep expired holds on the cron.** `0.2d`
+- [x] **Sweep expired holds on the cron.** `0.2d`
 
   `cancelExpiredHolds` runs on the next booking attempt for that
   organization, so a quiet business keeps a dead thirty-minute hold visible
   until someone else tries to book — on a low-traffic demo, the normal case
   rather than the edge case. About five lines in the job that already runs.
 
-- [ ] **Drop the currencies that can never be selected.** `0.2d`
+- [x] **Drop the currencies that can never be selected.** `0.2d`
 
   The settings page offers usd, eur and gbp; iyzico Marketplace settles TRY
   and `updateSettings` rejects anything else whenever online kapora is on.
