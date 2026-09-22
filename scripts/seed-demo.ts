@@ -7,8 +7,13 @@
  *                       collected, which is the only way to *see* the downgrade
  *                       rule rather than read about it
  *
+ * Each gets an owner that can actually sign in, with published credentials
+ * (lib/demo/credentials.ts) — without a `member` row requireOwner() resolves
+ * no business, and the whole panel is unreachable.
+ *
  * Idempotent: safe to run repeatedly — existing demo data is left untouched
- * and only missing pieces are created.
+ * and only missing pieces are created. The one exception is the owner
+ * password, which is reset every run so a visitor cannot lock the demo out.
  *
  *   bun run seed:demo
  */
@@ -23,21 +28,14 @@ import {
 } from "@/lib/db/schema/billing-schema";
 import { businessProfiles } from "@/lib/db/schema/business-schema";
 import { services } from "@/lib/db/schema/service-schema";
+import {
+  type DemoAccount,
+  DEMO_FREE,
+  DEMO_PRO,
+} from "@/lib/demo/credentials";
+import { ensureDemoOwner } from "@/lib/demo/seed-owner";
 
-const PRO = {
-  orgId: "org_rezerve_demo",
-  slug: "demo",
-  name: "Rezerve Demo Salon",
-};
-const FREE = {
-  orgId: "org_rezerve_demo_free",
-  slug: "demo-ucretsiz",
-  name: "Rezerve Demo Berber",
-};
-
-type Demo = typeof PRO;
-
-async function seedBusiness(demo: Demo) {
+async function seedBusiness(demo: DemoAccount) {
   const existing = await db.query.organization.findFirst({
     where: eq(organization.slug, demo.slug),
   });
@@ -177,14 +175,14 @@ async function seedProBilling(orgId: string) {
       subMerchantKey,
       subMerchantExternalId: orgId,
       merchantType: "personal",
-      name: PRO.name,
+      name: DEMO_PRO.name,
       contactName: "Demo",
       contactSurname: "Salon",
       identityNumber: "10000000146",
       iban: "TR180006200119000006672315",
       address: "Merdivenköy Mah. Bora Sok. No:1, Kadıköy/İstanbul",
       gsmNumber: "+905350000000",
-      email: "demo@rezerve.app",
+      email: DEMO_PRO.email,
     })
     .onConflictDoUpdate({
       target: orgPayoutAccounts.organizationId,
@@ -195,12 +193,23 @@ async function seedProBilling(orgId: string) {
 }
 
 async function main() {
-  const proOrgId = await seedBusiness(PRO);
+  const proOrgId = await seedBusiness(DEMO_PRO);
+  await ensureDemoOwner(DEMO_PRO);
   await seedProBilling(proOrgId);
-  await seedBusiness(FREE);
 
-  console.log(`\nPro demo:      /r/${PRO.slug}        (kapora tahsil edilir)`);
-  console.log(`Ücretsiz demo: /r/${FREE.slug} (kapora saklı ama tahsil edilmez)`);
+  await seedBusiness(DEMO_FREE);
+  await ensureDemoOwner(DEMO_FREE);
+
+  console.log(
+    `\nPro demo:      /r/${DEMO_PRO.slug}        (kapora tahsil edilir)`
+  );
+  console.log(
+    `Ücretsiz demo: /r/${DEMO_FREE.slug} (kapora saklı ama tahsil edilmez)`
+  );
+  console.log("\nPanel logins:");
+  for (const demo of [DEMO_PRO, DEMO_FREE]) {
+    console.log(`  ${demo.email}  /  ${demo.password}`);
+  }
   await db.$client.end();
 }
 
