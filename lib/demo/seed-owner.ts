@@ -28,6 +28,7 @@ import {
   invitation,
   member,
   organization,
+  rateLimit,
   session,
   user,
   verification,
@@ -57,6 +58,7 @@ const demoAuth = betterAuth({
       organization,
       member,
       invitation,
+      rateLimit,
     },
   }),
 });

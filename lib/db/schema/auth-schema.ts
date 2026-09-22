@@ -1,7 +1,9 @@
 import { relations } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -182,3 +184,26 @@ export const invitationRelations = relations(invitation, ({ one }) => ({
     references: [user.id],
   }),
 }));
+
+/**
+ * Better Auth's rate-limit counters.
+ *
+ * The config used storage: "memory", which on Fluid Compute is per-instance —
+ * so the sign-in limit of three attempts per ten seconds was really three per
+ * instance, and concurrency quietly multiplied it. This table is what
+ * storage: "database" writes to; Better Auth addresses the model as
+ * `rateLimit`, which is why that is the key it is registered under.
+ */
+export const rateLimit = pgTable(
+  "rate_limit",
+  {
+    id: text("id").primaryKey(),
+    key: text("key").notNull(),
+    count: integer("count").notNull(),
+    /** Epoch milliseconds — Better Auth compares it numerically. */
+    lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+  },
+  // Read by key on every rate-limited request, and the row count grows with
+  // distinct clients.
+  (table) => [index("rate_limit_key_idx").on(table.key)]
+);

@@ -2,11 +2,11 @@
 
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth-guard";
 import { getBilling } from "@/lib/billing/get-billing";
+import { clientIp, FALLBACK_IP } from "@/lib/booking/client-ip";
 import { expireHoldsForOrg } from "@/lib/booking/expire-holds";
 import {
   getAvailableSlots,
@@ -14,6 +14,7 @@ import {
   localDateISO,
 } from "@/lib/booking/get-available-slots";
 import { refundDeposit } from "@/lib/booking/refund-deposit";
+import { checkBookingThrottle } from "@/lib/booking/throttle";
 import { db } from "@/lib/db";
 import { bookings } from "@/lib/db/schema/booking-schema";
 import { services } from "@/lib/db/schema/service-schema";
@@ -56,6 +57,16 @@ export async function createBooking(
 
   const business = await getBusinessBySlug(slug);
   if (!business) return { error: "İşletme bulunamadı" };
+
+  // Before the slot work, so a flood costs the database as little as
+  // possible. A failed attempt still counts against the caller.
+  const ip = await clientIp();
+  const throttled = await checkBookingThrottle({
+    organizationId: business.organizationId,
+    ip,
+    email: customerEmail,
+  });
+  if (throttled) return { error: throttled };
 
   const service = await db.query.services.findFirst({
     where: and(
@@ -126,10 +137,7 @@ export async function createBooking(
         // rather than inventing a second failure path.
         throw new Error("Entitled for deposits but no submerchant key");
       }
-      const requestHeaders = await headers();
-      const customerIp =
-        requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-        "85.34.78.112";
+      const customerIp = ip ?? FALLBACK_IP;
       const checkout = await getPaymentProvider().createDepositCheckout({
         bookingId: created.id,
         serviceName: service.name,
@@ -186,10 +194,7 @@ export async function cancelBooking(id: string): Promise<void> {
     let refunded = false;
     if (cancelled.paymentTransactionId && cancelled.depositCents != null) {
       try {
-        const requestHeaders = await headers();
-        const customerIp =
-          requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-          "85.34.78.112";
+        const customerIp = (await clientIp()) ?? FALLBACK_IP;
         refunded =
           (await refundDeposit(cancelled.id, customerIp)) === "refunded";
       } catch (err) {

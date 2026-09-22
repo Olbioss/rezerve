@@ -8,6 +8,7 @@ import {
   invitation,
   member,
   organization as organizationTable,
+  rateLimit,
   session,
   user,
   verification,
@@ -57,7 +58,11 @@ export const auth = betterAuth({
     enabled: true,
     window: 60,
     max: 100,
-    storage: "memory",
+    // "memory" is per-instance, and Fluid Compute reuses several — so three
+    // sign-in attempts per ten seconds was really three per instance, and
+    // concurrency silently multiplied the limit. The database is the only
+    // place a shared counter can live here.
+    storage: "database",
     customRules: {
       "/sign-in/email": { window: 10, max: 3 },
       "/sign-up/email": { window: 10, max: 3 },
@@ -81,6 +86,7 @@ export const auth = betterAuth({
       organization: organizationTable,
       member,
       invitation,
+      rateLimit,
     },
   }),
 });

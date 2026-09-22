@@ -70,3 +70,37 @@ export const bookings = pgTable(
     check("bookings_time_order", sql`${table.endsAt} > ${table.startsAt}`),
   ]
 );
+
+/**
+ * One row per attempt to create a booking, used only for throttling.
+ *
+ * createBooking is public, unauthenticated and permanently holds a slot
+ * through the exclusion constraint, so an unthrottled one lets a single
+ * visitor fill a calendar and leave every later one looking at a wrecked
+ * demo. Better Auth's own rate limiting does not cover this: it guards
+ * /api/auth/* only, and this is a server action.
+ *
+ * Rows are pruned on the way past rather than by a scheduled job — the window
+ * is an hour, so anything older has no bearing on any decision.
+ */
+export const bookingAttempts = pgTable(
+  "booking_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    /** Null when the proxy sent no forwarded-for header. */
+    ip: text("ip"),
+    email: text("email").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("booking_attempts_org_created_idx").on(
+      table.organizationId,
+      table.createdAt
+    ),
+  ]
+);

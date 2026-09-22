@@ -3,10 +3,20 @@
  * Requires DATABASE_URL (loaded from .env) and applied migrations.
  */
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("next/headers", () => ({ headers: vi.fn() }));
+vi.mock("next/headers", () => ({
+  headers: async () => new Map([["x-forwarded-for", "203.0.113.9"]]),
+}));
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => {
     throw new RedirectError(url);
@@ -27,6 +37,7 @@ const { availabilityRules } = await import(
   "@/lib/db/schema/availability-schema"
 );
 const { businessProfiles } = await import("@/lib/db/schema/business-schema");
+const { bookingAttempts } = await import("@/lib/db/schema/booking-schema");
 
 const ORG_ID = "org_itest_bookings";
 const SLUG = "itest-bookings";
@@ -65,6 +76,12 @@ beforeAll(async () => {
     startMinutes: 9 * 60,
     endMinutes: 17 * 60,
   });
+});
+
+beforeEach(async () => {
+  await db
+    .delete(bookingAttempts)
+    .where(eq(bookingAttempts.organizationId, ORG_ID));
 });
 
 afterAll(async () => {
