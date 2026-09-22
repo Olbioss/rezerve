@@ -39,7 +39,8 @@ export const PLANS: Record<Plan, PlanDefinition> = {
       "E-posta bildirimleri",
       "Randevu paneli",
     ],
-    // True on this plan — the Pro trial does ask for a card up front.
+    // Literally true, and true of the Pro trial too: startTrial takes no
+    // card, so neither plan asks for one up front.
     footnote: "Kredi kartı gerekmez.",
   },
   pro: {

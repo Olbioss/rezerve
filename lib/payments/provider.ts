@@ -3,15 +3,15 @@ import "server-only";
 /**
  * The payment surface Rezerve depends on, behind one interface.
  *
- * Two drivers implement it: `iyzico` (real API calls) and `fake` (a
- * deterministic in-app simulation). The seam exists because iyzico enables
- * Marketplace (pazaryeri) and Abonelik per merchant account — until they are
- * provisioned, submerchant creation returns error 2000 and every subscription
- * endpoint returns 100001, so nothing downstream can be exercised.
+ * One driver implements it: `iyzico`. A `fake` driver used to sit alongside
+ * it, because iyzico enables Marketplace (pazaryeri) per merchant account and
+ * until that was provisioned submerchant creation returned error 2000, so
+ * nothing downstream could be exercised at all.
  *
- * Everything past the driver — callback verification, token-bound idempotent
- * transitions, entitlement resolution — runs identically either way. Only the
- * hosted payment page differs.
+ * Once it was provisioned the simulation was removed rather than kept: a
+ * second path that production never exercises is exactly where the real one
+ * rots unnoticed. The seam stays because it is what made the callback
+ * verification and the idempotent transitions testable without it.
  */
 
 export type DepositCheckoutInput = {
@@ -129,7 +129,7 @@ export type StoredCardChargeResult = {
 };
 
 export type PaymentProvider = {
-  readonly name: "iyzico" | "fake";
+  readonly name: "iyzico";
 
   createDepositCheckout(input: DepositCheckoutInput): Promise<HostedCheckout>;
   retrieveCheckout(token: string): Promise<CheckoutResult>;
