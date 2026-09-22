@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { APP_URL } from "@/lib/app-url";
 import { db } from "@/lib/db";
 import { organization } from "@/lib/db/schema/auth-schema";
 import { bookings } from "@/lib/db/schema/booking-schema";
+import { requireEnv } from "@/lib/env";
 import { getPaymentProvider } from "@/lib/payments";
 import {
   cancelFailedPayment,
@@ -17,7 +17,7 @@ import type { CheckoutResult } from "@/lib/payments/provider";
  * is retrieved from iyzico's API server-side, then the browser is redirected.
  */
 export async function POST(request: Request) {
-  const appUrl = APP_URL;
+  const appUrl = requireEnv("NEXT_PUBLIC_APP_URL");
   const form = await request.formData().catch(() => null);
   const token = form?.get("token");
   if (typeof token !== "string" || !token) {
