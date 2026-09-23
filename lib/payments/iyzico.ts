@@ -1,9 +1,11 @@
 import "server-only";
 import Iyzipay from "iyzipay";
-// The SDK loads its resources with readdirSync + a computed require, which
-// output tracing cannot follow. Importing their shared base here lets the
-// tracer reach postman-request and everything under it; next.config.ts adds
-// the resource files themselves, which need nothing further.
+// Reached only through its entry point, the SDK was traced as Iyzipay.js and
+// nothing it loads — it finds its resources with readdirSync and a computed
+// require — so every deployed payment failed with ENOENT. Importing a file
+// from its lib directly makes output tracing take in the whole lib and
+// postman-request's tree with it. scripts/check-payment-trace.ts checks this
+// against a real build in CI.
 import "iyzipay/lib/IyzipayResource";
 import { requireEnv } from "@/lib/env";
 // Defined once in the provider, so this module cannot drift from the driver.
