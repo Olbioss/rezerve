@@ -50,7 +50,7 @@ Everything here is hours.
   portfolio build the repository is the deliverable, so the best work in the
   project is currently not part of the portfolio at all.
 
-- [~] **Deploy it.** `1d` — live and building; migrations not yet applied to Neon
+- [x] **Deploy it.** `1d`
 
   No `.vercel` directory; the project has never been linked. `vercel.json`
   declares the renewal cron and nothing runs it. Needs a Vercel project, a
