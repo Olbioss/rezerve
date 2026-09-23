@@ -49,6 +49,16 @@ export const requireOwner = cache(async () => {
   return { session, organizationId, profile, billing };
 });
 
+/**
+ * For the sign-in and sign-up pages: someone already signed in goes to the
+ * panel. Without it, a new tab that starts from the landing page offers the
+ * login form to a visitor holding a valid session, and they sign in again.
+ */
+export async function redirectIfSignedIn() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (session) redirect("/panel");
+}
+
 /** Signed-in user (no business required) — used by the onboarding page. */
 export async function requireUser() {
   const session = await auth.api.getSession({ headers: await headers() });

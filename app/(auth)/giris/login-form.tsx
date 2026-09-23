@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 
-export default function LoginPage() {
+export function LoginForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
