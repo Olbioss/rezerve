@@ -35,6 +35,8 @@ export const bookings = pgTable(
       .references(() => services.id, { onDelete: "restrict" }),
     customerName: text("customer_name").notNull(),
     customerEmail: text("customer_email").notNull(),
+    /** Optional, and only as the customer typed it — see lib/phone.ts. */
+    customerPhone: text("customer_phone"),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
     status: bookingStatus("status").notNull().default("confirmed"),

@@ -16,6 +16,7 @@ import {
 import { cancelBooking } from "@/lib/actions/bookings";
 import { formatMoney } from "@/lib/format";
 import type { BookingRow } from "@/lib/panel/bookings-query";
+import { telHref } from "@/lib/phone";
 
 /**
  * One page of one tab. Which tab, which page and any search term are the
@@ -77,6 +78,14 @@ export function BookingsList({
               <span className="block text-muted-foreground text-xs">
                 {booking.customerEmail}
               </span>
+              {booking.customerPhone && (
+                <a
+                  href={telHref(booking.customerPhone)}
+                  className="numeral block text-muted-foreground text-xs hover:text-brand-ink"
+                >
+                  {booking.customerPhone}
+                </a>
+              )}
             </TableCell>
             <TableCell className="numeral">
               {booking.depositCents

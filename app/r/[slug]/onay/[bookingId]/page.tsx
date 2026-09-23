@@ -80,7 +80,12 @@ export default async function ConfirmationPage({
     : null;
 
   return (
-    <BookingShell businessName={business.orgName} compact>
+    <BookingShell
+      businessName={business.orgName}
+      phone={business.profile.phone}
+      address={business.profile.address}
+      compact
+    >
       <div className="rise text-center">
         {booking.status === "confirmed" && (
           <>

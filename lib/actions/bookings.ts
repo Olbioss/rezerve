@@ -25,6 +25,7 @@ import {
 } from "@/lib/email/booking-notifications";
 import { requireEnv } from "@/lib/env";
 import { getPaymentProvider } from "@/lib/payments";
+import { optionalPhoneSchema } from "@/lib/phone";
 
 const createBookingSchema = z.object({
   slug: z.string().min(1),
@@ -32,9 +33,10 @@ const createBookingSchema = z.object({
   startsAt: z.iso.datetime(),
   customerName: z.string().min(2).max(80),
   customerEmail: z.email(),
+  customerPhone: optionalPhoneSchema,
 });
 
-export type CreateBookingInput = z.infer<typeof createBookingSchema>;
+export type CreateBookingInput = z.input<typeof createBookingSchema>;
 export type ActionResult = { error: string } | undefined;
 
 /** True when the error is the bookings_no_overlap exclusion violation. */
@@ -49,7 +51,8 @@ export async function createBooking(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Geçersiz bilgi" };
   }
-  const { slug, serviceId, customerName, customerEmail } = parsed.data;
+  const { slug, serviceId, customerName, customerEmail, customerPhone } =
+    parsed.data;
   const startsAt = new Date(parsed.data.startsAt);
 
   const business = await getBusinessBySlug(slug);
@@ -107,6 +110,7 @@ export async function createBooking(
         serviceId,
         customerName,
         customerEmail,
+        customerPhone,
         startsAt,
         endsAt,
         status: requiresDeposit ? "pending" : "confirmed",

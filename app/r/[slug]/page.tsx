@@ -35,6 +35,9 @@ export default async function BookingPage({
     <BookingShell
       businessName={business.orgName}
       tagline={`Randevu alın · ${rows.length} hizmet`}
+      description={business.profile.description}
+      phone={business.profile.phone}
+      address={business.profile.address}
     >
       <BookingFlow
         slug={slug}

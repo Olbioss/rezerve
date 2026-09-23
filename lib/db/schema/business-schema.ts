@@ -18,6 +18,15 @@ export const businessProfiles = pgTable("business_profiles", {
   bookingWindowDays: integer("booking_window_days").notNull().default(60),
   /** Booking notifications go here; falls back to the owner's login email. */
   contactEmail: text("contact_email"),
+  /**
+   * Public, unlike contactEmail: shown on the booking page and given to a
+   * customer whose booking is cancelled, as the way to reach the business.
+   */
+  phone: text("phone"),
+  /** Public. Free text, linked to a map search on the booking page. */
+  address: text("address"),
+  /** Public. A few sentences under the business name on the booking page. */
+  description: text("description"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

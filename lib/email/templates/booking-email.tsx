@@ -9,16 +9,22 @@ import {
   Section,
   Text,
 } from "@react-email/components";
+import { telHref } from "@/lib/phone";
 
 export type BookingEmailProps = {
   heading: string;
   preview: string;
   intro: string;
   businessName: string;
+  /** For the customer's copy: how to reach the business. */
+  businessPhone?: string | null;
+  businessAddress?: string | null;
   serviceName: string;
   whenText: string;
   customerName: string;
   customerEmail?: string;
+  /** For the owner's copy, when the customer gave one. */
+  customerPhone?: string | null;
   depositLine?: string;
 };
 
@@ -52,10 +58,13 @@ export function BookingEmail({
   preview,
   intro,
   businessName,
+  businessPhone,
+  businessAddress,
   serviceName,
   whenText,
   customerName,
   customerEmail,
+  customerPhone,
   depositLine,
 }: BookingEmailProps) {
   return (
@@ -114,6 +123,25 @@ export function BookingEmail({
               <span style={rowLabel}>İşletme</span>
               <br />
               {businessName}
+              {businessAddress && (
+                <>
+                  <br />
+                  <span style={{ color: MUTED, fontSize: 13 }}>
+                    {businessAddress}
+                  </span>
+                </>
+              )}
+              {businessPhone && (
+                <>
+                  <br />
+                  <a
+                    href={telHref(businessPhone)}
+                    style={{ color: BRAND, textDecoration: "none" }}
+                  >
+                    {businessPhone}
+                  </a>
+                </>
+              )}
             </Text>
             <Text style={row}>
               <span style={rowLabel}>Hizmet</span>
@@ -132,6 +160,7 @@ export function BookingEmail({
               <br />
               {customerName}
               {customerEmail ? ` (${customerEmail})` : ""}
+              {customerPhone ? ` · ${customerPhone}` : ""}
             </Text>
             {depositLine && (
               <Text style={row}>

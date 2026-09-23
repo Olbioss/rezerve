@@ -37,7 +37,9 @@ const { availabilityRules } = await import(
   "@/lib/db/schema/availability-schema"
 );
 const { businessProfiles } = await import("@/lib/db/schema/business-schema");
-const { bookingAttempts } = await import("@/lib/db/schema/booking-schema");
+const { bookingAttempts, bookings } = await import(
+  "@/lib/db/schema/booking-schema"
+);
 
 const ORG_ID = "org_itest_bookings";
 const SLUG = "itest-bookings";
@@ -153,6 +155,52 @@ describe("createBooking (integration)", () => {
     expect(losers).toHaveLength(1);
     const loser = losers[0] as { ok: false; result: { error?: string } };
     expect(loser.result?.error).toMatch(/az önce doldu|artık müsait değil/);
+  });
+
+  it("stores the customer's phone as they typed it", async () => {
+    await expect(
+      createBooking({
+        slug: SLUG,
+        serviceId,
+        startsAt: slotAt(13),
+        customerName: "Ceren",
+        customerEmail: "ceren@test.dev",
+        customerPhone: " 0532  123 45 67 ",
+      })
+    ).rejects.toThrow(/REDIRECT:/);
+    const row = await db.query.bookings.findFirst({
+      where: eq(bookings.customerEmail, "ceren@test.dev"),
+    });
+    expect(row?.customerPhone).toBe("0532 123 45 67");
+  });
+
+  it("books without a phone — the field is optional", async () => {
+    await expect(
+      createBooking({
+        slug: SLUG,
+        serviceId,
+        startsAt: slotAt(14),
+        customerName: "Deniz",
+        customerEmail: "deniz@test.dev",
+        customerPhone: "",
+      })
+    ).rejects.toThrow(/REDIRECT:/);
+    const row = await db.query.bookings.findFirst({
+      where: eq(bookings.customerEmail, "deniz@test.dev"),
+    });
+    expect(row?.customerPhone).toBeNull();
+  });
+
+  it("refuses a phone that cannot be a number", async () => {
+    const result = await createBooking({
+      slug: SLUG,
+      serviceId,
+      startsAt: slotAt(15),
+      customerName: "Emre",
+      customerEmail: "emre@test.dev",
+      customerPhone: "ara beni",
+    });
+    expect(result?.error).toBe("Geçerli bir telefon numarası girin");
   });
 
   it("unknown business slug errors cleanly", async () => {

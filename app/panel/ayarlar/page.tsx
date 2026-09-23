@@ -4,6 +4,7 @@ import { requireOwner } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
 import { organization } from "@/lib/db/schema/auth-schema";
 import { IdentityForm } from "./identity-form";
+import { ProfileForm } from "./profile-form";
 import { SettingsForm } from "./settings-form";
 
 export const metadata = { title: "Ayarlar" };
@@ -28,6 +29,17 @@ export default async function SettingsPage() {
         <h2 className="font-display text-2xl">İşletme bilgileri</h2>
         <IdentityForm
           initial={{ name: org?.name ?? "", slug: org?.slug ?? "" }}
+        />
+      </section>
+
+      <section className="grid gap-4">
+        <h2 className="font-display text-2xl">Randevu sayfanız</h2>
+        <ProfileForm
+          initial={{
+            phone: profile.phone ?? "",
+            address: profile.address ?? "",
+            description: profile.description ?? "",
+          }}
         />
       </section>
 

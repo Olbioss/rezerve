@@ -58,6 +58,7 @@ beforeAll(async () => {
       serviceId,
       customerName: `Müşteri ${String(i).padStart(2, "0")}`,
       customerEmail: `musteri${i}@test.dev`,
+      customerPhone: i === 3 ? "0532 111 22 33" : null,
       ...slot(i + 1),
       status: "confirmed" as const,
     })),
@@ -150,6 +151,13 @@ describe("search", () => {
   it("matches an email", async () => {
     const rows = await page(1, "musteri12@test.dev");
     expect(rows).toHaveLength(1);
+  });
+
+  it("matches a phone number, and returns it with the row", async () => {
+    // An owner looking up the regular who just called.
+    const rows = await page(1, "111 22 33");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].customerPhone).toBe("0532 111 22 33");
   });
 
   it("matches a service name, which lives on the joined table", async () => {

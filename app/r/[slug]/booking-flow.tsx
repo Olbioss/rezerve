@@ -184,6 +184,7 @@ export function BookingFlow({
         startsAt: selectedSlot,
         customerName: String(form.get("name")),
         customerEmail: String(form.get("email")),
+        customerPhone: String(form.get("phone") ?? ""),
       });
       if (result?.error) {
         toast.error(result.error);
@@ -259,6 +260,18 @@ export function BookingFlow({
             <div className="grid gap-1.5">
               <Label htmlFor="email">E-posta</Label>
               <Input id="email" name="email" type="email" required />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="phone">Telefon (isteğe bağlı)</Label>
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                autoComplete="tel"
+                inputMode="tel"
+                maxLength={32}
+                placeholder="0532 123 45 67"
+              />
             </div>
             <Button
               type="submit"

@@ -1,5 +1,12 @@
+import { MapPinIcon, PhoneIcon } from "lucide-react";
 import Link from "next/link";
+import { telHref } from "@/lib/phone";
 import { cn } from "@/lib/utils";
+
+/** A map search for a free-text address — no geocoding, no API key. */
+function mapHref(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
 
 /** First letter of the business name, uppercased with Turkish casing. */
 export function monogram(name: string): string {
@@ -14,11 +21,18 @@ export function monogram(name: string): string {
 export function BookingShell({
   businessName,
   tagline,
+  description,
+  phone,
+  address,
   compact = false,
   children,
 }: {
   businessName: string;
   tagline?: string;
+  /** The business in its own words, from its profile. */
+  description?: string | null;
+  phone?: string | null;
+  address?: string | null;
   compact?: boolean;
   children: React.ReactNode;
 }) {
@@ -50,6 +64,35 @@ export function BookingShell({
           </h1>
           {tagline && (
             <p className="eyebrow mt-3 text-muted-foreground">{tagline}</p>
+          )}
+          {description && (
+            <p className="mt-4 max-w-sm whitespace-pre-line text-muted-foreground text-sm leading-relaxed">
+              {description}
+            </p>
+          )}
+          {(phone || address) && (
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
+              {phone && (
+                <a
+                  href={telHref(phone)}
+                  className="underline-draw inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-brand-ink"
+                >
+                  <PhoneIcon aria-hidden className="size-3.5" />
+                  <span className="numeral">{phone}</span>
+                </a>
+              )}
+              {address && (
+                <a
+                  href={mapHref(address)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline-draw inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-brand-ink"
+                >
+                  <MapPinIcon aria-hidden className="size-3.5" />
+                  {address}
+                </a>
+              )}
+            </div>
           )}
         </header>
         {children}

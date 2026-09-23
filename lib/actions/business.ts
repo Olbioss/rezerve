@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { pgErrorCode, UNIQUE_VIOLATION } from "@/lib/db/errors";
 import { member, organization } from "@/lib/db/schema/auth-schema";
 import { businessProfiles } from "@/lib/db/schema/business-schema";
+import { optionalPhoneSchema } from "@/lib/phone";
 import { slugSchema } from "@/lib/slug";
 
 const timezoneSchema = z.string().refine((tz) => {
@@ -99,6 +100,41 @@ export async function updateSettings(
     .set(parsed.data)
     .where(eq(businessProfiles.organizationId, organizationId));
   redirect("/panel/ayarlar");
+}
+
+/** Free text that may be left empty: trimmed, and blank stored as null. */
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max, `En fazla ${max} karakter olabilir`)
+    .nullish()
+    .transform((value) => value || null);
+
+const publicProfileSchema = z.object({
+  phone: optionalPhoneSchema,
+  address: optionalText(200),
+  description: optionalText(500),
+});
+
+/**
+ * What a customer sees about the business on its booking page: how to call
+ * it, where it is, what it does. All optional — a page with none of them
+ * still takes bookings — and all public, unlike contactEmail.
+ */
+export async function updatePublicProfile(
+  input: z.input<typeof publicProfileSchema>
+): Promise<ActionResult> {
+  const { organizationId } = await requireOwner();
+  const parsed = publicProfileSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Geçersiz bilgi" };
+  }
+  await db
+    .update(businessProfiles)
+    .set(parsed.data)
+    .where(eq(businessProfiles.organizationId, organizationId));
+  revalidatePath("/panel/ayarlar");
 }
 
 const identitySchema = z.object({

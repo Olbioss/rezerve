@@ -18,7 +18,7 @@
  *   bun run seed:demo
  */
 import "dotenv/config";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { organization } from "@/lib/db/schema/auth-schema";
 import { availabilityRules } from "@/lib/db/schema/availability-schema";
@@ -34,6 +34,29 @@ import {
   DEMO_PRO,
 } from "@/lib/demo/credentials";
 import { ensureDemoOwner } from "@/lib/demo/seed-owner";
+
+/**
+ * What each demo's booking page says about it. Istanbul subscriber numbers
+ * never begin with 0, so the phones cannot ring anyone, and "Örnek Sokak" is
+ * "Example Street".
+ */
+const DEMO_PAGE: Record<
+  string,
+  { phone: string; address: string; description: string }
+> = {
+  [DEMO_PRO.slug]: {
+    phone: "0212 000 00 00",
+    address: "Örnek Sk. No:1, Kadıköy / İstanbul",
+    description:
+      "Cilt bakımı, manikür ve saç. Rezerve'nin örnek işletmesi — burada alınan randevular gerçek değildir.",
+  },
+  [DEMO_FREE.slug]: {
+    phone: "0216 000 00 00",
+    address: "Örnek Sk. No:2, Üsküdar / İstanbul",
+    description:
+      "Saç ve sakal. Rezerve'nin ücretsiz plandaki örnek işletmesi — burada alınan randevular gerçek değildir.",
+  },
+};
 
 async function seedBusiness(demo: DemoAccount) {
   const existing = await db.query.organization.findFirst({
@@ -63,6 +86,18 @@ async function seedBusiness(demo: DemoAccount) {
       bookingWindowDays: 30,
     })
     .onConflictDoNothing({ target: businessProfiles.organizationId });
+
+  // Filled only where empty, like everything else here: a visitor who edits
+  // the demo's page keeps the edit until the next reseed.
+  const page = DEMO_PAGE[demo.slug];
+  await db
+    .update(businessProfiles)
+    .set({
+      phone: sql`coalesce(${businessProfiles.phone}, ${page.phone})`,
+      address: sql`coalesce(${businessProfiles.address}, ${page.address})`,
+      description: sql`coalesce(${businessProfiles.description}, ${page.description})`,
+    })
+    .where(eq(businessProfiles.organizationId, orgId));
 
   const existingServices = await db.query.services.findMany({
     where: eq(services.organizationId, orgId),

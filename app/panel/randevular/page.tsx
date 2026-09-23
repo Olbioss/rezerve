@@ -85,7 +85,7 @@ export default async function BookingsPage({
             type="search"
             name="ara"
             defaultValue={query}
-            placeholder="İsim, e-posta veya hizmet"
+            placeholder="İsim, e-posta, telefon veya hizmet"
             aria-label="Randevularda ara"
             className="h-9 w-56"
           />

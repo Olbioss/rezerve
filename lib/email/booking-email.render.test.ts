@@ -1,5 +1,6 @@
 import { render } from "@react-email/components";
 import { describe, expect, it } from "vitest";
+import { cancelledIntro } from "./copy";
 import { BookingEmail } from "./templates/booking-email";
 
 const NIGHT = "#0c1210";
@@ -72,5 +73,76 @@ describe("BookingEmail", () => {
     ]) {
       expect(out).toContain(text);
     }
+  });
+
+  it("gives the customer a number to call, as a link", async () => {
+    const out = await render(
+      BookingEmail({
+        heading: "Randevu iptal edildi",
+        preview: "İptal",
+        intro: "Randevunuz iptal edildi.",
+        businessName: "Günnur Estetik",
+        businessPhone: "0532 123 45 67",
+        businessAddress: "Moda Cd. No:12, Kadıköy",
+        serviceName: "Cilt Bakımı",
+        whenText: "9 Eylül Salı, 11:00",
+        customerName: "Elif Yıldırım",
+      })
+    );
+    expect(out).toContain('href="tel:05321234567"');
+    expect(out).toContain("0532 123 45 67");
+    expect(out).toContain("Moda Cd. No:12, Kadıköy");
+  });
+
+  it("shows the owner the customer's phone when there is one", async () => {
+    const out = await render(
+      BookingEmail({
+        heading: "Yeni randevu",
+        preview: "Yeni",
+        intro: "Yeni bir onaylı randevunuz var.",
+        businessName: "Günnur Estetik",
+        serviceName: "Cilt Bakımı",
+        whenText: "9 Eylül Salı, 11:00",
+        customerName: "Elif Yıldırım",
+        customerEmail: "elif@ornek.com",
+        customerPhone: "0555 111 22 33",
+      })
+    );
+    expect(out).toContain("0555 111 22 33");
+  });
+});
+
+describe("cancelledIntro", () => {
+  it("tells the customer how to reach the business", () => {
+    const text = cancelledIntro({
+      customerName: "Elif",
+      businessName: "Günnur Estetik",
+      businessPhone: "0532 123 45 67",
+      depositRefunded: false,
+    });
+    // The sentence this item exists for: it used to say "contact the
+    // business directly" and give no way to.
+    expect(text).toContain("0532 123 45 67");
+    expect(text).toContain("Günnur Estetik");
+  });
+
+  it("still makes sense for a business with no phone", () => {
+    const text = cancelledIntro({
+      customerName: "Elif",
+      businessName: "Günnur Estetik",
+      businessPhone: null,
+      depositRefunded: false,
+    });
+    expect(text).toMatch(/Günnur Estetik ile iletişime geçin\.$/);
+  });
+
+  it("says the kapora went back when it did", () => {
+    const text = cancelledIntro({
+      customerName: "Elif",
+      businessName: "Günnur Estetik",
+      businessPhone: null,
+      depositRefunded: true,
+    });
+    expect(text).toMatch(/kapora kartınıza iade edildi/);
   });
 });

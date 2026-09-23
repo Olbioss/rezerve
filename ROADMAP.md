@@ -133,7 +133,7 @@ None of this is needed to publish; all of it is needed to look finished.
   scheduled-work story concrete — and no-shows are the stated thesis behind
   kapora, which nothing in the product currently acts on.
 
-- [ ] **Phone numbers, and a business profile worth showing.** `1d`
+- [x] **Phone numbers, and a business profile worth showing.** `1d`
 
   Bookings capture a name and an email; the public page carries no phone,
   address or description. The cancellation email tells the customer to

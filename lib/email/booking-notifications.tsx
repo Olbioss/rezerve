@@ -6,6 +6,7 @@ import type { bookings } from "@/lib/db/schema/booking-schema";
 import { businessProfiles } from "@/lib/db/schema/business-schema";
 import { services } from "@/lib/db/schema/service-schema";
 import { formatMoney } from "@/lib/format";
+import { cancelledIntro } from "./copy";
 import { sendEmailSafe } from "./send";
 import { BookingEmail } from "./templates/booking-email";
 
@@ -68,6 +69,8 @@ export async function sendBookingConfirmedEmails(booking: Booking) {
           heading="Randevunuz alındı!"
           preview={`${ctx.service.name} — ${ctx.whenText}`}
           intro={`Merhaba ${booking.customerName}, randevunuz onaylandı.`}
+          businessPhone={ctx.profile.phone}
+          businessAddress={ctx.profile.address}
           {...shared}
         />
       ),
@@ -82,6 +85,7 @@ export async function sendBookingConfirmedEmails(booking: Booking) {
             preview={`${booking.customerName} — ${ctx.service.name} randevusu aldı`}
             intro="Yeni bir onaylı randevunuz var."
             customerEmail={booking.customerEmail}
+            customerPhone={booking.customerPhone}
             {...shared}
           />
         ),
@@ -111,11 +115,14 @@ export async function sendBookingCancelledEmails(
         <BookingEmail
           heading="Randevu iptal edildi"
           preview={`${ctx.service.name} randevunuz iptal edildi`}
-          intro={`Merhaba ${booking.customerName}, randevunuz iptal edildi.${
-            depositRefunded
-              ? " Ödediğiniz kapora kartınıza iade edildi; bankanıza göre birkaç iş günü sürebilir."
-              : ""
-          } Bu beklenmedik bir durumsa lütfen doğrudan ${ctx.org.name} ile iletişime geçin.`}
+          intro={cancelledIntro({
+            customerName: booking.customerName,
+            businessName: ctx.org.name,
+            businessPhone: ctx.profile.phone,
+            depositRefunded,
+          })}
+          businessPhone={ctx.profile.phone}
+          businessAddress={ctx.profile.address}
           {...(depositRefunded && booking.depositCents != null
             ? {
                 depositLine: `${formatMoney(booking.depositCents, ctx.profile.currency)} iade edildi`,
@@ -137,6 +144,7 @@ export async function sendBookingCancelledEmails(
               depositRefunded ? " Kapora müşteriye iade edildi." : ""
             }`}
             customerEmail={booking.customerEmail}
+            customerPhone={booking.customerPhone}
             {...shared}
           />
         ),

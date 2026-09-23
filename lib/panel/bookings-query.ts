@@ -33,6 +33,7 @@ export type BookingRow = {
   id: string;
   customerName: string;
   customerEmail: string;
+  customerPhone: string | null;
   startsAtISO: string;
   status: BookingStatus;
   depositCents: number | null;
@@ -56,6 +57,7 @@ function filterFor(
     ? or(
         ilike(bookings.customerName, `%${query}%`),
         ilike(bookings.customerEmail, `%${query}%`),
+        ilike(bookings.customerPhone, `%${query}%`),
         ilike(services.name, `%${query}%`)
       )
     : undefined;
@@ -96,6 +98,7 @@ export async function loadBookings(
       id: bookings.id,
       customerName: bookings.customerName,
       customerEmail: bookings.customerEmail,
+      customerPhone: bookings.customerPhone,
       startsAt: bookings.startsAt,
       status: bookings.status,
       depositCents: bookings.depositCents,
