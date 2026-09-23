@@ -50,7 +50,7 @@ Everything here is hours.
   portfolio build the repository is the deliverable, so the best work in the
   project is currently not part of the portfolio at all.
 
-- [ ] **Deploy it.** `1d`
+- [~] **Deploy it.** `1d` — live and building; migrations not yet applied to Neon
 
   No `.vercel` directory; the project has never been linked. `vercel.json`
   declares the renewal cron and nothing runs it. Needs a Vercel project, a
@@ -151,12 +151,12 @@ None of this is needed to publish; all of it is needed to look finished.
   that already exists. (Related: `rateLimit.storage` is `"memory"`, which on
   Fluid Compute is per-instance — `"database"` is the honest setting.)
 
-- [ ] **Let the business change its name and slug.** `0.5d`
+- [x] **Let the business change its name and slug.** `0.5d`
 
   `updateSettings` never touches either; only `completeOnboarding` sets them,
   so a typo at signup is permanent.
 
-- [ ] **Paginate and search the bookings list.** `0.5d`
+- [x] **Paginate and search the bookings list.** `0.5d`
 
   Both tabs hard-limit to 100 rows with no way to find one customer.
 
