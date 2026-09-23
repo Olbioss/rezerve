@@ -1,5 +1,10 @@
 import "server-only";
 import Iyzipay from "iyzipay";
+// The SDK loads its resources with readdirSync + a computed require, which
+// output tracing cannot follow. Importing their shared base here lets the
+// tracer reach postman-request and everything under it; next.config.ts adds
+// the resource files themselves, which need nothing further.
+import "iyzipay/lib/IyzipayResource";
 import { requireEnv } from "@/lib/env";
 // Defined once in the provider, so this module cannot drift from the driver.
 import type { CheckoutResult } from "./provider";
