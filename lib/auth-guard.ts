@@ -51,8 +51,8 @@ export const requireOwner = cache(async () => {
 
 /**
  * For the sign-in and sign-up pages: someone already signed in goes to the
- * panel. Without it, a new tab that starts from the landing page offers the
- * login form to a visitor holding a valid session, and they sign in again.
+ * panel. Without it, a bookmarked or linked /giris offers the login form to a
+ * visitor holding a valid session, and they sign in again.
  */
 export async function redirectIfSignedIn() {
   const session = await auth.api.getSession({ headers: await headers() });

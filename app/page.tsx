@@ -1,6 +1,10 @@
+import { ArrowRightIcon } from "lucide-react";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { Wordmark } from "@/components/brand/wordmark";
+import { SignOutButton } from "@/components/sign-out-button";
 import { Button } from "@/components/ui/button";
+import { auth } from "@/lib/auth";
 import { PLANS } from "@/lib/billing/plans";
 import { formatMoney } from "@/lib/format";
 
@@ -138,28 +142,50 @@ function HeroMockup() {
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  // Rendered per request so a signed-in owner is offered their panel rather
+  // than the sign-up path. The session cookie cache keeps this off the
+  // database for most visits, and a visitor with no cookie costs nothing.
+  const session = await auth.api.getSession({ headers: await headers() });
+  const signedIn = session !== null;
+
   return (
     <div className="flex min-h-svh flex-col">
       <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-6">
         <Wordmark href={null} />
         <nav className="flex items-center gap-2 sm:gap-3">
-          <Button
-            nativeButton={false}
-            variant="ghost"
-            size="sm"
-            render={<Link href="/giris" />}
-          >
-            Giriş yap
-          </Button>
-          <Button
-            nativeButton={false}
-            variant="outline"
-            size="sm"
-            render={<Link href="/kayit" />}
-          >
-            Hemen başla
-          </Button>
+          {signedIn ? (
+            <>
+              <SignOutButton />
+              <Button
+                nativeButton={false}
+                variant="outline"
+                size="sm"
+                render={<Link href="/panel" />}
+              >
+                Panele git
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                nativeButton={false}
+                variant="ghost"
+                size="sm"
+                render={<Link href="/giris" />}
+              >
+                Giriş yap
+              </Button>
+              <Button
+                nativeButton={false}
+                variant="outline"
+                size="sm"
+                render={<Link href="/kayit" />}
+              >
+                Hemen başla
+              </Button>
+            </>
+          )}
         </nav>
       </header>
 
@@ -192,29 +218,54 @@ export default function Home() {
               className="rise mt-9 flex flex-wrap items-center gap-3"
               style={{ animationDelay: "180ms" }}
             >
-              <Button
-                nativeButton={false}
-                variant="brand"
-                size="lg"
-                render={<Link href="/kayit" />}
-              >
-                Ücretsiz başlayın
-              </Button>
-              <Button
-                nativeButton={false}
-                variant="outline"
-                size="lg"
-                render={<Link href="/r/demo" />}
-              >
-                Örnek sayfayı görün
-              </Button>
+              {signedIn ? (
+                <>
+                  <Button
+                    nativeButton={false}
+                    variant="brand"
+                    size="lg"
+                    render={<Link href="/panel" />}
+                  >
+                    Panelinize gidin
+                    <ArrowRightIcon />
+                  </Button>
+                  <Button
+                    nativeButton={false}
+                    variant="outline"
+                    size="lg"
+                    render={<Link href="/panel/randevular" />}
+                  >
+                    Randevuları görün
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    nativeButton={false}
+                    variant="brand"
+                    size="lg"
+                    render={<Link href="/kayit" />}
+                  >
+                    Ücretsiz başlayın
+                  </Button>
+                  <Button
+                    nativeButton={false}
+                    variant="outline"
+                    size="lg"
+                    render={<Link href="/r/demo" />}
+                  >
+                    Örnek sayfayı görün
+                  </Button>
+                </>
+              )}
             </div>
             <p
               className="eyebrow rise mt-6 text-muted-foreground"
               style={{ animationDelay: "240ms" }}
             >
-              Kurulum 5 dakika · Müşterileriniz için üyelik gerekmez · Online
-              kapora Pro'da
+              {signedIn
+                ? "Oturumunuz açık · Kaldığınız yerden devam edin"
+                : "Kurulum 5 dakika · Müşterileriniz için üyelik gerekmez · Online kapora Pro'da"}
             </p>
           </div>
           <div className="rise" style={{ animationDelay: "160ms" }}>
@@ -317,9 +368,15 @@ export default function Home() {
                     <Button
                       nativeButton={false}
                       variant={isPro ? "brand" : "outline"}
-                      render={<Link href="/kayit" />}
+                      render={
+                        <Link href={signedIn ? "/panel/abonelik" : "/kayit"} />
+                      }
                     >
-                      {isPro ? "Pro ile başlayın" : "Ücretsiz başlayın"}
+                      {signedIn
+                        ? "Aboneliğinize gidin"
+                        : isPro
+                          ? "Pro ile başlayın"
+                          : "Ücretsiz başlayın"}
                     </Button>
                   </div>
                 </div>
@@ -344,9 +401,9 @@ export default function Home() {
               variant="brand"
               size="lg"
               className="mt-9"
-              render={<Link href="/kayit" />}
+              render={<Link href={signedIn ? "/panel" : "/kayit"} />}
             >
-              Ücretsiz başlayın
+              {signedIn ? "Panelinize gidin" : "Ücretsiz başlayın"}
             </Button>
           </div>
         </section>
@@ -359,18 +416,29 @@ export default function Home() {
             online randevu
           </p>
           <div className="flex gap-5 text-sm">
-            <Link
-              href="/giris"
-              className="underline-draw text-muted-foreground transition-colors hover:text-brand-ink"
-            >
-              Giriş yap
-            </Link>
-            <Link
-              href="/kayit"
-              className="underline-draw text-muted-foreground transition-colors hover:text-brand-ink"
-            >
-              Kayıt ol
-            </Link>
+            {signedIn ? (
+              <Link
+                href="/panel"
+                className="underline-draw text-muted-foreground transition-colors hover:text-brand-ink"
+              >
+                Panel
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/giris"
+                  className="underline-draw text-muted-foreground transition-colors hover:text-brand-ink"
+                >
+                  Giriş yap
+                </Link>
+                <Link
+                  href="/kayit"
+                  className="underline-draw text-muted-foreground transition-colors hover:text-brand-ink"
+                >
+                  Kayıt ol
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </footer>

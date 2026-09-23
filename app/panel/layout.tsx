@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import { PanelShell } from "@/components/panel/shell";
+import { SignOutButton } from "@/components/sign-out-button";
 import { requireOwner } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
 import { organization } from "@/lib/db/schema/auth-schema";
-import { SignOutButton } from "./sign-out-button";
 
 export default async function DashboardLayout({
   children,

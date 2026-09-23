@@ -13,6 +13,9 @@ export function SignOutButton() {
       onClick={async () => {
         await authClient.signOut();
         router.push("/");
+        // The landing page renders by session: signing out while already on
+        // it is a push to the same URL, which would keep the signed-in view.
+        router.refresh();
       }}
     >
       Çıkış yap
