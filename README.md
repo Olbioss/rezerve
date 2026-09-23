@@ -152,10 +152,19 @@ refusing to confirm would be worse than a payout that needs releasing by hand.
 `/panel/odemeler` reports released and held money separately rather than as
 one figure — an unapproved kapora is still iyzico's, and showing it as the
 owner's would repeat an overstatement this page has already been corrected for
-once. Approval state comes from `transactionStatus` in the settlement
-reporting (2 = released, 1 = held), read live on every page load rather than
-cached, so the state is never stale. iyzico's own panel surfaces the same
-thing as "Onay Durumu", under Detayı Göster on a single payment.
+once. Approval state comes from `transactionStatus` on the payment's item
+(2 = released, 1 = held), read live on every page load rather than cached, so
+the state is never stale. iyzico's own panel surfaces the same thing as "Onay
+Durumu", under Detayı Göster on a single payment.
+
+The page asks iyzico about each deposit booking by its own id
+(`/v2/reporting/payment/details`) rather than listing a day's transactions.
+The daily listing (`/v2/reporting/payment/transactions`) is platform-wide, so
+it hands back every business's payments to be filtered — and on 23 September
+it listed none of that day's payments for hours, intermittently failing with
+"Sistem hatası", while the details endpoint returned every one. Asking per
+booking costs a round trip each, capped at the newest 40 in the range, and a
+lookup that fails costs that row rather than the page.
 
 **A payment can also land on a booking that no longer exists** — the owner
 cancelled a pending hold while the customer was paying, or `cancelExpiredHolds`
@@ -236,10 +245,10 @@ Everything is Turkish, including the URLs:
   into an active subscription: the mandate is stored, a double-submitted form
   does not slide the renewal date, and a payment that returns no card leaves
   the renewal cron disarmed rather than failing daily
-- `lib/panel/payouts.test.ts` — tenant isolation for the payouts view: iyzico's
-  settlement reporting is platform-wide and carries no submerchant id, so the
-  match runs against org-scoped bookings and another business's rows can only
-  ever be dropped
+- `lib/panel/payouts.test.ts` — the payouts view: only a successful payment
+  answering for one of our own bookings becomes a row, a retried checkout
+  counts once, held money is never shown as released, and iyzico's
+  Istanbul-time timestamps are not read as UTC
 - `lib/billing/charge-subscription.integration.test.ts` — renewal billing: a
   replayed run and two concurrent runs each charge exactly once, dunning
   retries then expires, and a trial lapses instead of charging

@@ -564,53 +564,44 @@ export function chargeStoredCard(input: {
 }
 
 /**
- * Settlement reporting for one calendar day, all pages.
+ * Every payment iyzico holds under one conversationId — for a kapora, the
+ * booking id, which createDepositCheckout sets. Usually one; a checkout that
+ * failed and was retried leaves more. Empty when nothing was ever paid.
  *
- * Platform-wide: this returns every transaction on the merchant account, and
- * the rows carry no submerchant identifier. Callers must narrow it to their
- * own bookings — see lib/panel/payouts.ts.
+ * Asked per booking rather than per day on purpose: the daily listing
+ * (/v2/reporting/payment/transactions) is platform-wide, and on 23 September
+ * it listed none of that day's payments for hours — intermittently failing
+ * with "Sistem hatası" — while this endpoint returned every one of them.
  */
-export async function listTransactions(
-  dateISO: string
+export async function retrievePaymentDetails(
+  conversationId: string
 ): Promise<Record<string, unknown>[]> {
-  const fetchPage = (page: number) =>
-    new Promise<{
-      status: string;
-      transactions?: Record<string, unknown>[];
-      totalPageCount?: number;
-      errorMessage?: string;
-    }>((resolve, reject) => {
-      // @types/iyzipay omits the reporting resources entirely.
-      const client = getIyzipay() as unknown as {
-        reportingTransactions: {
-          retrieve: (
-            params: object,
-            cb: (err: Error | null, raw: unknown) => void
-          ) => void;
-        };
+  const result = await new Promise<{
+    status: string;
+    payments?: Record<string, unknown>[];
+    errorMessage?: string;
+  }>((resolve, reject) => {
+    // @types/iyzipay omits the reporting resources entirely.
+    const client = getIyzipay() as unknown as {
+      reportingTransactionDetails: {
+        retrieve: (
+          params: object,
+          cb: (err: Error | null, raw: unknown) => void
+        ) => void;
       };
-      client.reportingTransactions.retrieve(
-        { locale: Iyzipay.LOCALE.TR, transactionDate: dateISO, page },
-        (err, raw) => (err ? reject(err) : resolve(raw as never))
-      );
-    });
+    };
+    client.reportingTransactionDetails.retrieve(
+      { locale: Iyzipay.LOCALE.TR, paymentConversationId: conversationId },
+      (err, raw) => (err ? reject(err) : resolve(raw as never))
+    );
+  });
 
-  const first = await fetchPage(1);
-  if (first.status !== "success") {
+  if (result.status !== "success") {
     throw new Error(
-      `iyzico transaction reporting failed: ${first.errorMessage ?? first.status}`
+      `iyzico payment details failed: ${result.errorMessage ?? result.status}`
     );
   }
-
-  const rows = [...(first.transactions ?? [])];
-  const pages = Math.min(first.totalPageCount ?? 1, 20);
-  if (pages > 1) {
-    const rest = await Promise.all(
-      Array.from({ length: pages - 1 }, (_, i) => fetchPage(i + 2))
-    );
-    for (const page of rest) rows.push(...(page.transactions ?? []));
-  }
-  return rows;
+  return result.payments ?? [];
 }
 
 /**

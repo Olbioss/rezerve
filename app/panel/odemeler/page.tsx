@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { requireOwner } from "@/lib/auth-guard";
 import { formatMoney } from "@/lib/format";
-import { getPayouts } from "@/lib/panel/get-payouts";
+import { getPayouts, MAX_BOOKINGS_CHECKED } from "@/lib/panel/get-payouts";
 import {
   heldNetCents,
   refundedNetCents,
@@ -28,15 +28,28 @@ const RANGES = [
   { days: 90, label: "Son 90 gün" },
 ] as const;
 
-const prettyDateTime = (value: string | null) =>
+// iyzico's times are already Istanbul wall-clock (see lib/panel/payouts.ts):
+// render the digits as given, whatever timezone the server runs in.
+const wallClock = (
+  value: string | null,
+  options: Intl.DateTimeFormatOptions
+) =>
   value
-    ? new Intl.DateTimeFormat("tr-TR", {
-        day: "numeric",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date(value.replace(" ", "T")))
+    ? new Intl.DateTimeFormat("tr-TR", { ...options, timeZone: "UTC" }).format(
+        new Date(`${value}Z`)
+      )
     : "—";
+
+const prettyDateTime = (value: string | null) =>
+  wallClock(value, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+const prettyDate = (value: string | null) =>
+  wallClock(value, { day: "numeric", month: "short" });
 
 export default async function PayoutsPage({
   searchParams,
@@ -48,7 +61,10 @@ export default async function PayoutsPage({
   const windowDays =
     RANGES.find((r) => String(r.days) === gun)?.days ?? RANGES[1].days;
 
-  const { rows, error } = await getPayouts(organizationId, windowDays);
+  const { rows, failed, truncated } = await getPayouts(
+    organizationId,
+    windowDays
+  );
 
   return (
     <div className="grid gap-8">
@@ -81,9 +97,9 @@ export default async function PayoutsPage({
         ))}
       </div>
 
-      {error ? (
+      {failed > 0 && rows.length === 0 ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
-          {error}
+          Ödeme raporu şu anda alınamadı.
         </div>
       ) : rows.length === 0 ? (
         <EmptyState title="Bu aralıkta ödeme yok">
@@ -113,6 +129,13 @@ export default async function PayoutsPage({
             )}
           </div>
 
+          {failed > 0 ? (
+            <p className="text-muted-foreground text-sm">
+              {failed} kaporanın bilgisi şu anda iyzico'dan alınamadı; sayfayı
+              yenileyince görünebilir.
+            </p>
+          ) : null}
+
           <Table>
             <TableHeader>
               <TableRow>
@@ -129,7 +152,7 @@ export default async function PayoutsPage({
               {rows.map((row) => (
                 <TableRow key={row.bookingId}>
                   <TableCell className="whitespace-nowrap text-muted-foreground">
-                    {prettyDateTime(row.settledOn)}
+                    {prettyDateTime(row.paidAt)}
                   </TableCell>
                   <TableCell>{row.customerName}</TableCell>
                   <TableCell className="text-muted-foreground">
@@ -162,11 +185,22 @@ export default async function PayoutsPage({
                           ? "Serbest"
                           : "Onay bekliyor"}
                     </Badge>
+                    {!row.refunded && row.releasesOn ? (
+                      <span className="mt-1 block whitespace-nowrap text-muted-foreground text-xs">
+                        Hakediş {prettyDate(row.releasesOn)}
+                      </span>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+
+          {truncated ? (
+            <p className="text-muted-foreground text-sm">
+              Bu aralıktaki en yeni {MAX_BOOKINGS_CHECKED} kapora gösteriliyor.
+            </p>
+          ) : null}
         </>
       )}
     </div>

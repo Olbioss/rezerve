@@ -1,44 +1,50 @@
 /**
- * Matching iyzico's settlement reporting to this organization's bookings.
+ * Turning iyzico's record of a kapora into a row on /panel/odemeler.
  *
- * iyzico's /v2/reporting/payment/transactions is a *platform-wide* call: it
- * returns every transaction on the merchant account, across every business.
- * Worse, the rows carry no submerchant identifier — there is
- * subMerchantPayoutAmount, but nothing saying whose. So a payouts view cannot
- * filter on anything iyzico returns.
- *
- * Instead the match runs the other way. createDepositCheckout sets
- * basketId to the booking id, so a row is ours only if its basketId appears in
- * a set of bookings we loaded with eq(bookings.organizationId, …). Tenant
- * isolation is therefore enforced by our own database, and an unrecognised or
- * missing basketId can only ever drop a row, never expose one.
+ * The page asks iyzico about each of this organization's deposit bookings by
+ * id (/v2/reporting/payment/details, keyed on the conversationId that
+ * createDepositCheckout sets to the booking id) instead of listing a day of
+ * platform-wide transactions and picking ours out. So tenant isolation starts
+ * in our own org-scoped query — we only ever ask about our bookings — and the
+ * payment is still checked to be the one we asked about before it becomes a
+ * row, so a mismatched answer can only drop a row, never show someone else's.
  *
  * Pure on purpose: no network, no database, fully testable.
  */
 
-export type IyzicoTransaction = {
-  basketId?: string | null;
-  /**
-   * "PAYMENT" or "REFUND". A refund carries the same basketId as the payment
-   * it reverses, so without this the two are indistinguishable by booking.
-   */
-  transactionType?: string | null;
+/** One payment as /v2/reporting/payment/details returns it. */
+export type IyzicoPaymentDetail = {
   paymentId?: string | number | null;
-  transactionDate?: string | null;
+  /** Echoes the conversationId the checkout set — the booking id. */
+  paymentConversationId?: string | null;
+  /** 1 once paid; 2 and 3 are a failed or unfinished 3-D Secure attempt. */
+  paymentStatus?: number | null;
   /** Face amount charged to the customer. */
   paidPrice?: number | null;
-  iyzicoCommission?: number | null;
-  iyzicoFee?: number | null;
-  /** What settles to the platform's own balance. */
-  merchantPayoutAmount?: number | null;
-  /** What settles to the business's submerchant balance. */
-  subMerchantPayoutAmount?: number | null;
+  iyziCommissionRateAmount?: number | null;
+  iyziCommissionFee?: number | null;
   /**
-   * iyzico's approval state for the split: 2 once the platform has approved
-   * the item transaction and the money is released to the submerchant, 1
-   * while it is still held. Surfaced in their panel as "Onay Durumu".
+   * Istanbul wall-clock time despite the trailing "Z": a payment our database
+   * recorded at 10:30:50Z comes back as 13:30:57Z.
+   */
+  createdDate?: string | null;
+  itemTransactions?: IyzicoItemTransaction[] | null;
+};
+
+/** The kapora's line in the basket — a deposit checkout carries exactly one. */
+export type IyzicoItemTransaction = {
+  /**
+   * 2 once the platform has approved the item and the money is released to
+   * the submerchant; 1 while iyzico still holds it. Surfaced in their panel as
+   * "Onay Durumu". 0 and -1 are fraud review.
    */
   transactionStatus?: number | null;
+  /** What settles to the business's submerchant balance. */
+  subMerchantPayoutAmount?: number | null;
+  /** What settles to the platform's own balance. */
+  merchantPayoutAmount?: number | null;
+  /** When iyzico lifts its hold on the money. Same wall-clock caveat. */
+  blockageResolvedDate?: string | null;
 };
 
 /** A booking this organization owns. Built from an org-scoped query. */
@@ -70,71 +76,67 @@ export type PayoutRow = {
   /** The money came in and went back out; it is not the owner's. */
   refunded: boolean;
   paymentRef: string | null;
-  settledOn: string | null;
+  /** Istanbul wall-clock, ISO without an offset. */
+  paidAt: string | null;
+  /** When iyzico releases its hold. Istanbul wall-clock, ISO. */
+  releasesOn: string | null;
 };
 
+const PAID_STATUS = 1;
 /** iyzico's transactionStatus for an approved (released) marketplace split. */
 const APPROVED_STATUS = 2;
-
-/**
- * Refunds are reported alongside payments under the same basketId, with no
- * commission and no submerchant payout. Rendering one as income showed a
- * cancelled booking as ₺0 awaiting approval, and — because only one row per
- * booking is kept — hid the real payment behind it.
- */
-function isPayment(tx: IyzicoTransaction): boolean {
-  const type = tx.transactionType?.trim().toUpperCase();
-  return type === undefined || type === "" || type === "PAYMENT";
-}
 
 /** iyzico reports decimals; the rest of the app is integer cents. */
 function toCents(value: number | null | undefined): number {
   return Math.round((value ?? 0) * 100);
 }
 
-export function matchTransactions(
-  transactions: IyzicoTransaction[],
-  owned: Map<string, OwnedBooking>
-): PayoutRow[] {
-  const rows: PayoutRow[] = [];
-  // One row per booking. A booking can appear more than once in the reporting
-  // — an auth and a later capture, say, or the same day fetched twice by an
-  // overlapping window — and showing it twice would double the visible total.
-  const seen = new Set<string>();
+/** Drop the "Z" iyzico puts on what is really Istanbul local time. */
+function wallClock(value: string | null | undefined): string | null {
+  return value ? value.replace(/Z$/, "") : null;
+}
 
-  for (const tx of transactions) {
-    if (!isPayment(tx)) continue;
+/**
+ * The row for one of our bookings, or null if iyzico holds no successful
+ * payment for it — a checkout that was opened and abandoned, or failed.
+ */
+export function toPayoutRow(
+  booking: OwnedBooking,
+  payments: IyzicoPaymentDetail[]
+): PayoutRow | null {
+  // A retried checkout leaves its failed attempt under the same id; only the
+  // successful payment is money. The id check is the isolation boundary: an
+  // answer about any other conversation is dropped, never shown.
+  const payment = payments.find(
+    (p) =>
+      p.paymentStatus === PAID_STATUS && p.paymentConversationId === booking.id
+  );
+  if (!payment) return null;
 
-    const basketId = tx.basketId?.trim();
-    if (!basketId) continue;
-
-    const booking = owned.get(basketId);
-    // The isolation boundary: no booking of ours, no row.
-    if (!booking) continue;
-    if (seen.has(booking.id)) continue;
-    seen.add(booking.id);
-
-    rows.push({
-      bookingId: booking.id,
-      customerName: booking.customerName,
-      serviceName: booking.serviceName,
-      startsAt: booking.startsAt,
-      grossCents: toCents(tx.paidPrice),
-      iyzicoCutCents: toCents(tx.iyzicoCommission) + toCents(tx.iyzicoFee),
-      // A marketplace payment settles to the submerchant; fall back to the
-      // platform figure so a mis-routed payment shows up as visibly wrong
-      // rather than silently as zero.
-      netCents: toCents(tx.subMerchantPayoutAmount || tx.merchantPayoutAmount),
-      approved: tx.transactionStatus === APPROVED_STATUS,
-      // From our own record rather than iyzico's reporting: we know we
-      // refunded, and a missing refund row would otherwise read as income.
-      refunded: booking.refundedAt !== null,
-      paymentRef: tx.paymentId != null ? String(tx.paymentId) : null,
-      settledOn: tx.transactionDate ?? null,
-    });
-  }
-
-  return rows.sort((a, b) => b.startsAt.getTime() - a.startsAt.getTime());
+  const item = payment.itemTransactions?.[0];
+  return {
+    bookingId: booking.id,
+    customerName: booking.customerName,
+    serviceName: booking.serviceName,
+    startsAt: booking.startsAt,
+    grossCents: toCents(payment.paidPrice),
+    iyzicoCutCents:
+      toCents(payment.iyziCommissionRateAmount) +
+      toCents(payment.iyziCommissionFee),
+    // A marketplace payment settles to the submerchant; fall back to the
+    // platform figure so a mis-routed payment shows up as visibly wrong rather
+    // than silently as zero.
+    netCents: toCents(
+      item?.subMerchantPayoutAmount || item?.merchantPayoutAmount
+    ),
+    approved: item?.transactionStatus === APPROVED_STATUS,
+    // From our own record rather than iyzico's: we know we refunded, and a
+    // refund iyzico has not reflected yet would otherwise read as income.
+    refunded: booking.refundedAt !== null,
+    paymentRef: payment.paymentId != null ? String(payment.paymentId) : null,
+    paidAt: wallClock(payment.createdDate),
+    releasesOn: wallClock(item?.blockageResolvedDate),
+  };
 }
 
 export function totalNetCents(rows: PayoutRow[]): number {
