@@ -66,3 +66,13 @@ jobs:
       # Postgres and each opens its own pool.
       - name: Test
         run: bun run test
+
+      # Output tracing decides which node_modules files a deployed function
+      # receives, and nothing above can see it: locally node_modules is always
+      # complete. The iyzico SDK loads its resources in a way tracing cannot
+      # follow, and when that broke, every payment failed in production.
+      - name: Build
+        run: bun run build
+
+      - name: Check the payment SDK survives tracing
+        run: bun run check:trace

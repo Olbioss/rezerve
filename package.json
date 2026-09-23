@@ -8,6 +8,7 @@
     "start": "next start",
     "check": "biome check .",
     "check:fix": "biome check --write .",
+    "check:trace": "bun run scripts/check-payment-trace.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
