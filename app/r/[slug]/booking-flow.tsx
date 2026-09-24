@@ -32,6 +32,11 @@ type Props = {
   currency: string;
   /** Weekdays (0 = Sunday) the business opens on; the rest are dimmed. */
   openWeekdays: number[];
+  /**
+   * Dates a holiday or one-off hours decide instead of their weekday:
+   * false closed, true open. See lib/booking/exceptions.ts.
+   */
+  dateOverrides: Record<string, boolean>;
   services: BookableService[];
 };
 
@@ -44,11 +49,22 @@ function businessDateISO(timezone: string, daysFromNow: number): string {
   return `${y}-${m}-${d}`;
 }
 
-function dayParts(
+/**
+ * Whether the business opens on a date. A holiday or one-off hours decide
+ * for their own dates; every other date follows its weekday.
+ */
+function opensOn(
   dateISO: string,
   timezone: string,
-  openWeekdays: number[]
-): Day {
+  openWeekdays: number[],
+  dateOverrides: Record<string, boolean>
+): boolean {
+  if (dateISO in dateOverrides) return dateOverrides[dateISO];
+  const [y, m, d] = dateISO.split("-").map(Number);
+  return openWeekdays.includes(new TZDate(y, m - 1, d, timezone).getDay());
+}
+
+function dayParts(dateISO: string, timezone: string, open: boolean): Day {
   const [y, m, d] = dateISO.split("-").map(Number);
   const date = new TZDate(y, m - 1, d, timezone);
   const part = (options: Intl.DateTimeFormatOptions) =>
@@ -58,7 +74,7 @@ function dayParts(
     weekday: part({ weekday: "short" }),
     dayNumber: part({ day: "numeric" }),
     month: part({ month: "short" }),
-    closed: !openWeekdays.includes(date.getDay()),
+    closed: !open,
   };
 }
 
@@ -77,13 +93,13 @@ function formatDayLabel(dateISO: string, timezone: string): string {
 function firstOpenDateISO(
   timezone: string,
   openWeekdays: number[],
+  dateOverrides: Record<string, boolean>,
   bookingWindowDays: number
 ): string {
   const span = Math.min(bookingWindowDays, 30);
   for (let i = 0; i < span; i++) {
     const dateISO = businessDateISO(timezone, i);
-    const [y, m, d] = dateISO.split("-").map(Number);
-    if (openWeekdays.includes(new TZDate(y, m - 1, d, timezone).getDay())) {
+    if (opensOn(dateISO, timezone, openWeekdays, dateOverrides)) {
       return dateISO;
     }
   }
@@ -122,11 +138,12 @@ export function BookingFlow({
   bookingWindowDays,
   currency,
   openWeekdays,
+  dateOverrides,
   services,
 }: Props) {
   const [service, setService] = useState<BookableService | null>(null);
   const [dateISO, setDateISO] = useState(() =>
-    firstOpenDateISO(timezone, openWeekdays, bookingWindowDays)
+    firstOpenDateISO(timezone, openWeekdays, dateOverrides, bookingWindowDays)
   );
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -145,10 +162,15 @@ export function BookingFlow({
 
   const days = useMemo(
     () =>
-      Array.from({ length: Math.min(bookingWindowDays, 30) }, (_, i) =>
-        dayParts(businessDateISO(timezone, i), timezone, openWeekdays)
-      ),
-    [timezone, bookingWindowDays, openWeekdays]
+      Array.from({ length: Math.min(bookingWindowDays, 30) }, (_, i) => {
+        const iso = businessDateISO(timezone, i);
+        return dayParts(
+          iso,
+          timezone,
+          opensOn(iso, timezone, openWeekdays, dateOverrides)
+        );
+      }),
+    [timezone, bookingWindowDays, openWeekdays, dateOverrides]
   );
 
   const loadSlots = useCallback(

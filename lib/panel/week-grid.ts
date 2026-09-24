@@ -1,5 +1,9 @@
 import { TZDate } from "@date-fns/tz";
-import { type AvailabilityInterval, weekdayFor } from "@/lib/booking/slots";
+import {
+  type DateException,
+  resolveIntervalsForDate,
+} from "@/lib/booking/exceptions";
+import type { AvailabilityInterval } from "@/lib/booking/slots";
 
 /** What one hour of one day looks like on the overview grid. */
 export type CellState = "closed" | "free" | "pending" | "confirmed";
@@ -14,6 +18,8 @@ export type WeekGridInput = {
   now: Date;
   timezone: string;
   rules: AvailabilityInterval[];
+  /** Holidays and one-off hours touching the window. */
+  exceptions?: DateException[];
   /** Bookings starting inside the local week. */
   bookings: GridBooking[];
 };
@@ -70,15 +76,22 @@ export function windowDayISOs(now: Date, timezone: string): string[] {
  * free of the database so the bucketing can be tested directly.
  */
 export function buildWeekGrid(input: WeekGridInput): WeekGrid {
-  const { now, timezone, rules, bookings } = input;
+  const { now, timezone, rules, exceptions = [], bookings } = input;
   const dayISOs = windowDayISOs(now, timezone);
+
+  // Each column's actual hours: its weekday's rules, unless a holiday or
+  // one-off hours say otherwise for that date.
+  const dayHours = dayISOs.map((dateISO) =>
+    resolveIntervalsForDate(rules, exceptions, dateISO, timezone)
+  );
+  const allHours = dayHours.flat();
 
   // Row range follows the opening hours, so a salon open 12–21 doesn't get
   // a grid of empty mornings.
-  const span = rules.length
+  const span = allHours.length
     ? {
-        from: Math.floor(Math.min(...rules.map((r) => r.startMinutes)) / 60),
-        to: Math.ceil(Math.max(...rules.map((r) => r.endMinutes)) / 60),
+        from: Math.floor(Math.min(...allHours.map((r) => r.startMinutes)) / 60),
+        to: Math.ceil(Math.max(...allHours.map((r) => r.endMinutes)) / 60),
       }
     : { from: 9, to: 18 };
   const hours = Array.from(
@@ -106,17 +119,13 @@ export function buildWeekGrid(input: WeekGridInput): WeekGrid {
     });
 
   const cells: CellState[][] = hours.map((hour) =>
-    dayISOs.map((dateISO) => {
-      // Columns roll, so the weekday comes from the date itself.
-      const weekday = weekdayFor(dateISO, timezone);
+    dayISOs.map((dateISO, dayIndex) => {
       const hourStart = hour * 60;
       const hourEnd = hourStart + 60;
 
-      const open = rules.some(
-        (rule) =>
-          rule.weekday === weekday &&
-          rule.startMinutes < hourEnd &&
-          rule.endMinutes > hourStart
+      const open = dayHours[dayIndex].some(
+        (interval) =>
+          interval.startMinutes < hourEnd && interval.endMinutes > hourStart
       );
       if (!open) return "closed";
 
@@ -134,8 +143,10 @@ export function buildWeekGrid(input: WeekGridInput): WeekGrid {
     })
   );
 
-  const openMinutes = rules.reduce(
-    (total, rule) => total + (rule.endMinutes - rule.startMinutes),
+  // Seven consecutive days hold each weekday once, so without exceptions this
+  // is the weekly total it always was.
+  const openMinutes = allHours.reduce(
+    (total, interval) => total + (interval.endMinutes - interval.startMinutes),
     0
   );
   const bookedMinutes = placed

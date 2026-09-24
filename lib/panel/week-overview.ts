@@ -1,5 +1,6 @@
 import "server-only";
 import { and, eq, gte, inArray, lt } from "drizzle-orm";
+import { getDateExceptions } from "@/lib/booking/get-available-slots";
 import { db } from "@/lib/db";
 import { availabilityRules } from "@/lib/db/schema/availability-schema";
 import { bookings } from "@/lib/db/schema/booking-schema";
@@ -23,10 +24,11 @@ export async function getWeekOverview(
     localMidnight(dayISOs[6], timezone).getTime() + 86_400_000
   );
 
-  const [rules, weekBookings] = await Promise.all([
+  const [rules, exceptions, weekBookings] = await Promise.all([
     db.query.availabilityRules.findMany({
       where: eq(availabilityRules.organizationId, organizationId),
     }),
+    getDateExceptions(organizationId, dayISOs[0], dayISOs[6]),
     db
       .select({
         startsAt: bookings.startsAt,
@@ -44,5 +46,11 @@ export async function getWeekOverview(
       ),
   ]);
 
-  return buildWeekGrid({ now, timezone, rules, bookings: weekBookings });
+  return buildWeekGrid({
+    now,
+    timezone,
+    rules,
+    exceptions,
+    bookings: weekBookings,
+  });
 }

@@ -120,7 +120,7 @@ None of this is needed to publish; all of it is needed to look finished.
   and nothing anywhere can move a booking. The slot validation is already
   written; this is a form and a guarded action.
 
-- [ ] **Date exceptions — holidays, vacation, one-off hours.** `2.5d`
+- [x] **Date exceptions — holidays, vacation, one-off hours.** `2.5d`
 
   `availability_rules` holds weekly rules only. Turkey has roughly fifteen
   public holiday days plus two multi-day bayrams, and today a business

@@ -12,6 +12,9 @@ account, optionally paying a deposit (kapora) via iyzico.
 - **Slot engine** — availability computed from weekly hours (split shifts
   supported), service duration, slot granularity, lead time and booking
   window; timezone-correct across DST transitions (`@date-fns/tz`)
+- **Holidays and one-off hours** — a date range can be closed or given its
+  own hours, replacing the weekly hours for those dates only; a Postgres
+  exclusion constraint keeps one business's ranges from overlapping
 - **Race-safe booking** — a Postgres `EXCLUDE USING gist` constraint makes
   double-booking impossible at the database level, even under concurrent
   requests
@@ -22,7 +25,7 @@ account, optionally paying a deposit (kapora) via iyzico.
 - **Email notifications** — confirmation/cancellation emails to customer and
   owner (React Email + Brevo SMTP), formatted in the business timezone
 - **Owner dashboard** — bookings (upcoming/past, cancel), services CRUD,
-  weekly availability editor, booking rules
+  weekly availability and special days, booking rules
 - **Subscriptions (Ücretsiz / Pro ₺299 ay)** — online kapora is the paid
   feature. Entitlements are resolved once in `requireOwner()` and enforced
   server-side; a lapsed plan keeps its stored kapora amounts but stops
@@ -258,6 +261,12 @@ Everything is Turkish, including the URLs:
 - Bookings are stored as UTC instants; availability rules as minutes-from-
   midnight in the business's local wall time. Conversion happens in one
   place (`lib/booking/slots.ts`).
+- Date exceptions (`lib/booking/exceptions.ts`) are resolved into a day's
+  intervals *before* the slot engine runs, so the engine and its DST tests
+  are unchanged. One-off hours are stamped with the date's weekday, which is
+  what lets a Sunday opening survive the engine's weekday filter. A second
+  exclusion constraint (`0010_*.sql`, `daterange … WITH &&`) keeps each date
+  answering to at most one exception.
 - The exclusion constraint (`lib/db/migrations/0001_*.sql`) covers
   `pending` holds too, so a held slot can't be double-sold; expired holds
   are released by the payment callback, by a lazy cleanup on the next

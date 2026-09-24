@@ -1,12 +1,16 @@
 import "server-only";
 import { TZDate } from "@date-fns/tz";
-import { and, eq, gt, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, gte, lt, lte, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { organization } from "@/lib/db/schema/auth-schema";
-import { availabilityRules } from "@/lib/db/schema/availability-schema";
+import {
+  availabilityExceptions,
+  availabilityRules,
+} from "@/lib/db/schema/availability-schema";
 import { bookings } from "@/lib/db/schema/booking-schema";
 import { businessProfiles } from "@/lib/db/schema/business-schema";
 import { services } from "@/lib/db/schema/service-schema";
+import { type DateException, resolveIntervalsForDate } from "./exceptions";
 import { computeSlotsForDay, type DaySlot } from "./slots";
 
 export type BusinessContext = {
@@ -76,9 +80,19 @@ export async function getDaySlots(
   );
   if (dateISO < todayISO || dateISO > lastISO) return null;
 
-  const rules = await db.query.availabilityRules.findMany({
-    where: eq(availabilityRules.organizationId, organizationId),
-  });
+  const [weekly, exceptions] = await Promise.all([
+    db.query.availabilityRules.findMany({
+      where: eq(availabilityRules.organizationId, organizationId),
+    }),
+    getDateExceptions(organizationId, dateISO, dateISO),
+  ]);
+  // A holiday or one-off hours replace the weekly hours for this date only.
+  const rules = resolveIntervalsForDate(
+    weekly,
+    exceptions,
+    dateISO,
+    profile.timezone
+  );
 
   // Bookings that could overlap the local day: query a ±1-day UTC window.
   const [year, month, day] = dateISO.split("-").map(Number);
@@ -133,6 +147,31 @@ export async function getAvailableSlots(
   const slots = await getDaySlots(business, serviceId, dateISO, now);
   if (slots === null) return null;
   return slots.filter((slot) => !slot.taken).map((slot) => slot.start);
+}
+
+/** This business's exceptions touching any date in [fromISO, toISO]. */
+export async function getDateExceptions(
+  organizationId: string,
+  fromISO: string,
+  toISO: string
+): Promise<(DateException & { id: string; note: string | null })[]> {
+  return db
+    .select({
+      id: availabilityExceptions.id,
+      startsOn: availabilityExceptions.startsOn,
+      endsOn: availabilityExceptions.endsOn,
+      intervals: availabilityExceptions.intervals,
+      note: availabilityExceptions.note,
+    })
+    .from(availabilityExceptions)
+    .where(
+      and(
+        eq(availabilityExceptions.organizationId, organizationId),
+        lte(availabilityExceptions.startsOn, toISO),
+        gte(availabilityExceptions.endsOn, fromISO)
+      )
+    )
+    .orderBy(asc(availabilityExceptions.startsOn));
 }
 
 /** Weekdays (0 = Sunday) the business has any opening hours on. */

@@ -225,6 +225,55 @@ describe("buildWeekGrid rows", () => {
   });
 });
 
+describe("buildWeekGrid exceptions", () => {
+  // Columns from Wednesday 9 Sep: 0 ÇAR · 1 PER · 2 CUM · 3 CMT · 4 PAZ …
+  it("closes a holiday's column and takes its hours out of the total", () => {
+    const week = grid({
+      exceptions: [
+        { startsOn: "2026-09-11", endsOn: "2026-09-11", intervals: [] },
+      ],
+    });
+    expect(week.cells.every((row) => row[2] === "closed")).toBe(true);
+    expect(week.cells[0][1]).not.toBe("closed");
+    // 48 weekly hours less Friday's 8.
+    expect(week.openHours).toBe(40);
+  });
+
+  it("opens a normally closed Sunday for one-off hours", () => {
+    const week = grid({
+      exceptions: [
+        {
+          startsOn: "2026-09-13",
+          endsOn: "2026-09-13",
+          intervals: [{ startMinutes: 11 * 60, endMinutes: 14 * 60 }],
+        },
+      ],
+    });
+    const sunday = (hour: number) => week.cells[week.hours.indexOf(hour)][4];
+    expect(sunday(10)).toBe("closed");
+    expect(sunday(11)).toBe("free");
+    expect(sunday(13)).toBe("free");
+    expect(sunday(14)).toBe("closed");
+    expect(week.openHours).toBe(51);
+  });
+
+  it("replaces a day's hours rather than adding to them", () => {
+    const week = grid({
+      exceptions: [
+        {
+          startsOn: "2026-09-09",
+          endsOn: "2026-09-09",
+          intervals: [{ startMinutes: 10 * 60, endMinutes: 13 * 60 }],
+        },
+      ],
+    });
+    const wednesday = (hour: number) => week.cells[week.hours.indexOf(hour)][0];
+    expect(wednesday(12)).toBe("free");
+    expect(wednesday(13)).toBe("closed");
+    expect(week.openHours).toBe(43);
+  });
+});
+
 describe("buildWeekGrid occupancy", () => {
   it("divides booked minutes by the week's open minutes", () => {
     // 6 days × 8h = 48 open hours; one 1-hour booking = 2%.
