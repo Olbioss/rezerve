@@ -1,7 +1,10 @@
+import { and, asc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { PageHeader } from "@/components/panel/page-header";
 import { Input } from "@/components/ui/input";
 import { requireOwner } from "@/lib/auth-guard";
+import { db } from "@/lib/db";
+import { services } from "@/lib/db/schema/service-schema";
 import {
   countBookings,
   loadBookings,
@@ -9,6 +12,7 @@ import {
   type Tab,
 } from "@/lib/panel/bookings-query";
 import { BookingsList } from "./bookings-list";
+import { NewBookingDialog } from "./owner-booking-dialogs";
 
 export const metadata = { title: "Randevular" };
 
@@ -49,13 +53,29 @@ export default async function BookingsPage({
   // bookings" rather than "you have gone too far".
   const page = Math.min(Math.max(1, Number(sayfa) || 1), lastPage);
 
-  const rows = await loadBookings(organizationId, tab, query, page, now);
+  const [rows, ownerServices] = await Promise.all([
+    loadBookings(organizationId, tab, query, page, now),
+    db.query.services.findMany({
+      where: and(
+        eq(services.organizationId, organizationId),
+        eq(services.active, true)
+      ),
+      columns: { id: true, name: true, durationMinutes: true },
+      orderBy: [asc(services.createdAt)],
+    }),
+  ]);
 
   return (
     <div className="grid gap-8">
       <PageHeader
         title="Randevular"
         description={`Saatler ${profile.timezone} saat dilimindedir.`}
+        action={
+          <NewBookingDialog
+            services={ownerServices}
+            timezone={profile.timezone}
+          />
+        }
       />
 
       <div className="flex flex-wrap items-center justify-between gap-4">

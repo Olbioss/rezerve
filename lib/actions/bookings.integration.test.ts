@@ -22,6 +22,12 @@ vi.mock("next/navigation", () => ({
     throw new RedirectError(url);
   },
 }));
+// Unmocked, every booking here sent a real confirmation through Brevo
+// whenever .env carried SMTP credentials — to @test.dev addresses that bounce.
+vi.mock("@/lib/email/booking-notifications", () => ({
+  sendBookingConfirmedEmails: vi.fn(),
+  sendBookingCancelledEmails: vi.fn(),
+}));
 
 class RedirectError extends Error {
   constructor(public url: string) {

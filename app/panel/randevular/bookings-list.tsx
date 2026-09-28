@@ -17,6 +17,7 @@ import { cancelBooking } from "@/lib/actions/bookings";
 import { formatMoney } from "@/lib/format";
 import type { BookingRow } from "@/lib/panel/bookings-query";
 import { telHref } from "@/lib/phone";
+import { RescheduleButton } from "./owner-booking-dialogs";
 
 /**
  * One page of one tab. Which tab, which page and any search term are the
@@ -75,9 +76,11 @@ export function BookingsList({
             <TableCell className="font-medium">{booking.serviceName}</TableCell>
             <TableCell>
               {booking.customerName}
-              <span className="block text-muted-foreground text-xs">
-                {booking.customerEmail}
-              </span>
+              {booking.customerEmail && (
+                <span className="block text-muted-foreground text-xs">
+                  {booking.customerEmail}
+                </span>
+              )}
               {booking.customerPhone && (
                 <a
                   href={telHref(booking.customerPhone)}
@@ -98,7 +101,10 @@ export function BookingsList({
               <StatusBadge status={booking.status} />
             </TableCell>
             {allowCancel && (
-              <TableCell className="text-right">
+              <TableCell className="whitespace-nowrap text-right">
+                {booking.status === "confirmed" && (
+                  <RescheduleButton booking={booking} timezone={timezone} />
+                )}
                 {booking.status !== "cancelled" && (
                   <Button
                     variant="destructive"

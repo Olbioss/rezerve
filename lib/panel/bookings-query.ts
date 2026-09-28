@@ -32,7 +32,8 @@ export type Tab = "upcoming" | "past";
 export type BookingRow = {
   id: string;
   customerName: string;
-  customerEmail: string;
+  /** Null when the owner booked someone in without one. */
+  customerEmail: string | null;
   customerPhone: string | null;
   startsAtISO: string;
   status: BookingStatus;

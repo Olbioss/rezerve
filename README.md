@@ -24,8 +24,10 @@ account, optionally paying a deposit (kapora) via iyzico.
   hold automatically
 - **Email notifications** — confirmation/cancellation emails to customer and
   owner (React Email + Brevo SMTP), formatted in the business timezone
-- **Owner dashboard** — bookings (upcoming/past, cancel), services CRUD,
-  weekly availability and special days, booking rules
+- **Owner dashboard** — bookings (upcoming/past; add, move and cancel — an
+  owner may book outside the published hours once asked, never over another
+  appointment), services CRUD, weekly availability and special days, booking
+  rules
 - **Subscriptions (Ücretsiz / Pro ₺299 ay)** — online kapora is the paid
   feature. Entitlements are resolved once in `requireOwner()` and enforced
   server-side; a lapsed plan keeps its stored kapora amounts but stops

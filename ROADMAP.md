@@ -113,7 +113,7 @@ What a reviewer forms an opinion from before they read a single function.
 What holds up if someone clicks around for ten minutes rather than two.
 None of this is needed to publish; all of it is needed to look finished.
 
-- [ ] **Owner-side create and reschedule.** `2.5d`
+- [x] **Owner-side create and reschedule.** `2.5d`
 
   `lib/actions/bookings.ts` exports the public `createBooking` and
   `cancelBooking` and nothing else, so cancel is the only verb an owner has
