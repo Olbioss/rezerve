@@ -56,7 +56,10 @@ Useful scripts: `bun run check` (Biome), `bun run typecheck`,
 `bun run demo:submerchant` (creates the demo business's iyzico submerchant),
 `bun run seed:demo` (creates two demo businesses: `/r/demo` on Pro, and
 `/r/demo-ucretsiz` on the free plan with the _same_ services — the only way to
-see the downgrade rule rather than read about it).
+see the downgrade rule rather than read about it). It is a reset, not an
+additive seed: both demos go back to exactly their published state, with a
+fresh booking history, and the daily cron runs the same reset
+(`lib/demo/reset.ts`) because their logins are public.
 
 Payments use the iyzico sandbox by default (`IYZICO_BASE_URL`); create
 sandbox keys at sandbox-merchant.iyzipay.com.

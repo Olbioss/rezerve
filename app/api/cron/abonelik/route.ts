@@ -5,6 +5,7 @@ import {
 } from "@/lib/billing/charge-subscription";
 import { checkCronAuth } from "@/lib/billing/cron-auth";
 import { expireAllHolds } from "@/lib/booking/expire-holds";
+import { type DemoResetSummary, resetDemo } from "@/lib/demo/reset";
 
 /**
  * The daily maintenance run.
@@ -16,7 +17,10 @@ import { expireAllHolds } from "@/lib/booking/expire-holds";
  * safe.
  *
  * It also sweeps lapsed holds, which would otherwise only be released when
- * somebody next tries to book that organization. The path is still named
+ * somebody next tries to book that organization, and puts the two public
+ * demo businesses back as published (lib/demo/reset.ts) — their logins are
+ * public, so by evening they are whatever the last visitor made them. It
+ * runs at 06:00 UTC, so each Istanbul morning starts clean. The path is still named
  * after renewals because vercel.json and the README both point at it, and one
  * scheduled job is deliberate rather than incidental — several would each
  * need their own schedule and secret for no gain.
@@ -74,5 +78,13 @@ export async function GET(request: Request) {
     holds = { error: true };
   }
 
-  return NextResponse.json({ renewals, holds });
+  let demo: Record<string, DemoResetSummary> | { error: true };
+  try {
+    demo = await resetDemo();
+  } catch (err) {
+    console.error("Demo reset failed:", err);
+    demo = { error: true };
+  }
+
+  return NextResponse.json({ renewals, holds, demo });
 }
