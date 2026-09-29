@@ -1,9 +1,62 @@
 # Rezerve
 
-Multi-tenant appointment booking SaaS with a fully Turkish UI (built for
-Turkish local businesses). Business owners sign up, configure services and
-weekly hours, and get a public booking page — customers book without an
-account, optionally paying a deposit (kapora) via iyzico.
+[![CI](https://github.com/Olbioss/rezerve/actions/workflows/ci.yml/badge.svg)](https://github.com/Olbioss/rezerve/actions/workflows/ci.yml)
+
+Online booking for Turkish local businesses — salons, barbers, clinics. An
+owner sets up services and hours, and gets a public page where customers book,
+and can pay a deposit (_kapora_), without an account. The UI is in Turkish.
+
+**Live: [rezerve-iota.vercel.app](https://rezerve-iota.vercel.app)**
+
+- **Book as a customer** at [`/r/demo`](https://rezerve-iota.vercel.app/r/demo).
+  Cilt Bakımı takes a ₺300 kapora through iyzico's sandbox: use a test card
+  such as `5311 5700 0000 0005` with any future expiry and any CVC.
+- **Run the business** at [`/giris`](https://rezerve-iota.vercel.app/giris) as
+  `demo@rezerve.app` / `rezerve-demo` (Pro), or `ucretsiz@rezerve.app` /
+  `rezerve-demo` (free plan: the same services, but the kapora is not
+  collected).
+- Both demos reset every morning, so change anything.
+
+## Worth a look
+
+1. **Correctness lives in the database.** Two customers can take the same slot
+   at the same instant and only one booking will exist: an `EXCLUDE USING gist`
+   constraint over the time range decides, pending holds included, and the race
+   is a test. Special-day ranges cannot overlap for the same reason; a renewal
+   cannot bill twice because a unique key refuses the second charge; a refund
+   claims its idempotency marker before iyzico is ever called.
+2. **Entitlements are resolved in one place, on the server.** Every panel page
+   and owner action goes through `requireOwner()`, which resolves the plan
+   once; the public booking path reads the business's own billing rows. Nothing
+   in the browser decides what a business may do, and a lapsed plan keeps its
+   kapora amounts but stops charging them.
+3. **A real payment integration, with its dead ends written down.** iyzico
+   Marketplace with a submerchant per business, approval and release, refunds,
+   and self-run subscription billing because iyzico's own subscriptions do not
+   exist on a marketplace account. The constraints below were probed against
+   the API, not assumed — starting with how the card is handled.
+
+## Card handling, deliberately
+
+Upgrading to Pro takes the card number in Rezerve's own form
+(`/panel/abonelik`), and a server action passes it to iyzico's direct payment
+API with `registerCard: 1`, without 3-D Secure. The number is never logged and
+never stored; only the returned `cardToken` and `cardUserKey` are kept, for
+renewals.
+
+On an iyzico **marketplace** account that is the only way recurring billing
+works: the hosted Checkout Form carries no card object, the hosted card vault
+(`/v2/ucs/init`) answers `42205`, and iyzico's integration team points
+recurring payments at card storage on the direct API. (Why this is a
+marketplace account at all is under
+[Why there is no iyzico Abonelik integration](#why-there-is-no-iyzico-abonelik-integration).)
+
+Against the sandbox, with test cards, that costs nothing. With real cards it
+would cost two things this build deliberately stops short of. A card number
+passing through the server puts the whole deployment in PCI DSS scope — SAQ D,
+not the SAQ A a hosted payment page allows. And the first payment would have to
+go through `threedsInitialize` for 3-D Secure; renewals stay non-3DS either way,
+since the customer is not there to authenticate.
 
 ## Features
 
@@ -114,10 +167,9 @@ değil`. iyzico's integration team directs recurring billing through card
   storage on the direct API, so `/panel/abonelik` collects the card and posts
   it to a server action, which passes it straight to
   `payment.create` with `registerCard: 1`. The number is never logged and
-  never persisted; only the returned `cardToken`/`cardUserKey` are kept.
-  A production build taking real cards would route this first payment through
-  `threedsInitialize` and carry the matching PCI scope (SAQ A-EP); renewals
-  stay non-3DS either way, since the customer is not present.
+  never persisted; only the returned `cardToken`/`cardUserKey` are kept. What
+  that would mean with real cards, for PCI scope and 3-D Secure, is under
+  [Card handling, deliberately](#card-handling-deliberately).
 - **Renewals are a daily cron** (`vercel.json` → `/api/cron/abonelik`,
   bearer-authenticated with `CRON_SECRET`) charging the stored token. The check
   is timing-safe and **fails closed**: an unset `CRON_SECRET` returns 503 and
@@ -210,8 +262,9 @@ Probed directly against the sandbox keys in `.env`:
 | `POST /cardstorage/card` → `cardList` → `payment/auth` on the stored card | works                                               |
 | `POST /v2/subscription/*`                                                 | `100001` — unavailable on a marketplace account     |
 | `POST /v2/ucs/init`                                                       | `42205` — hosted card storage not enabled           |
-| `POST /payment/iyzipos/item/approve`                                      | works — but nothing in the app calls it (see above) |
-| fix the approval gap.                                                     |
+| `POST /payment/iyzipos/item/approve`                                      | works — called on every paid kapora (see above)     |
+| `GET /v2/reporting/payment/details`                                       | works — has a payment within seconds                |
+| `GET /v2/reporting/payment/transactions`                                  | unreliable — see the payouts note above             |
 
 The iyzico SDK hangs under **Bun** (it uses `postman-request`), so any script
 touching it must run under Node. The app is unaffected: `next.config.ts` marks
@@ -232,14 +285,25 @@ Everything is Turkish, including the URLs:
 | `/r/[slug]/onay/[bookingId]`                              | Booking confirmation                                 |
 | `/api/r/[slug]/slots`                                     | Availability API                                     |
 | `/api/odeme/iyzico`                                       | iyzico deposit callback                              |
-| `/api/cron/abonelik`                                      | Daily renewal run (bearer-authenticated)             |
+| `/api/cron/abonelik`                                      | Daily: renewals, hold sweep, demo reset (bearer)     |
 
 ## Testing
 
 - `lib/booking/slots.test.ts` — pure slot-engine tests incl. DST
   spring-forward/fall-back days
 - `lib/actions/bookings.integration.test.ts` — real-DB tests incl. a
-  parallel double-submit race (exactly one booking wins)
+  parallel double-submit race (exactly one booking wins). It also caught
+  Postgres resolving that race as a deadlock (`40P01`) rather than an
+  exclusion violation, which is why `isExclusionConflict` treats both as
+  "the slot is taken"
+- `lib/booking/exceptions.test.ts` — holidays and one-off hours resolved
+  before the slot engine: a closed date has no slots, a Sunday opening does
+- `lib/actions/owner-bookings.integration.test.ts` — an owner booking or
+  moving an appointment: outside the hours only after asking, never over
+  another appointment, never another business's booking
+- `lib/demo/reset.integration.test.ts` — the nightly demo reset, playing the
+  visitor who renames, strips and closes the demo: one run puts every piece
+  back, and touches no other business
 - `lib/payments/handle-payment-result.integration.test.ts` — payment
   callback idempotency: duplicate callbacks, wrong tokens, out-of-order
   success-after-cancel
@@ -264,8 +328,9 @@ Everything is Turkish, including the URLs:
 ## Architecture notes
 
 - Bookings are stored as UTC instants; availability rules as minutes-from-
-  midnight in the business's local wall time. Conversion happens in one
-  place (`lib/booking/slots.ts`).
+  midnight in the business's local wall time. Conversion lives in
+  `lib/booking/` — `slots.ts` for the slot engine, `opening-hours.ts` for
+  times an owner types in.
 - Date exceptions (`lib/booking/exceptions.ts`) are resolved into a day's
   intervals *before* the slot engine runs, so the engine and its DST tests
   are unchanged. One-off hours are stamped with the date's weekday, which is
@@ -281,3 +346,26 @@ Everything is Turkish, including the URLs:
   token before any state change.
 - Server actions handle all mutations; route handlers exist only for the
   slots API, Better Auth, and the iyzico payment callback.
+
+## Deliberately out of scope
+
+Each of these is a real requirement for a product, and not for this one. They
+are named because a gap a reader finds named reads as judgment, and the same
+gap unexplained reads as an oversight.
+
+- **Legal pages** — KVKK aydınlatma metni, Mesafeli Satış Sözleşmesi, İptal ve
+  İade Koşulları. Required to leave the iyzico sandbox and take real money;
+  this build never does, and says so.
+- **3-D Secure and PCI compliance** for the subscription card. No real card
+  touches this app. What taking one would require is spelled out under
+  [Card handling, deliberately](#card-handling-deliberately).
+- **Multi-staff scheduling.** `bookings_no_overlap` excludes on
+  `(organization_id, tstzrange)`, so one business is deliberately one chair.
+  Concurrent staff means a resource dimension through the constraint, the
+  availability rules, the slot engine and the booking flow — a different
+  product.
+- **Email verification on signup.** Actively unwanted here: it would put an
+  inbox round-trip between a reader and the app.
+- **Error tracking and structured logging.** Sentry on an app with two demo
+  businesses is ceremony; `console.error` and the platform's runtime logs are
+  proportionate.
