@@ -7,7 +7,7 @@ import { requireOwner } from "@/lib/auth-guard";
 import { getDateExceptions } from "@/lib/booking/get-available-slots";
 import { localInstant, withinOpeningHours } from "@/lib/booking/opening-hours";
 import { db } from "@/lib/db";
-import { EXCLUSION_VIOLATION, pgErrorCode } from "@/lib/db/errors";
+import { isExclusionConflict } from "@/lib/db/errors";
 import { availabilityRules } from "@/lib/db/schema/availability-schema";
 import { bookings } from "@/lib/db/schema/booking-schema";
 import { services } from "@/lib/db/schema/service-schema";
@@ -146,7 +146,7 @@ export async function ownerCreateBooking(
       })
       .returning();
   } catch (err) {
-    if (pgErrorCode(err) === EXCLUSION_VIOLATION) return { error: OVERLAP };
+    if (isExclusionConflict(err)) return { error: OVERLAP };
     throw err;
   }
 
@@ -227,7 +227,7 @@ export async function rescheduleBooking(
       )
       .returning();
   } catch (err) {
-    if (pgErrorCode(err) === EXCLUSION_VIOLATION) return { error: OVERLAP };
+    if (isExclusionConflict(err)) return { error: OVERLAP };
     throw err;
   }
   // Cancelled between the read and the write.

@@ -16,7 +16,7 @@ import {
 import { refundDeposit } from "@/lib/booking/refund-deposit";
 import { checkBookingThrottle } from "@/lib/booking/throttle";
 import { db } from "@/lib/db";
-import { EXCLUSION_VIOLATION, pgErrorCode } from "@/lib/db/errors";
+import { isExclusionConflict } from "@/lib/db/errors";
 import { bookings } from "@/lib/db/schema/booking-schema";
 import { services } from "@/lib/db/schema/service-schema";
 import {
@@ -39,9 +39,12 @@ const createBookingSchema = z.object({
 export type CreateBookingInput = z.input<typeof createBookingSchema>;
 export type ActionResult = { error: string } | undefined;
 
-/** True when the error is the bookings_no_overlap exclusion violation. */
+/**
+ * True when the insert lost the slot to another booking under
+ * bookings_no_overlap — including the deadlock a same-instant race can end in.
+ */
 function isOverlapError(err: unknown): boolean {
-  return pgErrorCode(err) === EXCLUSION_VIOLATION;
+  return isExclusionConflict(err);
 }
 
 export async function createBooking(

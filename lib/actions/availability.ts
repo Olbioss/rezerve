@@ -6,7 +6,7 @@ import { z } from "zod";
 import { requireOwner } from "@/lib/auth-guard";
 import { localDateISO } from "@/lib/booking/get-available-slots";
 import { db } from "@/lib/db";
-import { EXCLUSION_VIOLATION, pgErrorCode } from "@/lib/db/errors";
+import { isExclusionConflict } from "@/lib/db/errors";
 import {
   availabilityExceptions,
   availabilityRules,
@@ -162,7 +162,7 @@ export async function addDateException(
       .values({ organizationId, startsOn, endsOn, intervals, note });
   } catch (err) {
     // availability_exceptions_no_overlap: every date answers to one exception.
-    if (pgErrorCode(err) === EXCLUSION_VIOLATION) {
+    if (isExclusionConflict(err)) {
       return { error: "Bu tarihler kayıtlı bir özel günle çakışıyor." };
     }
     throw err;
