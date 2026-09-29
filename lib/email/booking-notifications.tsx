@@ -7,6 +7,7 @@ import { businessProfiles } from "@/lib/db/schema/business-schema";
 import { services } from "@/lib/db/schema/service-schema";
 import { formatMoney } from "@/lib/format";
 import { cancelledIntro } from "./copy";
+import { ownerNotificationAddress } from "./recipients";
 import { sendEmailSafe } from "./send";
 import { BookingEmail } from "./templates/booking-email";
 
@@ -49,7 +50,11 @@ async function loadContext(booking: Booking) {
     booking.depositCents != null
       ? `${formatMoney(booking.depositCents, profile.currency)} ödendi`
       : undefined;
-  const ownerEmail = profile.contactEmail ?? owner?.email ?? null;
+  const ownerEmail = ownerNotificationAddress({
+    organizationId: booking.organizationId,
+    contactEmail: profile.contactEmail,
+    loginEmail: owner?.email,
+  });
 
   return { org, profile, service, whenText, depositLine, ownerEmail };
 }
