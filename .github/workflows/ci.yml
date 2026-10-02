@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   verify:
-    name: typecheck · lint · test
+    name: typecheck · lint · test · e2e
     runs-on: ubuntu-latest
 
     # The integration suites talk to a real Postgres — there is no
@@ -77,3 +77,30 @@ jobs:
 
       - name: Check the payment SDK survives tracing
         run: bun run check:trace
+
+      # The end-to-end suite drives that same build in Chromium, against this
+      # job's Postgres seeded with the two demo businesses. Without a
+      # submerchant key the Pro demo cannot collect kapora, so bookings run on
+      # the free demo; with no SMTP server, no email leaves the job.
+      - name: Seed the demo businesses
+        run: bun run seed:demo
+
+      - name: Cache Playwright's browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      - name: Install Chromium
+        run: bunx playwright install --with-deps chromium
+
+      - name: End-to-end
+        run: bun run e2e
+
+      - name: Keep the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
