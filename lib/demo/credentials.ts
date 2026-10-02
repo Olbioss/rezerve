@@ -2,8 +2,9 @@
  * The published demo logins.
  *
  * Deliberately dependency-free (no "server-only", no db) so the landing page,
- * the README generator and the seed script all read the same values — the same
- * reason lib/billing/plans.ts is kept importable from client components.
+ * the login form (a client component) and the seed script all read the same
+ * values — the same reason lib/billing/plans.ts is kept importable from client
+ * components.
  *
  * These are public on purpose: a reviewer who cannot sign in sees none of the
  * panel, which is most of the engineering in this repo. Because they are
@@ -19,13 +20,16 @@ export type DemoAccount = {
   password: string;
 };
 
+/** Shared by both demos, so the pages that publish the logins print it once. */
+export const DEMO_PASSWORD = "rezerve-demo";
+
 export const DEMO_PRO: DemoAccount = {
   orgId: "org_rezerve_demo",
   slug: "demo",
   name: "Rezerve Demo Salon",
   ownerName: "Demo Salon",
   email: "demo@rezerve.app",
-  password: "rezerve-demo",
+  password: DEMO_PASSWORD,
 };
 
 export const DEMO_FREE: DemoAccount = {
@@ -34,7 +38,7 @@ export const DEMO_FREE: DemoAccount = {
   name: "Rezerve Demo Berber",
   ownerName: "Demo Berber",
   email: "ucretsiz@rezerve.app",
-  password: "rezerve-demo",
+  password: DEMO_PASSWORD,
 };
 
 export const DEMO_ACCOUNTS = [DEMO_PRO, DEMO_FREE] as const;

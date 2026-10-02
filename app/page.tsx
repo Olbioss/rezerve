@@ -6,6 +6,7 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
 import { PLANS } from "@/lib/billing/plans";
+import { DEMO_FREE, DEMO_PASSWORD, DEMO_PRO } from "@/lib/demo/credentials";
 import { formatMoney } from "@/lib/format";
 
 const TICKER_SLOTS = [
@@ -267,6 +268,34 @@ export default async function Home() {
                 ? "Oturumunuz açık · Kaldığınız yerden devam edin"
                 : "Kurulum 5 dakika · Müşterileriniz için üyelik gerekmez · Online kapora Pro'da"}
             </p>
+            {!signedIn && (
+              <div
+                className="rise mt-6 grid w-fit max-w-full gap-1.5 rounded-2xl px-5 py-4 text-sm ring-1 ring-hair"
+                style={{ animationDelay: "300ms" }}
+              >
+                <p className="eyebrow text-brand-ink">Paneli deneyin</p>
+                <p className="text-muted-foreground">
+                  <span className="font-medium text-foreground">
+                    {DEMO_PRO.email}
+                  </span>{" "}
+                  ({PLANS.pro.name}) veya{" "}
+                  <span className="font-medium text-foreground">
+                    {DEMO_FREE.email}
+                  </span>{" "}
+                  ({PLANS.free.name})
+                </p>
+                <p className="text-muted-foreground">
+                  Şifre:{" "}
+                  <span className="font-medium text-foreground">
+                    {DEMO_PASSWORD}
+                  </span>
+                  {" · "}
+                  <Link href="/giris" className="underline-draw text-brand-ink">
+                    Giriş yapın
+                  </Link>
+                </p>
+              </div>
+            )}
           </div>
           <div className="rise" style={{ animationDelay: "160ms" }}>
             <HeroMockup />
