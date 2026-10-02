@@ -22,7 +22,6 @@
   "dependencies": {
     "@base-ui/react": "^1.6.0",
     "@date-fns/tz": "^1.5.0",
-    "@hookform/resolvers": "^5.4.0",
     "@react-email/components": "^1.0.12",
     "@vercel/functions": "^3.9.9",
     "better-auth": "^1.6.23",
@@ -36,9 +35,7 @@
     "nodemailer": "^9.0.3",
     "pg": "^8.22.0",
     "react": "19.2.4",
-    "react-day-picker": "^10.0.1",
     "react-dom": "19.2.4",
-    "react-hook-form": "^7.82.0",
     "server-only": "^0.0.1",
     "shadcn": "^4.13.1",
     "sonner": "^2.0.7",
@@ -59,7 +56,6 @@
     "drizzle-kit": "^0.31.10",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.10"
   },
   "ignoreScripts": [

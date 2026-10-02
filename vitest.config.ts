@@ -1,10 +1,10 @@
 import { fileURLToPath } from "node:url";
-import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
   resolve: {
+    // Vite resolves the "@/…" paths from tsconfig.json on its own now.
+    tsconfigPaths: true,
     alias: {
       "server-only": fileURLToPath(
         new URL("./lib/test/empty.ts", import.meta.url)
