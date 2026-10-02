@@ -1,12 +1,16 @@
-import { and, eq } from "drizzle-orm";
+import { CalendarPlusIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { z } from "zod";
 import { BookingShell } from "@/components/booking/booking-shell";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  confirmationPath,
+  confirmationUrl,
+  getBookingForPage,
+} from "@/lib/booking/confirmation";
 import { getBusinessBySlug } from "@/lib/booking/get-available-slots";
-import { db } from "@/lib/db";
-import { bookings } from "@/lib/db/schema/booking-schema";
-import { services } from "@/lib/db/schema/service-schema";
+import { bookingCalendarEvent } from "@/lib/calendar/booking-event";
+import { googleCalendarUrl } from "@/lib/calendar/ics";
 import { formatMoney } from "@/lib/format";
 
 export const metadata = { title: "Randevu onayı" };
@@ -51,23 +55,11 @@ export default async function ConfirmationPage({
   params: Promise<{ slug: string; bookingId: string }>;
 }) {
   const { slug, bookingId } = await params;
-  // A link cut short in a message is not a uuid, and Postgres rejects it
-  // outright — a 500 for what is only a wrong address.
-  if (!z.uuid().safeParse(bookingId).success) notFound();
   const business = await getBusinessBySlug(slug);
   if (!business) notFound();
-
-  const booking = await db.query.bookings.findFirst({
-    where: and(
-      eq(bookings.id, bookingId),
-      eq(bookings.organizationId, business.organizationId)
-    ),
-  });
-  if (!booking) notFound();
-
-  const service = await db.query.services.findFirst({
-    where: eq(services.id, booking.serviceId),
-  });
+  const found = await getBookingForPage(business.organizationId, bookingId);
+  if (!found) notFound();
+  const { booking, service } = found;
 
   const when = booking.startsAt.toLocaleString("tr-TR", {
     timeZone: business.profile.timezone,
@@ -82,6 +74,17 @@ export default async function ConfirmationPage({
   const deposit = booking.depositCents
     ? formatMoney(booking.depositCents, business.profile.currency)
     : null;
+
+  const calendarEvent = bookingCalendarEvent({
+    id: booking.id,
+    startsAt: booking.startsAt,
+    endsAt: booking.endsAt,
+    businessName: business.orgName,
+    serviceName: service?.name ?? "Randevu",
+    address: business.profile.address,
+    phone: business.profile.phone,
+    url: confirmationUrl(slug, booking.id),
+  });
 
   return (
     <BookingShell
@@ -115,6 +118,29 @@ export default async function ConfirmationPage({
                   }
                 />
               )}
+            </div>
+            <div className="mt-8 grid justify-items-center gap-3">
+              <p className="eyebrow text-muted-foreground">Takvime ekleyin</p>
+              {/* Links, not buttons: one opens Google, one downloads a file. */}
+              <div className="flex flex-wrap justify-center gap-2">
+                <a
+                  href={googleCalendarUrl(calendarEvent)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  <CalendarPlusIcon />
+                  Google Takvim
+                </a>
+                <a
+                  href={`${confirmationPath(slug, booking.id)}/takvim`}
+                  download="randevu.ics"
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  <CalendarPlusIcon />
+                  Apple · Outlook (.ics)
+                </a>
+              </div>
             </div>
           </>
         )}

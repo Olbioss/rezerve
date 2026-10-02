@@ -11,20 +11,34 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+export type EmailAttachment = {
+  filename: string;
+  content: string;
+  contentType: string;
+};
+
 export type SendEmailProps = {
   to: string | string[];
   subject: string;
   body: React.ReactElement;
   from?: string;
+  attachments?: EmailAttachment[];
 };
 
-export async function sendEmail({ to, subject, body, from }: SendEmailProps) {
+export async function sendEmail({
+  to,
+  subject,
+  body,
+  from,
+  attachments,
+}: SendEmailProps) {
   const emailHtml = await render(body);
   const info = await transporter.sendMail({
     from: from ?? `"Rezerve" <${process.env.BREVO_SENDER_EMAIL}>`,
     to: Array.isArray(to) ? to.join(", ") : to,
     subject,
     html: emailHtml,
+    attachments,
   });
   return { messageId: info.messageId };
 }

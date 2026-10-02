@@ -26,6 +26,8 @@ export type BookingEmailProps = {
   /** For the owner's copy, when the customer gave one. */
   customerPhone?: string | null;
   depositLine?: string;
+  /** For the customer's copy: their booking's page, which also offers the calendar file. */
+  bookingUrl?: string | null;
 };
 
 // Gece palette, night ground — the email should feel like the page the
@@ -66,6 +68,7 @@ export function BookingEmail({
   customerEmail,
   customerPhone,
   depositLine,
+  bookingUrl,
 }: BookingEmailProps) {
   return (
     <Html dir="ltr" lang="tr">
@@ -170,6 +173,16 @@ export function BookingEmail({
               </Text>
             )}
           </Section>
+          {bookingUrl && (
+            <Text style={{ fontSize: 15, margin: "20px 0 0" }}>
+              <a
+                href={bookingUrl}
+                style={{ color: BRAND, textDecoration: "none" }}
+              >
+                Randevunuzu görüntüleyin ve takviminize ekleyin →
+              </a>
+            </Text>
+          )}
           <Hr style={{ borderTop: `1px solid ${HAIR}`, margin: "24px 0" }} />
           <Text style={{ color: MUTED, fontSize: 12, margin: 0 }}>
             {businessName} adına Rezerve tarafından gönderilmiştir.

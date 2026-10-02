@@ -1,5 +1,8 @@
 import "server-only";
 import { eq } from "drizzle-orm";
+import { confirmationUrl } from "@/lib/booking/confirmation";
+import { bookingCalendarEvent } from "@/lib/calendar/booking-event";
+import { bookingIcs } from "@/lib/calendar/ics";
 import { db } from "@/lib/db";
 import { member, organization, user } from "@/lib/db/schema/auth-schema";
 import type { bookings } from "@/lib/db/schema/booking-schema";
@@ -59,6 +62,40 @@ async function loadContext(booking: Booking) {
   return { org, profile, service, whenText, depositLine, ownerEmail };
 }
 
+type Context = NonNullable<Awaited<ReturnType<typeof loadContext>>>;
+
+/**
+ * What only the customer's copy carries: a link to their booking's page, and
+ * the booking as an .ics file — which Gmail and Apple Mail offer to add to
+ * the calendar in one tap. The file keeps the booking's id as its UID, so the
+ * copy sent after a move replaces the event instead of adding a second one.
+ */
+function forCustomer(booking: Booking, ctx: Context) {
+  const bookingUrl = confirmationUrl(ctx.org.slug, booking.id);
+  const ics = bookingIcs(
+    bookingCalendarEvent({
+      id: booking.id,
+      startsAt: booking.startsAt,
+      endsAt: booking.endsAt,
+      businessName: ctx.org.name,
+      serviceName: ctx.service.name,
+      address: ctx.profile.address,
+      phone: ctx.profile.phone,
+      url: bookingUrl,
+    })
+  );
+  return {
+    bookingUrl,
+    attachments: [
+      {
+        filename: "randevu.ics",
+        content: ics,
+        contentType: "text/calendar; charset=utf-8; method=PUBLISH",
+      },
+    ],
+  };
+}
+
 export async function sendBookingConfirmedEmails(
   booking: Booking,
   {
@@ -68,6 +105,7 @@ export async function sendBookingConfirmedEmails(
 ) {
   const ctx = await loadContext(booking);
   if (!ctx) return;
+  const customer = forCustomer(booking, ctx);
   const shared = {
     businessName: ctx.org.name,
     serviceName: ctx.service.name,
@@ -82,6 +120,7 @@ export async function sendBookingConfirmedEmails(
       sendEmailSafe({
         to: booking.customerEmail,
         subject: `Randevunuz onaylandı — ${ctx.service.name}, ${ctx.org.name}`,
+        attachments: customer.attachments,
         body: (
           <BookingEmail
             heading="Randevunuz alındı!"
@@ -89,6 +128,7 @@ export async function sendBookingConfirmedEmails(
             intro={`Merhaba ${booking.customerName}, randevunuz onaylandı.`}
             businessPhone={ctx.profile.phone}
             businessAddress={ctx.profile.address}
+            bookingUrl={customer.bookingUrl}
             {...shared}
           />
         ),
@@ -185,10 +225,12 @@ export async function sendBookingRescheduledEmail(
   const ctx = await loadContext(booking);
   if (!ctx) return;
   const previousText = formatWhen(previousStartsAt, ctx.profile.timezone);
+  const customer = forCustomer(booking, ctx);
 
   await sendEmailSafe({
     to: booking.customerEmail,
     subject: `Randevunuzun saati değişti — ${ctx.service.name}, ${ctx.org.name}`,
+    attachments: customer.attachments,
     body: (
       <BookingEmail
         heading="Randevunuz taşındı"
@@ -205,6 +247,7 @@ export async function sendBookingRescheduledEmail(
         whenText={ctx.whenText}
         customerName={booking.customerName}
         depositLine={ctx.depositLine}
+        bookingUrl={customer.bookingUrl}
       />
     ),
   });

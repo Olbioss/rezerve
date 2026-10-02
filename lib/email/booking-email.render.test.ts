@@ -110,6 +110,25 @@ describe("BookingEmail", () => {
     );
     expect(out).toContain("0555 111 22 33");
   });
+
+  it("links the customer to their booking's page when there is one", async () => {
+    const out = await render(
+      BookingEmail({
+        heading: "Randevunuz alındı!",
+        preview: "Onay",
+        intro: "Randevunuz onaylandı.",
+        businessName: "Günnur Estetik",
+        serviceName: "Cilt Bakımı",
+        whenText: "9 Eylül Salı, 11:00",
+        customerName: "Elif Yıldırım",
+        bookingUrl: "https://example.test/r/gunnur/onay/abc",
+      })
+    );
+    expect(out).toContain('href="https://example.test/r/gunnur/onay/abc"');
+    expect(out).toContain("takviminize ekleyin");
+    // The owner's copy, built without one, has no such link.
+    expect(await html()).not.toContain("takviminize ekleyin");
+  });
 });
 
 describe("cancelledIntro", () => {
