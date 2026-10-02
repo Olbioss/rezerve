@@ -1,6 +1,7 @@
 import "server-only";
 import { TZDate } from "@date-fns/tz";
 import { and, asc, eq, gt, gte, lt, lte, or, sql } from "drizzle-orm";
+import { cache } from "react";
 import { db } from "@/lib/db";
 import { organization } from "@/lib/db/schema/auth-schema";
 import {
@@ -20,20 +21,32 @@ export type BusinessContext = {
   profile: typeof businessProfiles.$inferSelect;
 };
 
-/** Resolve a public booking-page slug to its business, or null. */
-export async function getBusinessBySlug(
-  slug: string
-): Promise<BusinessContext | null> {
-  const org = await db.query.organization.findFirst({
-    where: eq(organization.slug, slug),
-  });
-  if (!org) return null;
-  const profile = await db.query.businessProfiles.findFirst({
-    where: eq(businessProfiles.organizationId, org.id),
-  });
-  if (!profile) return null;
-  return { organizationId: org.id, orgName: org.name, slug, profile };
-}
+/**
+ * Resolve a public booking-page slug to its business, or null.
+ *
+ * One round trip, the profile joined to its organization, and memoised per
+ * request with React cache() like requireOwner: the booking page's
+ * generateMetadata and the page itself both ask for the same slug. Route
+ * handlers get the single query but no memo — cache() only spans a render.
+ */
+export const getBusinessBySlug = cache(
+  async (slug: string): Promise<BusinessContext | null> => {
+    const [row] = await db
+      .select({
+        organizationId: organization.id,
+        orgName: organization.name,
+        profile: businessProfiles,
+      })
+      .from(organization)
+      .innerJoin(
+        businessProfiles,
+        eq(businessProfiles.organizationId, organization.id)
+      )
+      .where(eq(organization.slug, slug))
+      .limit(1);
+    return row ? { ...row, slug } : null;
+  }
+);
 
 const DATE_ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 

@@ -5,7 +5,7 @@ import { cache } from "react";
 import { auth } from "@/lib/auth";
 import { getBilling } from "@/lib/billing/get-billing";
 import { db } from "@/lib/db";
-import { member } from "@/lib/db/schema/auth-schema";
+import { member, organization } from "@/lib/db/schema/auth-schema";
 import { businessProfiles } from "@/lib/db/schema/business-schema";
 
 /**
@@ -25,14 +25,17 @@ export const requireOwner = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/giris");
 
-  // One round trip instead of two: the profile lookup only needed the
-  // organization id, which the membership row already carries.
+  // One round trip for the membership, the public address the panel links to,
+  // and the profile — which only needed the organization id the membership
+  // row already carries.
   const [row] = await db
     .select({
       organizationId: member.organizationId,
+      slug: organization.slug,
       profile: businessProfiles,
     })
     .from(member)
+    .innerJoin(organization, eq(organization.id, member.organizationId))
     .leftJoin(
       businessProfiles,
       eq(businessProfiles.organizationId, member.organizationId)
@@ -41,12 +44,12 @@ export const requireOwner = cache(async () => {
     .limit(1);
 
   if (!row) redirect("/kurulum");
-  const { organizationId, profile } = row;
+  const { organizationId, slug, profile } = row;
   if (!profile) redirect("/kurulum");
 
   const billing = await getBilling(organizationId);
 
-  return { session, organizationId, profile, billing };
+  return { session, organizationId, slug, profile, billing };
 });
 
 /**
