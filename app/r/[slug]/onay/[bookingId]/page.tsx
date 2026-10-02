@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { z } from "zod";
 import { BookingShell } from "@/components/booking/booking-shell";
 import { getBusinessBySlug } from "@/lib/booking/get-available-slots";
 import { db } from "@/lib/db";
@@ -50,6 +51,9 @@ export default async function ConfirmationPage({
   params: Promise<{ slug: string; bookingId: string }>;
 }) {
   const { slug, bookingId } = await params;
+  // A link cut short in a message is not a uuid, and Postgres rejects it
+  // outright — a 500 for what is only a wrong address.
+  if (!z.uuid().safeParse(bookingId).success) notFound();
   const business = await getBusinessBySlug(slug);
   if (!business) notFound();
 
