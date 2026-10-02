@@ -29,8 +29,19 @@ export async function sendEmail({ to, subject, body, from }: SendEmailProps) {
   return { messageId: info.messageId };
 }
 
+let warnedUnconfigured = false;
+
 /** Fire-and-forget wrapper: an email failure must never fail a booking. */
 export async function sendEmailSafe(props: SendEmailProps) {
+  // CI, the end-to-end suite and a bare local checkout have no SMTP server.
+  // Without this every send would try localhost:587 and log a refusal.
+  if (!process.env.BREVO_SMTP_SERVER) {
+    if (!warnedUnconfigured) {
+      console.warn("BREVO_SMTP_SERVER is not set — emails are not sent.");
+      warnedUnconfigured = true;
+    }
+    return null;
+  }
   try {
     return await sendEmail(props);
   } catch (err) {
