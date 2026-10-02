@@ -85,6 +85,13 @@
       "when": 1790598257641,
       "tag": "0011_owner_booking_email_optional",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790939006015,
+      "tag": "0012_slug_history",
+      "breakpoints": true
     }
   ]
 }
