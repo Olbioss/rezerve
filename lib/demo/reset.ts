@@ -25,7 +25,10 @@ import {
   orgSubscriptions,
 } from "@/lib/db/schema/billing-schema";
 import { bookings } from "@/lib/db/schema/booking-schema";
-import { businessProfiles } from "@/lib/db/schema/business-schema";
+import {
+  businessProfiles,
+  organizationSlugHistory,
+} from "@/lib/db/schema/business-schema";
 import { services } from "@/lib/db/schema/service-schema";
 import {
   DEMO_ACCOUNTS,
@@ -161,6 +164,12 @@ async function resetBusiness(
         target: businessProfiles.organizationId,
         set: profile,
       });
+
+    // Visitors move the demo's address, and every move keeps the address
+    // before it reserved for the demo. Those would pile up for good.
+    await tx
+      .delete(organizationSlugHistory)
+      .where(eq(organizationSlugHistory.organizationId, orgId));
 
     // Bookings first: a service cannot be deleted while one refers to it.
     await tx.delete(bookings).where(eq(bookings.organizationId, orgId));

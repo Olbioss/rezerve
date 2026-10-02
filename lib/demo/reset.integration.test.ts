@@ -19,7 +19,9 @@ const { orgPayoutAccounts, orgSubscriptions } = await import(
   "@/lib/db/schema/billing-schema"
 );
 const { bookings } = await import("@/lib/db/schema/booking-schema");
-const { businessProfiles } = await import("@/lib/db/schema/business-schema");
+const { businessProfiles, organizationSlugHistory } = await import(
+  "@/lib/db/schema/business-schema"
+);
 const { services } = await import("@/lib/db/schema/service-schema");
 
 const DEMO_IDS = DEMO_ACCOUNTS.map((d) => d.orgId);
@@ -195,6 +197,31 @@ describe("resetDemo", () => {
     });
     expect(pro.rows.some((b) => b.customerName === "Ziyaretçi")).toBe(false);
     expect((await stateOf(DEMO_FREE.orgId)).sub).toBeUndefined();
+  });
+
+  it("forgets the addresses visitors moved the demo through", async () => {
+    // Signed in as the demo owner, a visitor moved its address twice. Each
+    // move left the address before it reserved for the demo, for good.
+    await db
+      .update(organization)
+      .set({ slug: "ziyaretci-adresi-2" })
+      .where(eq(organization.id, DEMO_PRO.orgId));
+    await db.insert(organizationSlugHistory).values([
+      { slug: DEMO_PRO.slug, organizationId: DEMO_PRO.orgId },
+      { slug: "ziyaretci-adresi-1", organizationId: DEMO_PRO.orgId },
+    ]);
+
+    await resetDemo({ subMerchantKey: KEY });
+
+    const left = await db
+      .select()
+      .from(organizationSlugHistory)
+      .where(inArray(organizationSlugHistory.organizationId, DEMO_IDS));
+    expect(left).toHaveLength(0);
+    const org = await db.query.organization.findFirst({
+      where: eq(organization.id, DEMO_PRO.orgId),
+    });
+    expect(org?.slug).toBe(DEMO_PRO.slug);
   });
 
   it("gives the same result run twice", async () => {

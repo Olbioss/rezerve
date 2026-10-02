@@ -5,6 +5,7 @@ import {
 import { getBusinessBySlug } from "@/lib/booking/get-available-slots";
 import { bookingCalendarEvent } from "@/lib/calendar/booking-event";
 import { bookingIcs } from "@/lib/calendar/ics";
+import { currentSlugFor } from "@/lib/slug-history";
 
 /**
  * The booking as an .ics file, linked from its confirmation page. Same lookup
@@ -17,6 +18,13 @@ export async function GET(
 ) {
   const { slug, bookingId } = await params;
   const business = await getBusinessBySlug(slug);
+  if (!business) {
+    const moved = await currentSlugFor(slug);
+    if (moved) {
+      const path = `${confirmationPath(moved, bookingId)}/takvim`;
+      return Response.redirect(new URL(path, request.url), 307);
+    }
+  }
   const found = business
     ? await getBookingForPage(business.organizationId, bookingId)
     : null;

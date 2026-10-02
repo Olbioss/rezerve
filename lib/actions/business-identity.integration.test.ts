@@ -21,6 +21,10 @@ vi.mock("@/lib/auth-guard", () => ({
 const { updateBusinessIdentity } = await import("./business");
 const { db } = await import("@/lib/db");
 const { organization } = await import("@/lib/db/schema/auth-schema");
+const { organizationSlugHistory } = await import(
+  "@/lib/db/schema/business-schema"
+);
+const { currentSlugFor, isSlugReserved } = await import("@/lib/slug-history");
 
 const ORG = "org_itest_identity";
 const OTHER = "org_itest_identity_other";
@@ -101,5 +105,71 @@ describe("updateBusinessIdentity", () => {
     const other = await orgRow(OTHER);
     expect(other?.name).toBe("Baska");
     expect(other?.slug).toBe("alinmis-adres");
+  });
+});
+
+describe("old addresses", () => {
+  it("keep leading to the business after it moves", async () => {
+    await updateBusinessIdentity({ name: "Eski Ad", slug: "yeni-adres" });
+
+    expect(await currentSlugFor("eski-adres")).toBe("yeni-adres");
+  });
+
+  it("lead to the current address however many moves ago they were", async () => {
+    await updateBusinessIdentity({ name: "Eski Ad", slug: "yeni-adres" });
+    await updateBusinessIdentity({ name: "Eski Ad", slug: "en-yeni-adres" });
+
+    expect(await currentSlugFor("eski-adres")).toBe("en-yeni-adres");
+    expect(await currentSlugFor("yeni-adres")).toBe("en-yeni-adres");
+  });
+
+  it("stay reserved for the business that held them", async () => {
+    await updateBusinessIdentity({ name: "Eski Ad", slug: "yeni-adres" });
+
+    ownerMock.mockResolvedValue({ organizationId: OTHER });
+    const result = await updateBusinessIdentity({
+      name: "Baska",
+      slug: "eski-adres",
+    });
+
+    expect(result?.error).toMatch(/kullanılıyor/);
+    expect((await orgRow(OTHER))?.slug).toBe("alinmis-adres");
+    expect(await isSlugReserved("eski-adres")).toBe(true);
+    expect(await isSlugReserved("eski-adres", ORG)).toBe(false);
+  });
+
+  it("can be taken back by their own business", async () => {
+    await updateBusinessIdentity({ name: "Eski Ad", slug: "yeni-adres" });
+    const result = await updateBusinessIdentity({
+      name: "Eski Ad",
+      slug: "eski-adres",
+    });
+
+    expect(result).toBeUndefined();
+    expect((await orgRow(ORG))?.slug).toBe("eski-adres");
+    // Current again rather than history, and the address it left leads back.
+    expect(await currentSlugFor("eski-adres")).toBeNull();
+    expect(await currentSlugFor("yeni-adres")).toBe("eski-adres");
+  });
+
+  it("are not recorded when only the name changes", async () => {
+    await updateBusinessIdentity({ name: "Yeni Ad", slug: "eski-adres" });
+
+    const rows = await db
+      .select()
+      .from(organizationSlugHistory)
+      .where(eq(organizationSlugHistory.organizationId, ORG));
+    expect(rows).toHaveLength(0);
+  });
+
+  it("are not recorded when the move fails", async () => {
+    await updateBusinessIdentity({ name: "Yeni Ad", slug: "alinmis-adres" });
+
+    expect(await currentSlugFor("eski-adres")).toBeNull();
+  });
+
+  it("lead nowhere when they never existed", async () => {
+    expect(await currentSlugFor("hic-olmamis-adres")).toBeNull();
+    expect(await isSlugReserved("hic-olmamis-adres")).toBe(false);
   });
 });

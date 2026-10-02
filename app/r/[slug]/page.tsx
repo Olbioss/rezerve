@@ -1,6 +1,6 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { BookingShell } from "@/components/booking/booking-shell";
 import { getBilling } from "@/lib/billing/get-billing";
 import { dateOverrides } from "@/lib/booking/exceptions";
@@ -12,6 +12,7 @@ import {
 } from "@/lib/booking/get-available-slots";
 import { db } from "@/lib/db";
 import { services } from "@/lib/db/schema/service-schema";
+import { currentSlugFor } from "@/lib/slug-history";
 import { BookingFlow } from "./booking-flow";
 
 export default async function BookingPage({
@@ -21,7 +22,14 @@ export default async function BookingPage({
 }) {
   const { slug } = await params;
   const business = await getBusinessBySlug(slug);
-  if (!business) notFound();
+  if (!business) {
+    // An address the business moved away from still leads to it. Temporary,
+    // not permanent: the business may move back, and a browser that cached
+    // a permanent redirect would then bounce between the two addresses.
+    const moved = await currentSlugFor(slug);
+    if (moved) redirect(`/r/${moved}`);
+    notFound();
+  }
 
   // The same dates the booking page's strip shows, in the business's own
   // calendar, so a holiday greys out and a one-off opening lights up.

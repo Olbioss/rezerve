@@ -1,6 +1,6 @@
 import { CalendarPlusIcon } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { BookingShell } from "@/components/booking/booking-shell";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import { getBusinessBySlug } from "@/lib/booking/get-available-slots";
 import { bookingCalendarEvent } from "@/lib/calendar/booking-event";
 import { googleCalendarUrl } from "@/lib/calendar/ics";
 import { formatMoney } from "@/lib/format";
+import { currentSlugFor } from "@/lib/slug-history";
 
 export const metadata = { title: "Randevu onayı" };
 
@@ -56,7 +57,12 @@ export default async function ConfirmationPage({
 }) {
   const { slug, bookingId } = await params;
   const business = await getBusinessBySlug(slug);
-  if (!business) notFound();
+  if (!business) {
+    // The link in a confirmation email predates a move of the address.
+    const moved = await currentSlugFor(slug);
+    if (moved) redirect(confirmationPath(moved, bookingId));
+    notFound();
+  }
   const found = await getBookingForPage(business.organizationId, bookingId);
   if (!found) notFound();
   const { booking, service } = found;
