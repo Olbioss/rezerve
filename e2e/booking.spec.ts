@@ -20,21 +20,28 @@ test("a visitor books on the free demo and lands on the confirmation", async ({
   const days = page
     .getByRole("radiogroup", { name: "Gün seçin" })
     .getByRole("radio");
-  const freeSlot = page
-    .getByRole("radiogroup", { name: "Saat seçin" })
-    .getByRole("radio", { disabled: false })
-    .first();
+  const grid = page.getByRole("radiogroup", { name: "Saat seçin" });
+  const freeSlot = grid.getByRole("radio", { disabled: false }).first();
   const noSlots = page.getByText("Bu günde boş saat yok.");
 
-  // Today may be over or fully booked, so walk forward to a day with room.
+  // Today may be over, or every time left in it taken, so walk forward to a
+  // day with room. Each day's answer is awaited before its grid is read: the
+  // previous day's grid must not be mistaken for this one.
   let picked = false;
   const dayCount = await days.count();
   for (let i = 0; i < dayCount && !picked; i++) {
     const day = days.nth(i);
     if (await day.isDisabled()) continue;
-    await day.click();
-    await expect(freeSlot.or(noSlots)).toBeVisible();
-    if (await freeSlot.isVisible()) {
+    // The day selected on arrival has already loaded; clicking it again
+    // would send nothing to wait for.
+    if ((await day.getAttribute("aria-checked")) !== "true") {
+      await Promise.all([
+        page.waitForResponse(/\/api\/r\/[^/]+\/slots\?/),
+        day.click(),
+      ]);
+    }
+    await expect(grid.or(noSlots)).toBeVisible();
+    if ((await freeSlot.count()) > 0) {
       await freeSlot.click();
       picked = true;
     }

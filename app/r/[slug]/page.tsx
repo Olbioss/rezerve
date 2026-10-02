@@ -1,4 +1,5 @@
 import { and, asc, eq } from "drizzle-orm";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BookingShell } from "@/components/booking/booking-shell";
 import { getBilling } from "@/lib/billing/get-billing";
@@ -77,14 +78,36 @@ export default async function BookingPage({
   );
 }
 
+/**
+ * What a shared link previews as. Businesses post this address on Instagram
+ * and in messages, so the preview names the business and says what it does,
+ * with its own card from opengraph-image.tsx beside it. An unknown slug gets
+ * nothing here; its not-found page supplies the title.
+ */
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
-}) {
+}): Promise<Metadata> {
   const { slug } = await params;
   const business = await getBusinessBySlug(slug);
+  if (!business) return {};
+  const title = `${business.orgName} — Randevu`;
+  const description =
+    business.profile.description ??
+    `${business.orgName} için online randevu alın.`;
   return {
-    title: business ? `${business.orgName} — Randevu` : "Bulunamadı",
+    title,
+    description,
+    alternates: { canonical: `/r/${slug}` },
+    openGraph: {
+      title,
+      description,
+      url: `/r/${slug}`,
+      siteName: "Rezerve",
+      locale: "tr_TR",
+      type: "website",
+    },
+    twitter: { card: "summary_large_image", title, description },
   };
 }

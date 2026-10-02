@@ -13,7 +13,10 @@ import { join } from "node:path";
  * size, the high-contrast cut the headings use. Both families are SIL OFL
  * 1.1; the licences are beside them.
  *
- * Every image that uses these is rendered once, at build time.
+ * The site's images are rendered once, at build time. A business's own
+ * card (app/r/[slug]/opengraph-image.tsx) is rendered per request, so these
+ * files must also reach the deployed function; output tracing follows the
+ * process.cwd() paths below, as in Next's own example.
  */
 export async function brandImageFonts() {
   const dir = join(process.cwd(), "assets/fonts");
