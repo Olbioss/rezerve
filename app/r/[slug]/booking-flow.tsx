@@ -7,6 +7,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
 } from "react";
@@ -173,20 +174,35 @@ export function BookingFlow({
     [timezone, bookingWindowDays, openWeekdays, dateOverrides]
   );
 
+  // The one request the grid is waiting for. Picking another day aborts it:
+  // a slower answer for the previous day must never fill the grid under the
+  // new one, because each slot carries its own instant — choosing it would
+  // book the day the visitor had already moved away from.
+  const slotsRequest = useRef<AbortController | null>(null);
+
   const loadSlots = useCallback(
     async (serviceId: string, date: string) => {
+      slotsRequest.current?.abort();
+      const request = new AbortController();
+      slotsRequest.current = request;
       setSlots(null);
       setSelectedSlot(null);
       setOnDetails(false);
-      const res = await fetch(
-        `/api/r/${slug}/slots?serviceId=${serviceId}&date=${date}`
-      );
-      if (!res.ok) {
+      try {
+        const res = await fetch(
+          `/api/r/${slug}/slots?serviceId=${serviceId}&date=${date}`,
+          { signal: request.signal }
+        );
+        const data = res.ok ? ((await res.json()) as { slots: Slot[] }) : null;
+        if (request.signal.aborted) return;
+        setSlots(data?.slots ?? []);
+      } catch {
+        // Aborted on purpose, or the network failed. Only the second is news;
+        // either way the grid must not wait forever.
+        if (request.signal.aborted) return;
         setSlots([]);
-        return;
+        toast.error("Saatler yüklenemedi, tekrar deneyin.");
       }
-      const data = (await res.json()) as { slots: Slot[] };
-      setSlots(data.slots);
     },
     [slug]
   );
@@ -194,6 +210,8 @@ export function BookingFlow({
   useEffect(() => {
     if (service) loadSlots(service.id, dateISO);
   }, [service, dateISO, loadSlots]);
+
+  useEffect(() => () => slotsRequest.current?.abort(), []);
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
