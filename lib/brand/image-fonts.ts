@@ -51,3 +51,13 @@ export const NIGHT = "#0c1210";
 export const CHAMPAGNE = "#d4b070";
 export const IVORY = "#f3eee4";
 export const MUTED = "#97a698";
+
+/**
+ * For the site's own images. Partial prerendering cannot build them at
+ * build time — the image renderer reads its own files from disk, which ends
+ * a prerender — so they are rendered on request, and this lets the CDN keep
+ * each one for the life of the deployment instead. A deploy purges it.
+ */
+export const BRAND_IMAGE_HEADERS = {
+  "Cache-Control": "public, max-age=3600, s-maxage=31536000",
+};

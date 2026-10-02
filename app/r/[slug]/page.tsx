@@ -1,6 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { Suspense } from "react";
 import { BookingShell } from "@/components/booking/booking-shell";
 import { getBilling } from "@/lib/billing/get-billing";
 import { dateOverrides } from "@/lib/booking/exceptions";
@@ -14,12 +15,28 @@ import { db } from "@/lib/db";
 import { services } from "@/lib/db/schema/service-schema";
 import { currentSlugFor } from "@/lib/slug-history";
 import { BookingFlow } from "./booking-flow";
+import { BookingSkeleton } from "./booking-skeleton";
 
-export default async function BookingPage({
+/**
+ * Everything on this page belongs to one business, so its static shell is
+ * only the frame; the business streams in. Inside that boundary a missing
+ * business is a 200 marked noindex rather than a 404, and an old address
+ * redirects from the browser — the price of partial prerendering, accepted
+ * for the instant first paint.
+ */
+export default function BookingPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  return (
+    <Suspense fallback={<BookingSkeleton />}>
+      <Booking params={params} />
+    </Suspense>
+  );
+}
+
+async function Booking({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const business = await getBusinessBySlug(slug);
   if (!business) {
@@ -89,17 +106,21 @@ export default async function BookingPage({
 /**
  * What a shared link previews as. Businesses post this address on Instagram
  * and in messages, so the preview names the business and says what it does,
- * with its own card from opengraph-image.tsx beside it. An unknown slug gets
- * nothing here; its not-found page supplies the title.
+ * with its own card from opengraph-image.tsx beside it. An old address
+ * previews as the business it now leads to: link previewers read these tags
+ * and never run the browser-side redirect. An unknown slug gets nothing here;
+ * its not-found page supplies the title.
  */
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
-  const business = await getBusinessBySlug(slug);
-  if (!business) return {};
+  const { slug: requested } = await params;
+  const found = await getBusinessBySlug(requested);
+  const slug = found ? requested : await currentSlugFor(requested);
+  const business = found ?? (slug ? await getBusinessBySlug(slug) : null);
+  if (!business || !slug) return {};
   const title = `${business.orgName} — Randevu`;
   const description =
     business.profile.description ??

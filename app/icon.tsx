@@ -1,5 +1,10 @@
 import { ImageResponse } from "next/og";
-import { CHAMPAGNE, faviconFont, NIGHT } from "@/lib/brand/image-fonts";
+import {
+  BRAND_IMAGE_HEADERS,
+  CHAMPAGNE,
+  faviconFont,
+  NIGHT,
+} from "@/lib/brand/image-fonts";
 
 export const size = { width: 32, height: 32 };
 export const contentType = "image/png";
@@ -30,6 +35,10 @@ export default async function Icon() {
     >
       R
     </div>,
-    { ...size, fonts: [...(await faviconFont())] }
+    {
+      ...size,
+      fonts: [...(await faviconFont())],
+      headers: BRAND_IMAGE_HEADERS,
+    }
   );
 }

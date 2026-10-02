@@ -21,6 +21,9 @@ const nextConfig: NextConfig = {
   // The iyzipay SDK dynamically requires files from its own lib/resources
   // directory, which bundlers can't statically resolve — load it via Node.
   serverExternalPackages: ["iyzipay"],
+  // Partial prerendering: each page's static parts are served at once, even
+  // on a cold start, and only what depends on the request streams in.
+  cacheComponents: true,
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },

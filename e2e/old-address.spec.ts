@@ -29,23 +29,37 @@ test.afterAll(async () => {
   await db.end();
 });
 
+// The booking page streams, so the move is followed in the browser rather
+// than with an HTTP redirect.
 test("an address the business moved away from still leads to it", async ({
-  request,
+  page,
 }) => {
-  const response = await request.get(`/r/${OLD}`, { maxRedirects: 0 });
-  // Temporary: the business may move back to it.
-  expect(response.status()).toBe(307);
-  expect(response.headers().location).toMatch(/\/r\/demo-ucretsiz$/);
+  await page.goto(`/r/${OLD}`);
+  await expect(page).toHaveURL(/\/r\/demo-ucretsiz$/);
+  await expect(
+    page.getByRole("heading", { name: "Rezerve Demo Berber" })
+  ).toBeVisible();
 });
 
-test("so does a confirmation link sent before the move", async ({
+test("so does a confirmation link sent before the move", async ({ page }) => {
+  await page.goto(`/r/${OLD}/onay/${BOOKING}`);
+  await expect(page).toHaveURL(new RegExp(`/r/demo-ucretsiz/onay/${BOOKING}$`));
+});
+
+test("and a shared old link previews as the business it leads to", async ({
   request,
 }) => {
-  const response = await request.get(`/r/${OLD}/onay/${BOOKING}`, {
-    maxRedirects: 0,
-  });
-  expect(response.status()).toBe(307);
-  expect(response.headers().location).toMatch(
-    new RegExp(`/r/demo-ucretsiz/onay/${BOOKING}$`)
+  // Link previewers read the tags and never run the browser-side redirect.
+  const html = await (
+    await request.get(`/r/${OLD}`, {
+      headers: { "User-Agent": "WhatsApp/2.24.1 A" },
+    })
+  ).text();
+  expect(html).toContain(
+    '<meta property="og:title" content="Rezerve Demo Berber — Randevu"/>'
   );
+  expect(html).toContain(`/r/${OLD}/opengraph-image`);
+  const card = await request.get(`/r/${OLD}/opengraph-image`);
+  expect(card.status()).toBe(200);
+  expect(card.headers()["content-type"]).toBe("image/png");
 });

@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { Wordmark } from "@/components/brand/wordmark";
 import { requireUser } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
@@ -9,10 +10,27 @@ import { OnboardingForm } from "./onboarding-form";
 
 export const metadata = { title: "İşletmenizi kurun" };
 
-export default async function OnboardingPage() {
-  const session = await requireUser();
+export default function OnboardingPage() {
+  return (
+    <div className="flex min-h-svh flex-col items-center justify-center gap-8 p-6">
+      <Wordmark className="text-4xl" />
+      <div className="rise w-full max-w-md">
+        <OnboardingForm />
+      </div>
+      <Suspense fallback={null}>
+        <OnboardingGuard />
+      </Suspense>
+    </div>
+  );
+}
 
-  // Already onboarded → dashboard.
+/**
+ * Signed out → the login page; already onboarded → the panel. It runs at
+ * request time beside the form, which is part of the static shell, and
+ * renders nothing. completeOnboarding checks the session again regardless.
+ */
+async function OnboardingGuard() {
+  const session = await requireUser();
   const membership = await db.query.member.findFirst({
     where: eq(member.userId, session.user.id),
   });
@@ -22,13 +40,5 @@ export default async function OnboardingPage() {
     });
     if (profile) redirect("/panel");
   }
-
-  return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-8 p-6">
-      <Wordmark className="text-4xl" />
-      <div className="rise w-full max-w-md">
-        <OnboardingForm />
-      </div>
-    </div>
-  );
+  return null;
 }

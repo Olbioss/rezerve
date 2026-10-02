@@ -1,6 +1,7 @@
 import { CalendarPlusIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Suspense } from "react";
 import { BookingShell } from "@/components/booking/booking-shell";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -13,6 +14,7 @@ import { bookingCalendarEvent } from "@/lib/calendar/booking-event";
 import { googleCalendarUrl } from "@/lib/calendar/ics";
 import { formatMoney } from "@/lib/format";
 import { currentSlugFor } from "@/lib/slug-history";
+import { BookingSkeleton } from "../../booking-skeleton";
 
 export const metadata = { title: "Randevu onayı" };
 
@@ -50,7 +52,19 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export default async function ConfirmationPage({
+export default function ConfirmationPage({
+  params,
+}: {
+  params: Promise<{ slug: string; bookingId: string }>;
+}) {
+  return (
+    <Suspense fallback={<BookingSkeleton compact />}>
+      <Confirmation params={params} />
+    </Suspense>
+  );
+}
+
+async function Confirmation({
   params,
 }: {
   params: Promise<{ slug: string; bookingId: string }>;

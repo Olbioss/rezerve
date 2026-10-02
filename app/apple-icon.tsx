@@ -1,5 +1,10 @@
 import { ImageResponse } from "next/og";
-import { brandImageFonts, CHAMPAGNE, NIGHT } from "@/lib/brand/image-fonts";
+import {
+  BRAND_IMAGE_HEADERS,
+  brandImageFonts,
+  CHAMPAGNE,
+  NIGHT,
+} from "@/lib/brand/image-fonts";
 
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
@@ -27,6 +32,10 @@ export default async function AppleIcon() {
     >
       R
     </div>,
-    { ...size, fonts: [...(await brandImageFonts())] }
+    {
+      ...size,
+      fonts: [...(await brandImageFonts())],
+      headers: BRAND_IMAGE_HEADERS,
+    }
   );
 }

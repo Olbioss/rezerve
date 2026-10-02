@@ -1,6 +1,7 @@
 import { ArrowRightIcon } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Wordmark } from "@/components/brand/wordmark";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Button } from "@/components/ui/button";
@@ -143,49 +144,70 @@ function HeroMockup() {
   );
 }
 
-export default async function Home() {
-  // Rendered per request so a signed-in owner is offered their panel rather
-  // than the sign-up path. The session cookie cache keeps this off the
-  // database for most visits, and a visitor with no cookie costs nothing.
-  const session = await auth.api.getSession({ headers: await headers() });
-  const signedIn = session !== null;
+/** Renders its children for whoever the session says is looking. */
+async function ForViewer({
+  session,
+  children,
+}: {
+  session: Promise<unknown>;
+  children: (signedIn: boolean) => React.ReactNode;
+}) {
+  return children((await session) !== null);
+}
+
+export default function Home() {
+  // The page is a static shell, served before any function runs. Only the
+  // parts that differ for a signed-in owner wait for the session, each behind
+  // its own boundary whose fallback is the signed-out version — so a visitor
+  // without one sees the finished page at once, and the streamed parts swap
+  // in identical markup. Animated wrappers stay outside those boundaries:
+  // swapping a fallback for its content mounts new nodes, which would
+  // restart a `rise`.
+  const session = headers().then((h) => auth.api.getSession({ headers: h }));
+  const bySession = (render: (signedIn: boolean) => React.ReactNode) => (
+    <Suspense fallback={render(false)}>
+      <ForViewer session={session}>{render}</ForViewer>
+    </Suspense>
+  );
 
   return (
     <div className="flex min-h-svh flex-col">
       <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-6">
         <Wordmark href={null} />
         <nav className="flex items-center gap-2 sm:gap-3">
-          {signedIn ? (
-            <>
-              <SignOutButton />
-              <Button
-                nativeButton={false}
-                variant="outline"
-                size="sm"
-                render={<Link href="/panel" />}
-              >
-                Panele git
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                nativeButton={false}
-                variant="ghost"
-                size="sm"
-                render={<Link href="/giris" />}
-              >
-                Giriş yap
-              </Button>
-              <Button
-                nativeButton={false}
-                variant="outline"
-                size="sm"
-                render={<Link href="/kayit" />}
-              >
-                Hemen başla
-              </Button>
-            </>
+          {bySession((signedIn) =>
+            signedIn ? (
+              <>
+                <SignOutButton />
+                <Button
+                  nativeButton={false}
+                  variant="outline"
+                  size="sm"
+                  render={<Link href="/panel" />}
+                >
+                  Panele git
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  nativeButton={false}
+                  variant="ghost"
+                  size="sm"
+                  render={<Link href="/giris" />}
+                >
+                  Giriş yap
+                </Button>
+                <Button
+                  nativeButton={false}
+                  variant="outline"
+                  size="sm"
+                  render={<Link href="/kayit" />}
+                >
+                  Hemen başla
+                </Button>
+              </>
+            )
           )}
         </nav>
       </header>
@@ -219,83 +241,92 @@ export default async function Home() {
               className="rise mt-9 flex flex-wrap items-center gap-3"
               style={{ animationDelay: "180ms" }}
             >
-              {signedIn ? (
-                <>
-                  <Button
-                    nativeButton={false}
-                    variant="brand"
-                    size="lg"
-                    render={<Link href="/panel" />}
-                  >
-                    Panelinize gidin
-                    <ArrowRightIcon />
-                  </Button>
-                  <Button
-                    nativeButton={false}
-                    variant="outline"
-                    size="lg"
-                    render={<Link href="/panel/randevular" />}
-                  >
-                    Randevuları görün
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    nativeButton={false}
-                    variant="brand"
-                    size="lg"
-                    render={<Link href="/kayit" />}
-                  >
-                    Ücretsiz başlayın
-                  </Button>
-                  <Button
-                    nativeButton={false}
-                    variant="outline"
-                    size="lg"
-                    render={<Link href="/r/demo" />}
-                  >
-                    Örnek sayfayı görün
-                  </Button>
-                </>
+              {bySession((signedIn) =>
+                signedIn ? (
+                  <>
+                    <Button
+                      nativeButton={false}
+                      variant="brand"
+                      size="lg"
+                      render={<Link href="/panel" />}
+                    >
+                      Panelinize gidin
+                      <ArrowRightIcon />
+                    </Button>
+                    <Button
+                      nativeButton={false}
+                      variant="outline"
+                      size="lg"
+                      render={<Link href="/panel/randevular" />}
+                    >
+                      Randevuları görün
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      nativeButton={false}
+                      variant="brand"
+                      size="lg"
+                      render={<Link href="/kayit" />}
+                    >
+                      Ücretsiz başlayın
+                    </Button>
+                    <Button
+                      nativeButton={false}
+                      variant="outline"
+                      size="lg"
+                      render={<Link href="/r/demo" />}
+                    >
+                      Örnek sayfayı görün
+                    </Button>
+                  </>
+                )
               )}
             </div>
             <p
               className="eyebrow rise mt-6 text-muted-foreground"
               style={{ animationDelay: "240ms" }}
             >
-              {signedIn
-                ? "Oturumunuz açık · Kaldığınız yerden devam edin"
-                : "Kurulum 5 dakika · Müşterileriniz için üyelik gerekmez · Online kapora Pro'da"}
+              {bySession((signedIn) =>
+                signedIn
+                  ? "Oturumunuz açık · Kaldığınız yerden devam edin"
+                  : "Kurulum 5 dakika · Müşterileriniz için üyelik gerekmez · Online kapora Pro'da"
+              )}
             </p>
-            {!signedIn && (
-              <div
-                className="rise mt-6 grid w-fit max-w-full gap-1.5 rounded-2xl px-5 py-4 text-sm ring-1 ring-hair"
-                style={{ animationDelay: "300ms" }}
-              >
-                <p className="eyebrow text-brand-ink">Paneli deneyin</p>
-                <p className="text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    {DEMO_PRO.email}
-                  </span>{" "}
-                  ({PLANS.pro.name}) veya{" "}
-                  <span className="font-medium text-foreground">
-                    {DEMO_FREE.email}
-                  </span>{" "}
-                  ({PLANS.free.name})
-                </p>
-                <p className="text-muted-foreground">
-                  Şifre:{" "}
-                  <span className="font-medium text-foreground">
-                    {DEMO_PASSWORD}
-                  </span>
-                  {" · "}
-                  <Link href="/giris" className="underline-draw text-brand-ink">
-                    Giriş yapın
-                  </Link>
-                </p>
-              </div>
-            )}
+            <div className="rise" style={{ animationDelay: "300ms" }}>
+              {bySession(
+                (signedIn) =>
+                  !signedIn && (
+                    <div className="mt-6 grid w-fit max-w-full gap-1.5 rounded-2xl px-5 py-4 text-sm ring-1 ring-hair">
+                      <p className="eyebrow text-brand-ink">Paneli deneyin</p>
+                      <p className="text-muted-foreground">
+                        <span className="font-medium text-foreground">
+                          {DEMO_PRO.email}
+                        </span>{" "}
+                        ({PLANS.pro.name}) veya{" "}
+                        <span className="font-medium text-foreground">
+                          {DEMO_FREE.email}
+                        </span>{" "}
+                        ({PLANS.free.name})
+                      </p>
+                      <p className="text-muted-foreground">
+                        Şifre:{" "}
+                        <span className="font-medium text-foreground">
+                          {DEMO_PASSWORD}
+                        </span>
+                        {" · "}
+                        <Link
+                          href="/giris"
+                          className="underline-draw text-brand-ink"
+                        >
+                          Giriş yapın
+                        </Link>
+                      </p>
+                    </div>
+                  )
+              )}
+            </div>
           </div>
           <div className="rise" style={{ animationDelay: "160ms" }}>
             <HeroMockup />
@@ -394,19 +425,23 @@ export default async function Home() {
                     {plan.footnote}
                   </p>
                   <div className="mt-2">
-                    <Button
-                      nativeButton={false}
-                      variant={isPro ? "brand" : "outline"}
-                      render={
-                        <Link href={signedIn ? "/panel/abonelik" : "/kayit"} />
-                      }
-                    >
-                      {signedIn
-                        ? "Aboneliğinize gidin"
-                        : isPro
-                          ? "Pro ile başlayın"
-                          : "Ücretsiz başlayın"}
-                    </Button>
+                    {bySession((signedIn) => (
+                      <Button
+                        nativeButton={false}
+                        variant={isPro ? "brand" : "outline"}
+                        render={
+                          <Link
+                            href={signedIn ? "/panel/abonelik" : "/kayit"}
+                          />
+                        }
+                      >
+                        {signedIn
+                          ? "Aboneliğinize gidin"
+                          : isPro
+                            ? "Pro ile başlayın"
+                            : "Ücretsiz başlayın"}
+                      </Button>
+                    ))}
                   </div>
                 </div>
               );
@@ -425,15 +460,17 @@ export default async function Home() {
               Randevu sayfanız 5 dakikada yayında. Ücretsiz planda kredi kartı
               gerekmez.
             </p>
-            <Button
-              nativeButton={false}
-              variant="brand"
-              size="lg"
-              className="mt-9"
-              render={<Link href={signedIn ? "/panel" : "/kayit"} />}
-            >
-              {signedIn ? "Panelinize gidin" : "Ücretsiz başlayın"}
-            </Button>
+            {bySession((signedIn) => (
+              <Button
+                nativeButton={false}
+                variant="brand"
+                size="lg"
+                className="mt-9"
+                render={<Link href={signedIn ? "/panel" : "/kayit"} />}
+              >
+                {signedIn ? "Panelinize gidin" : "Ücretsiz başlayın"}
+              </Button>
+            ))}
           </div>
         </section>
       </main>
@@ -445,28 +482,30 @@ export default async function Home() {
             online randevu
           </p>
           <div className="flex gap-5 text-sm">
-            {signedIn ? (
-              <Link
-                href="/panel"
-                className="underline-draw text-muted-foreground transition-colors hover:text-brand-ink"
-              >
-                Panel
-              </Link>
-            ) : (
-              <>
+            {bySession((signedIn) =>
+              signedIn ? (
                 <Link
-                  href="/giris"
+                  href="/panel"
                   className="underline-draw text-muted-foreground transition-colors hover:text-brand-ink"
                 >
-                  Giriş yap
+                  Panel
                 </Link>
-                <Link
-                  href="/kayit"
-                  className="underline-draw text-muted-foreground transition-colors hover:text-brand-ink"
-                >
-                  Kayıt ol
-                </Link>
-              </>
+              ) : (
+                <>
+                  <Link
+                    href="/giris"
+                    className="underline-draw text-muted-foreground transition-colors hover:text-brand-ink"
+                  >
+                    Giriş yap
+                  </Link>
+                  <Link
+                    href="/kayit"
+                    className="underline-draw text-muted-foreground transition-colors hover:text-brand-ink"
+                  >
+                    Kayıt ol
+                  </Link>
+                </>
+              )
             )}
           </div>
         </div>

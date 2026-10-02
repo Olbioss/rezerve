@@ -1,7 +1,14 @@
-import { redirectIfSignedIn } from "@/lib/auth-guard";
+import { Suspense } from "react";
+import { SignedInRedirect } from "../signed-in-redirect";
 import { LoginForm } from "./login-form";
 
-export default async function LoginPage() {
-  await redirectIfSignedIn();
-  return <LoginForm />;
+export default function LoginPage() {
+  return (
+    <>
+      <LoginForm />
+      <Suspense fallback={null}>
+        <SignedInRedirect />
+      </Suspense>
+    </>
+  );
 }

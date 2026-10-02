@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import {
+  BRAND_IMAGE_HEADERS,
   brandImageFonts,
   CHAMPAGNE,
   IVORY,
@@ -70,6 +71,10 @@ export default async function OpengraphImage() {
         }}
       />
     </div>,
-    { ...size, fonts: [...(await brandImageFonts())] }
+    {
+      ...size,
+      fonts: [...(await brandImageFonts())],
+      headers: BRAND_IMAGE_HEADERS,
+    }
   );
 }

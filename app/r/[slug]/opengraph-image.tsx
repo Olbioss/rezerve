@@ -8,6 +8,7 @@ import {
   MUTED,
   NIGHT,
 } from "@/lib/brand/image-fonts";
+import { currentSlugFor } from "@/lib/slug-history";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
@@ -36,7 +37,11 @@ export default async function BusinessCard({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const business = await getBusinessBySlug(slug);
+  // An old address's preview shows the business it now leads to.
+  const moved = (await getBusinessBySlug(slug))
+    ? null
+    : await currentSlugFor(slug);
+  const business = await getBusinessBySlug(moved ?? slug);
   if (!business) notFound();
   const name = business.orgName;
   const line = clip(
@@ -108,6 +113,15 @@ export default async function BusinessCard({
         <span style={{ fontStyle: "italic", color: CHAMPAGNE }}>ve</span>
       </div>
     </div>,
-    { ...size, fonts: [...(await brandImageFonts())] }
+    {
+      ...size,
+      fonts: [...(await brandImageFonts())],
+      // A business can rename itself or rewrite its description, so the CDN
+      // keeps a card for an hour, then refreshes it in the background.
+      headers: {
+        "Cache-Control":
+          "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+      },
+    }
   );
 }
