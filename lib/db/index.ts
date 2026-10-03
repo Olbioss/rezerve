@@ -2,6 +2,7 @@ import { attachDatabasePool } from "@vercel/functions";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { requireEnv } from "@/lib/env";
+import { withVerifiedTls } from "./connection-string";
 import * as schema from "./schema";
 
 /**
@@ -16,7 +17,9 @@ import * as schema from "./schema";
  * idle timeout to close them. Outside Vercel — tests, builds, local dev — it
  * does nothing.
  */
-const pool = new Pool({ connectionString: requireEnv("DATABASE_URL") });
+const pool = new Pool({
+  connectionString: withVerifiedTls(requireEnv("DATABASE_URL")),
+});
 attachDatabasePool(pool);
 
 export const db = drizzle({ client: pool, schema });
