@@ -1,5 +1,9 @@
 import "server-only";
 import { eq } from "drizzle-orm";
+import {
+  REFUND_NOTICE_HOURS,
+  refundDeadline,
+} from "@/lib/booking/cancellation-policy";
 import { confirmationUrl } from "@/lib/booking/confirmation";
 import { bookingCalendarEvent } from "@/lib/calendar/booking-event";
 import { bookingIcs } from "@/lib/calendar/ics";
@@ -9,7 +13,11 @@ import type { bookings } from "@/lib/db/schema/booking-schema";
 import { businessProfiles } from "@/lib/db/schema/business-schema";
 import { services } from "@/lib/db/schema/service-schema";
 import { formatMoney } from "@/lib/format";
-import { cancelledIntro } from "./copy";
+import {
+  cancelledIntro,
+  customerCancelledIntro,
+  customerCancelledOwnerIntro,
+} from "./copy";
 import { ownerNotificationAddress } from "./recipients";
 import { sendEmailSafe } from "./send";
 import { BookingEmail } from "./templates/booking-email";
@@ -84,8 +92,18 @@ function forCustomer(booking: Booking, ctx: Context) {
       url: bookingUrl,
     })
   );
+  // Only a paid kapora has a deadline to state. formatWhen gives the
+  // business's own clock, the one the appointment is in.
+  const note =
+    booking.depositCents != null
+      ? `Randevudan ${REFUND_NOTICE_HOURS} saat öncesine kadar (${formatWhen(
+          refundDeadline(booking.startsAt),
+          ctx.profile.timezone
+        )}) iptal ederseniz kaporanız iade edilir; daha sonra iptal ederseniz kapora işletmede kalır.`
+      : undefined;
   return {
     bookingUrl,
+    note,
     attachments: [
       {
         filename: "randevu.ics",
@@ -129,6 +147,7 @@ export async function sendBookingConfirmedEmails(
             businessPhone={ctx.profile.phone}
             businessAddress={ctx.profile.address}
             bookingUrl={customer.bookingUrl}
+            note={customer.note}
             {...shared}
           />
         ),
@@ -155,7 +174,19 @@ export async function sendBookingConfirmedEmails(
 export async function sendBookingCancelledEmails(
   booking: Booking,
   /** True when the kapora was returned to the customer. */
-  depositRefunded = false
+  depositRefunded = false,
+  {
+    /** The business, or the customer from their booking's page. */
+    by = "owner",
+    /** The customer cancelled inside the last day; the business keeps it. */
+    depositKept = false,
+    /** The kapora was due back, and the refund did not go through. */
+    refundFailed = false,
+  }: {
+    by?: "owner" | "customer";
+    depositKept?: boolean;
+    refundFailed?: boolean;
+  } = {}
 ) {
   const ctx = await loadContext(booking);
   if (!ctx) return;
@@ -165,29 +196,53 @@ export async function sendBookingCancelledEmails(
     whenText: ctx.whenText,
     customerName: booking.customerName,
   };
+  const amount =
+    booking.depositCents != null
+      ? formatMoney(booking.depositCents, ctx.profile.currency)
+      : null;
+  const depositLine = !amount
+    ? undefined
+    : depositRefunded
+      ? `${amount} iade edildi`
+      : depositKept
+        ? `${amount} iade edilmedi`
+        : refundFailed
+          ? `${amount} — iade bekleniyor`
+          : undefined;
+  const outcome = { depositRefunded, depositKept, refundFailed };
+  const byCustomer = by === "customer";
 
   await Promise.all([
     booking.customerEmail &&
       sendEmailSafe({
         to: booking.customerEmail,
-        subject: `Randevu iptal edildi — ${ctx.service.name}, ${ctx.org.name}`,
+        subject: byCustomer
+          ? `Randevunuzu iptal ettiniz — ${ctx.service.name}, ${ctx.org.name}`
+          : `Randevu iptal edildi — ${ctx.service.name}, ${ctx.org.name}`,
         body: (
           <BookingEmail
-            heading="Randevu iptal edildi"
+            heading={
+              byCustomer ? "Randevunuzu iptal ettiniz" : "Randevu iptal edildi"
+            }
             preview={`${ctx.service.name} randevunuz iptal edildi`}
-            intro={cancelledIntro({
-              customerName: booking.customerName,
-              businessName: ctx.org.name,
-              businessPhone: ctx.profile.phone,
-              depositRefunded,
-            })}
+            intro={
+              byCustomer
+                ? customerCancelledIntro({
+                    customerName: booking.customerName,
+                    businessName: ctx.org.name,
+                    businessPhone: ctx.profile.phone,
+                    ...outcome,
+                  })
+                : cancelledIntro({
+                    customerName: booking.customerName,
+                    businessName: ctx.org.name,
+                    businessPhone: ctx.profile.phone,
+                    depositRefunded,
+                  })
+            }
             businessPhone={ctx.profile.phone}
             businessAddress={ctx.profile.address}
-            {...(depositRefunded && booking.depositCents != null
-              ? {
-                  depositLine: `${formatMoney(booking.depositCents, ctx.profile.currency)} iade edildi`,
-                }
-              : {})}
+            {...(depositLine ? { depositLine } : {})}
             {...shared}
           />
         ),
@@ -195,16 +250,30 @@ export async function sendBookingCancelledEmails(
     ctx.ownerEmail &&
       sendEmailSafe({
         to: ctx.ownerEmail,
-        subject: `Randevu iptal edildi — ${ctx.service.name}, ${ctx.whenText}`,
+        subject: byCustomer
+          ? `Müşteri randevusunu iptal etti — ${ctx.service.name}, ${ctx.whenText}`
+          : `Randevu iptal edildi — ${ctx.service.name}, ${ctx.whenText}`,
         body: (
           <BookingEmail
-            heading="Randevu iptal edildi"
+            heading={
+              byCustomer
+                ? "Müşteri randevusunu iptal etti"
+                : "Randevu iptal edildi"
+            }
             preview={`${booking.customerName} adlı müşterinin randevusu iptal edildi`}
-            intro={`Bir randevu iptal edildi.${
-              depositRefunded ? " Kapora müşteriye iade edildi." : ""
-            }`}
+            intro={
+              byCustomer
+                ? customerCancelledOwnerIntro({
+                    customerName: booking.customerName,
+                    ...outcome,
+                  })
+                : `Bir randevu iptal edildi.${
+                    depositRefunded ? " Kapora müşteriye iade edildi." : ""
+                  }`
+            }
             customerEmail={booking.customerEmail ?? undefined}
             customerPhone={booking.customerPhone}
+            {...(byCustomer && depositLine ? { depositLine } : {})}
             {...shared}
           />
         ),
@@ -248,6 +317,7 @@ export async function sendBookingRescheduledEmail(
         customerName={booking.customerName}
         depositLine={ctx.depositLine}
         bookingUrl={customer.bookingUrl}
+        note={customer.note}
       />
     ),
   });

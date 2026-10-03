@@ -99,6 +99,11 @@ export function BookingsList({
             </TableCell>
             <TableCell>
               <StatusBadge status={booking.status} />
+              {booking.cancelledBy === "customer" && (
+                <span className="mt-1 block text-muted-foreground text-xs">
+                  müşteri iptal etti
+                </span>
+              )}
             </TableCell>
             {allowCancel && (
               <TableCell className="whitespace-nowrap text-right">

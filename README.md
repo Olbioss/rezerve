@@ -86,6 +86,14 @@ since the customer is not there to authenticate.
   an `.ics` file. The file is written by hand to RFC 5545 (UTC times, escaping,
   folding that never splits a ğ), and keeps the booking's id as its UID, so the
   copy sent after a move replaces the event instead of adding a second
+- **Customers cancel their own bookings** — from the booking's page, which
+  every email links to. With 24 hours' notice the kapora comes back in full;
+  later, the slot is still freed but the business keeps the kapora, the
+  no-show protection it was paid for. The policy is stated before anyone
+  pays, the dialog says what will happen to the kapora before anything does,
+  and if the deadline passes while it stands open, nothing is cancelled until
+  the customer confirms again. The panel shows which cancellations were the
+  customer's
 - **Link previews** — every booking page describes itself and has its own
   social card, the business's name in the brand's type, since businesses share
   these links on Instagram and in messages
@@ -257,10 +265,13 @@ and refunds instead. The id is stored *before* refunding: without it the
 payment has no handle at all, so a refund that fails would leave money at
 iyzico with nothing pointing at it.
 
-**Cancelling returns the kapora.** `cancelBooking` sits behind
-`requireOwner()`, so every cancellation in the app is the business calling the
-appointment off — the customer should not be out of pocket, and a kapora only
-earns its keep against a no-show, which this is not. The refund is idempotent
+**Cancelling returns the kapora — when it should.** When the business calls
+the appointment off (`cancelBooking`, behind `requireOwner()`), it always does:
+the customer should not be out of pocket, and a kapora only earns its keep
+against a no-show, which this is not. When the customer cancels
+(`cancelBookingAsCustomer`, from the booking's page), it does with 24 hours'
+notice and stays with the business after that
+(`lib/booking/cancellation-policy.ts`). The refund is idempotent
 through `bookings.deposit_refunded_at`, claimed before iyzico is called and
 released again on failure so a booking is never silently stuck as refunded.
 The cancellation email tells the customer, since otherwise nothing would.
@@ -353,6 +364,11 @@ Everything is Turkish, including the URLs:
 - `lib/billing/charge-subscription.integration.test.ts` — renewal billing: a
   replayed run and two concurrent runs each charge exactly once, dunning
   retries then expires, and a trial lapses instead of charging
+- `lib/actions/customer-cancel.integration.test.ts` — a customer cancelling:
+  refunded with a day's notice and kept inside it, nothing cancelled if the
+  deadline passed while the dialog was open, an unpaid hold let go, another
+  business's booking refused even with its real id, one refund for two
+  cancels, and a failed refund that still cancels and says so
 - `lib/actions/business-identity.integration.test.ts` — moving an address:
   old addresses lead to the current one through any number of moves, stay
   reserved for their business, and can be taken back
@@ -362,7 +378,8 @@ Everything is Turkish, including the URLs:
   free demo; the slot-loading race, with the API stubbed so the previous
   day's answer arrives last (it fails if the fix is reverted); the demo login;
   not-found pages; security headers; link previews; old addresses; the
-  calendar file
+  calendar file; and a customer cancelling, after which the same time can be
+  booked again
 
 ## Architecture notes
 

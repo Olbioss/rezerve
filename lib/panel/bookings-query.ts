@@ -40,6 +40,8 @@ export type BookingRow = {
   depositCents: number | null;
   /** Set once the kapora has been returned to the customer. */
   depositRefunded: boolean;
+  /** Who called it off, when someone did. */
+  cancelledBy: "owner" | "customer" | null;
   serviceName: string;
 };
 
@@ -104,6 +106,7 @@ export async function loadBookings(
       status: bookings.status,
       depositCents: bookings.depositCents,
       depositRefundedAt: bookings.depositRefundedAt,
+      cancelledBy: bookings.cancelledBy,
       serviceName: services.name,
     })
     .from(bookings)

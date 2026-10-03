@@ -137,6 +137,7 @@ describe("cancelBooking — the business calls it off", () => {
     });
     const row = await booking();
     expect(row?.status).toBe("cancelled");
+    expect(row?.cancelledBy).toBe("owner");
     expect(row?.depositRefundedAt).not.toBeNull();
     // The email is the customer's only notice that the money came back.
     expect(cancelledEmail).toHaveBeenCalledTimes(1);

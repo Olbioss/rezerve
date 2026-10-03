@@ -1,6 +1,10 @@
 import { render } from "@react-email/components";
 import { describe, expect, it } from "vitest";
-import { cancelledIntro } from "./copy";
+import {
+  cancelledIntro,
+  customerCancelledIntro,
+  customerCancelledOwnerIntro,
+} from "./copy";
 import { BookingEmail } from "./templates/booking-email";
 
 const NIGHT = "#0c1210";
@@ -163,5 +167,70 @@ describe("cancelledIntro", () => {
       depositRefunded: true,
     });
     expect(text).toMatch(/kapora kartınıza iade edildi/);
+  });
+});
+
+describe("a cancellation the customer made", () => {
+  const base = {
+    customerName: "Elif",
+    businessName: "Günnur Estetik",
+    businessPhone: "0532 123 45 67",
+    depositRefunded: false,
+    depositKept: false,
+    refundFailed: false,
+  };
+
+  it("tells the customer their kapora came back", () => {
+    const text = customerCancelledIntro({ ...base, depositRefunded: true });
+    expect(text).toMatch(/^Merhaba Elif, randevunuzu iptal ettiniz\./);
+    expect(text).toContain("kartınıza iade edildi");
+  });
+
+  it("says why it did not, inside the last day", () => {
+    const text = customerCancelledIntro({ ...base, depositKept: true });
+    expect(text).toContain("24 saatten az kala");
+    expect(text).toContain("iade edilmedi");
+  });
+
+  it("names who will finish a refund that failed, and how to reach them", () => {
+    const text = customerCancelledIntro({ ...base, refundFailed: true });
+    expect(text).toContain(
+      "Günnur Estetik (0532 123 45 67) iadeyi tamamlayacak"
+    );
+  });
+
+  it("says nothing about a kapora there never was", () => {
+    expect(customerCancelledIntro(base)).not.toMatch(/kapora/i);
+  });
+
+  it("tells the business the slot is free, then what became of the kapora", () => {
+    expect(customerCancelledOwnerIntro({ ...base, depositKept: true })).toBe(
+      "Elif randevusunu iptal etti; saat yeniden müsait. Randevuya 24 saatten az kaldığı için kapora sizde kalıyor."
+    );
+    expect(
+      customerCancelledOwnerIntro({ ...base, refundFailed: true })
+    ).toContain("iyzico panelinden iade");
+  });
+});
+
+describe("the refund deadline in a confirmation", () => {
+  it("is shown under the details when there is one", async () => {
+    const note =
+      "Randevudan 24 saat öncesine kadar (9 Eylül Salı 11:00) iptal ederseniz kaporanız iade edilir.";
+    const out = await render(
+      BookingEmail({
+        heading: "Randevunuz alındı!",
+        preview: "Onay",
+        intro: "Randevunuz onaylandı.",
+        businessName: "Günnur Estetik",
+        serviceName: "Cilt Bakımı",
+        whenText: "10 Eylül Çarşamba, 11:00",
+        customerName: "Elif Yıldırım",
+        depositLine: "₺300 ödendi",
+        note,
+      })
+    );
+    expect(out).toContain(note);
+    expect(await html()).not.toContain("iptal ederseniz");
   });
 });

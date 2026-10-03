@@ -7,10 +7,11 @@ import { getPaymentProvider } from "@/lib/payments";
 /**
  * Return a cancelled booking's kapora to the customer.
  *
- * Every cancellation in the app is owner-initiated — cancelBooking is behind
- * requireOwner — so the business is calling the appointment off and the
- * customer should not be out of pocket. A kapora only earns its keep against
- * a no-show, which is not this.
+ * Called whenever a cancellation owes the customer their money back. When the
+ * business calls the appointment off (cancelBooking) that is always: a kapora
+ * only earns its keep against a no-show, which this is not. When the customer
+ * cancels (cancelBookingAsCustomer) it is only with a day's notice — see
+ * lib/booking/cancellation-policy.ts.
  *
  * Refund rather than disapproval: disapproval merely undoes an approval, and
  * refuses outright on a payment still held. A refund works either way, which

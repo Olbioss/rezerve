@@ -28,6 +28,8 @@ export type BookingEmailProps = {
   depositLine?: string;
   /** For the customer's copy: their booking's page, which also offers the calendar file. */
   bookingUrl?: string | null;
+  /** A sentence under the details — the kapora's refund deadline, for one. */
+  note?: string;
 };
 
 // Gece palette, night ground — the email should feel like the page the
@@ -69,6 +71,7 @@ export function BookingEmail({
   customerPhone,
   depositLine,
   bookingUrl,
+  note,
 }: BookingEmailProps) {
   return (
     <Html dir="ltr" lang="tr">
@@ -173,13 +176,18 @@ export function BookingEmail({
               </Text>
             )}
           </Section>
+          {note && (
+            <Text style={{ color: MUTED, fontSize: 13, margin: "16px 0 0" }}>
+              {note}
+            </Text>
+          )}
           {bookingUrl && (
             <Text style={{ fontSize: 15, margin: "20px 0 0" }}>
               <a
                 href={bookingUrl}
                 style={{ color: BRAND, textDecoration: "none" }}
               >
-                Randevunuzu görüntüleyin ve takviminize ekleyin →
+                Randevunuzu görüntüleyin, takviminize ekleyin ya da iptal edin →
               </a>
             </Text>
           )}

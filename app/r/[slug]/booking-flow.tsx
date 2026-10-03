@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createBooking } from "@/lib/actions/bookings";
+import { REFUND_NOTICE_HOURS } from "@/lib/booking/cancellation-policy";
 import { formatMoney } from "@/lib/format";
 
 type Props = {
@@ -328,7 +329,7 @@ export function BookingFlow({
             </Button>
             <p className="text-center text-muted-foreground text-xs">
               {service.depositCents
-                ? "Saat 30 dakika sizin için tutulur."
+                ? `Saat 30 dakika sizin için tutulur. Randevudan ${REFUND_NOTICE_HOURS} saat öncesine kadar iptal ederseniz kapora iade edilir.`
                 : "Üyelik gerekmez."}
             </p>
           </form>

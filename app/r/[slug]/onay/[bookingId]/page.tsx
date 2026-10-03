@@ -5,6 +5,11 @@ import { Suspense } from "react";
 import { BookingShell } from "@/components/booking/booking-shell";
 import { buttonVariants } from "@/components/ui/button";
 import {
+  customerCanCancel,
+  REFUND_NOTICE_HOURS,
+  refundDeadline,
+} from "@/lib/booking/cancellation-policy";
+import {
   confirmationPath,
   confirmationUrl,
   getBookingForPage,
@@ -15,6 +20,7 @@ import { googleCalendarUrl } from "@/lib/calendar/ics";
 import { formatMoney } from "@/lib/format";
 import { currentSlugFor } from "@/lib/slug-history";
 import { BookingSkeleton } from "../../booking-skeleton";
+import { CancelBooking } from "./cancel-booking";
 
 export const metadata = { title: "Randevu onayı" };
 
@@ -95,6 +101,24 @@ async function Confirmation({
     ? formatMoney(booking.depositCents, business.profile.currency)
     : null;
 
+  // The cancellation policy, as this booking meets it now.
+  const paid =
+    booking.paymentTransactionId !== null && booking.depositCents !== null;
+  const deadline = refundDeadline(booking.startsAt);
+  const deadlineText = deadline.toLocaleString("tr-TR", {
+    timeZone: business.profile.timezone,
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const cancellable = customerCanCancel(booking, new Date());
+  const cancelledByCustomer = booking.cancelledBy === "customer";
+  const refundWasDue =
+    paid && booking.cancelledAt !== null && booking.cancelledAt <= deadline;
+
   const calendarEvent = bookingCalendarEvent({
     id: booking.id,
     startsAt: booking.startsAt,
@@ -162,6 +186,23 @@ async function Confirmation({
                 </a>
               </div>
             </div>
+            {cancellable && (
+              <div className="mt-8 grid justify-items-center gap-2">
+                {paid && (
+                  <p className="max-w-sm text-muted-foreground text-xs leading-relaxed">
+                    Randevudan {REFUND_NOTICE_HOURS} saat öncesine kadar (
+                    {deadlineText}) iptal ederseniz kaporanız iade edilir; daha
+                    sonra iptal ederseniz kapora işletmede kalır.
+                  </p>
+                )}
+                <CancelBooking
+                  slug={slug}
+                  bookingId={booking.id}
+                  deposit={paid ? deposit : null}
+                  refundDeadlineISO={paid ? deadline.toISOString() : null}
+                />
+              </div>
+            )}
           </>
         )}
 
@@ -180,6 +221,16 @@ async function Confirmation({
               <Row label="Hizmet" value={service?.name ?? "—"} />
               <Row label="Ne zaman" value={when} />
             </div>
+            {cancellable && (
+              <div className="mt-6 flex justify-center">
+                <CancelBooking
+                  slug={slug}
+                  bookingId={booking.id}
+                  deposit={null}
+                  refundDeadlineISO={null}
+                />
+              </div>
+            )}
           </>
         )}
 
@@ -187,12 +238,22 @@ async function Confirmation({
           <>
             <Seal glyph="×" />
             <h2 className="mt-7 font-display text-4xl leading-none">
-              Randevu <em className="text-muted-foreground">iptal edildi.</em>
+              {cancelledByCustomer ? "Randevunuzu " : "Randevu "}
+              <em className="text-muted-foreground">
+                {cancelledByCustomer ? "iptal ettiniz." : "iptal edildi."}
+              </em>
             </h2>
-            <p className="mt-4 text-muted-foreground text-sm">
+            <p className="mx-auto mt-4 max-w-sm text-muted-foreground text-sm">
               {booking.depositRefundedAt
-                ? "Bu randevu artık geçerli değil. Ödediğiniz kapora kartınıza iade edildi — bankanıza göre birkaç iş günü sürebilir. Dilerseniz yeni bir saat seçebilirsiniz."
-                : "Bu randevu artık geçerli değil. Dilerseniz yeni bir saat seçebilirsiniz."}
+                ? "Ödediğiniz kapora kartınıza iade edildi — bankanıza göre birkaç iş günü sürebilir. "
+                : cancelledByCustomer && paid
+                  ? refundWasDue
+                    ? "Kaporanızın iadesi henüz tamamlanmadı; işletme iadeyi tamamlayacak. "
+                    : `Randevuya ${REFUND_NOTICE_HOURS} saatten az kala iptal edildiği için kapora iade edilmedi. `
+                  : cancelledByCustomer
+                    ? ""
+                    : "Bu randevu artık geçerli değil. "}
+              Dilerseniz yeni bir saat seçebilirsiniz.
             </p>
           </>
         )}
