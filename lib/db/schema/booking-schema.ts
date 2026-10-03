@@ -18,6 +18,12 @@ export const bookingStatus = pgEnum("booking_status", [
   "cancelled",
 ]);
 
+/** Who called a booking off. Null for a lapsed hold, which nobody did. */
+export const bookingCancelledBy = pgEnum("booking_cancelled_by", [
+  "owner",
+  "customer",
+]);
+
 /**
  * A booked (or held) appointment. Instants are UTC; display converts to the
  * business timezone. Overlaps are prevented by the bookings_no_overlap
@@ -65,6 +71,7 @@ export const bookings = pgTable(
     /** Only set while status = 'pending'; hold is released after this. */
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelledBy: bookingCancelledBy("cancelled_by"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
