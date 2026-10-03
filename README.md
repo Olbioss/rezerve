@@ -21,8 +21,11 @@ and can pay a deposit (_kapora_), without an account. The UI is in Turkish.
 
 1. **Correctness lives in the database.** Two customers can take the same slot
    at the same instant and only one booking will exist: an `EXCLUDE USING gist`
-   constraint over the time range decides, pending holds included, and the race
-   is a test. Special-day ranges cannot overlap for the same reason; a renewal
+   constraint over the time range decides, pending holds included. The race is
+   a test: fifty simultaneous attempts, exactly one booking. Run with the
+   constraint dropped, eight of the fifty got the slot — the app's own
+   availability check catches most of a race, never all of it. Special-day
+   ranges cannot overlap for the same reason; a renewal
    cannot bill twice because a unique key refuses the second charge; a refund
    claims its idempotency marker before iyzico is ever called.
 2. **Entitlements are resolved in one place, on the server.** Every panel page
@@ -75,12 +78,25 @@ since the customer is not there to authenticate.
   held as `pending` for 30 minutes and confirmed by an idempotent payment
   callback (server-side token verification); abandoned checkouts release the
   hold automatically
-- **Email notifications** — confirmation/cancellation emails to customer and
-  owner (React Email + Brevo SMTP), formatted in the business timezone
+- **Email notifications** — confirmation, reschedule and cancellation emails
+  to customer and owner (React Email + Brevo SMTP), formatted in the business
+  timezone; the customer's confirmation and reschedule emails link back to the
+  booking and carry it as a calendar file
+- **Add to calendar** — a confirmed booking offers a Google Calendar link and
+  an `.ics` file. The file is written by hand to RFC 5545 (UTC times, escaping,
+  folding that never splits a ğ), and keeps the booking's id as its UID, so the
+  copy sent after a move replaces the event instead of adding a second
+- **Link previews** — every booking page describes itself and has its own
+  social card, the business's name in the brand's type, since businesses share
+  these links on Instagram and in messages
 - **Owner dashboard** — bookings (upcoming/past; add, move and cancel — an
   owner may book outside the published hours once asked, never over another
   appointment), services CRUD, weekly availability and special days, booking
-  rules
+  rules, and the business's name and public address
+- **Addresses that survive a move** — moving the public address keeps every
+  link already shared working: `/r/<old>` leads to the current page however
+  many moves ago it was, and a released address stays reserved for the
+  business that held it, which can take it back
 - **Subscriptions (Ücretsiz / Pro ₺299 ay)** — online kapora is the paid
   feature. Entitlements are resolved once in `requireOwner()` and enforced
   server-side; a lapsed plan keeps its stored kapora amounts but stops
@@ -91,9 +107,10 @@ since the customer is not there to authenticate.
 
 ## Stack
 
-Next.js (App Router) · React 19 · TypeScript · Tailwind v4 + shadcn/ui
-(Base UI) · Postgres (Neon) + Drizzle ORM · Better Auth · iyzico ·
-React Email + Nodemailer · Bun · Biome · Vitest
+Next.js 16 (App Router, Cache Components) · React 19 · TypeScript ·
+Tailwind v4 + shadcn/ui (Base UI) · Postgres (Neon) + Drizzle ORM ·
+Better Auth · iyzico · React Email + Nodemailer · Bun · Biome · Vitest ·
+Playwright
 
 ## Development
 
@@ -105,7 +122,10 @@ bun dev
 ```
 
 Useful scripts: `bun run check` (Biome), `bun run typecheck`,
-`bun run test` (unit + DB integration tests), `bun run db:studio`,
+`bun run test` (unit + DB integration tests), `bun run e2e` (Playwright
+against a production build — it refuses any `DATABASE_URL` that is not on
+this machine, since it books appointments and resets the demos),
+`bun run db:studio`,
 `bun run demo:submerchant` (creates the demo business's iyzico submerchant),
 `bun run seed:demo` (creates two demo businesses: `/r/demo` on Pro, and
 `/r/demo-ucretsiz` on the free plan with the _same_ services — the only way to
@@ -122,7 +142,9 @@ sandbox keys at sandbox-merchant.iyzipay.com.
 There is one payment code path. An in-app simulation used to stand in while
 iyzico had neither Marketplace nor a usable recurring path, but a second path
 that production never exercises is somewhere the real one can rot unnoticed —
-so it was removed. The app requires iyzico credentials to run.
+so it was removed. Every payment path needs iyzico credentials; the rest of
+the app runs without them, which is how the end-to-end suite books on the
+free demo in CI.
 
 Sandbox versus production is a separate axis: `IYZICO_BASE_URL` decides which
 iyzico you reach. Sandbox gives real API calls, real submerchants, real hosted
@@ -283,6 +305,7 @@ Everything is Turkish, including the URLs:
 | `/panel/abonelik` (+ `odeme-hesabi`)                      | Plan, and the submerchant payout form                |
 | `/r/[slug]`                                               | Public booking page (no customer account)            |
 | `/r/[slug]/onay/[bookingId]`                              | Booking confirmation                                 |
+| `/r/[slug]/onay/[bookingId]/takvim`                       | The booking as an `.ics` file                        |
 | `/api/r/[slug]/slots`                                     | Availability API                                     |
 | `/api/odeme/iyzico`                                       | iyzico deposit callback                              |
 | `/api/cron/abonelik`                                      | Daily: renewals, hold sweep, demo reset (bearer)     |
@@ -296,6 +319,12 @@ Everything is Turkish, including the URLs:
   Postgres resolving that race as a deadlock (`40P01`) rather than an
   exclusion violation, which is why `isExclusionConflict` treats both as
   "the slot is taken"
+- `lib/actions/booking-race.integration.test.ts` — fifty simultaneous
+  reservations for one slot: one booking, and forty-nine visitors told the
+  slot is gone. The pool is widened so all fifty are inside Postgres at once
+  (the peak is recorded, about 57 connections), each arrives from its own
+  address so the throttle stays out of it, and with the exclusion constraint
+  dropped the test fails (eight of the fifty got the slot in that run)
 - `lib/booking/exceptions.test.ts` — holidays and one-off hours resolved
   before the slot engine: a closed date has no slots, a Sunday opening does
 - `lib/actions/owner-bookings.integration.test.ts` — an owner booking or
@@ -324,6 +353,16 @@ Everything is Turkish, including the URLs:
 - `lib/billing/charge-subscription.integration.test.ts` — renewal billing: a
   replayed run and two concurrent runs each charge exactly once, dunning
   retries then expires, and a trial lapses instead of charging
+- `lib/actions/business-identity.integration.test.ts` — moving an address:
+  old addresses lead to the current one through any number of moves, stay
+  reserved for their business, and can be taken back
+- `lib/calendar/ics.test.ts` — RFC 5545 escaping, UTC times, and folding at
+  75 octets without splitting a multi-byte Turkish character
+- `e2e/` — Playwright against the production build, in CI: a booking on the
+  free demo; the slot-loading race, with the API stubbed so the previous
+  day's answer arrives last (it fails if the fix is reverted); the demo login;
+  not-found pages; security headers; link previews; old addresses; the
+  calendar file
 
 ## Architecture notes
 
@@ -340,12 +379,30 @@ Everything is Turkish, including the URLs:
 - The exclusion constraint (`lib/db/migrations/0001_*.sql`) covers
   `pending` holds too, so a held slot can't be double-sold; expired holds
   are released by the payment callback, by a lazy cleanup on the next
-  booking attempt, and filtered out of availability queries.
+  booking attempt and by the daily cron's sweep, and filtered out of
+  availability queries.
 - The iyzico callback never trusts the browser POST: the result is
   re-fetched from iyzico's API and matched against the stored payment
   token before any state change.
 - Server actions handle all mutations; route handlers exist only for the
-  slots API, Better Auth, and the iyzico payment callback.
+  slots API, Better Auth, the iyzico payment callback, the daily cron and the
+  calendar file.
+- Rendering is partial prerendering (`cacheComponents`): every page's static
+  part is prerendered and served at once — the landing page's shell is the
+  whole signed-out page — and only what depends on the request streams in.
+  The price, accepted: inside a streamed boundary the response has already
+  begun as a 200, so a booking page for an unknown business is a 200 marked
+  `noindex` rather than a 404, and an old address or a signed-out `/panel`
+  redirects from the browser rather than with a 307. Link previewers do not
+  run that redirect, so an old address's tags and card follow the move.
+- The database is reached through Neon's PgBouncer pooler, and
+  `attachDatabasePool` lets Fluid Compute close idle connections before it
+  suspends an instance. A pasted `sslmode=require` is rewritten to
+  `verify-full`, so the certificate is always checked.
+- Every response refuses framing (`X-Frame-Options: DENY`,
+  `frame-ancestors 'none'`) and carries `nosniff`, a strict referrer policy
+  and a Permissions-Policy; a script-src policy would need per-request nonces
+  and is not attempted.
 
 ## Deliberately out of scope
 
