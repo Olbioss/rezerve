@@ -19,27 +19,39 @@ and can pay a deposit (_kapora_), without an account. The UI is in Turkish.
 
 ## Worth a look
 
-1. **Correctness lives in the database.** Two customers can take the same slot
-   at the same instant and only one booking will exist: an `EXCLUDE USING gist`
-   constraint over the time range decides, pending holds included. The race is
-   a test: fifty simultaneous attempts, exactly one booking. Run with the
-   constraint dropped, eight of the fifty got the slot — the app's own
-   availability check catches most of a race, never all of it. Special-day
-   ranges cannot overlap for the same reason; a renewal
-   cannot bill twice because a unique key refuses the second charge; a refund
-   claims its idempotency marker before iyzico is ever called.
-2. **Entitlements are resolved in one place, on the server.** Every panel page
-   and owner action goes through `requireOwner()`, which resolves the plan
-   once; the public booking path reads the business's own billing rows. Nothing
-   in the browser decides what a business may do, and a lapsed plan keeps its
-   kapora amounts but stops charging them.
-3. **A real payment integration, with its dead ends written down.** iyzico
-   Marketplace with a submerchant per business, approval and release, refunds,
-   and self-run subscription billing because iyzico's own subscriptions do not
-   exist on a marketplace account. The constraints below were probed against
-   the API, not assumed — starting with how the card is handled.
+- **Fifty simultaneous bookings for one slot, and exactly one wins.** A
+  Postgres `EXCLUDE USING gist` constraint over the time range decides,
+  pending holds included, and the race is a test. Run with the constraint
+  dropped, eight of the fifty got the slot: the app's own availability check
+  catches most of a race, never all of it.
+- **Times are right in the business's own timezone, DST included.** Bookings
+  are stored as UTC instants, opening hours as wall-clock minutes in whatever
+  timezone the business picks. Turkey has had no DST since 2016, so the slot
+  engine is tested on New York's spring-forward and fall-back days instead.
+  Closer to home, iyzico stamps Istanbul wall-clock times with a `Z`; the
+  payouts page does not take them for UTC, which would show every payment
+  three hours late.
+- **iyzico, probed rather than assumed.** A marketplace account has no
+  Abonelik — every `/v2/subscription/*` call returns `100001`, and iyzico's
+  integration team confirmed it — so Rezerve runs its own renewals, from a card
+  taken in its own form: a PCI trade-off made knowingly, in the sandbox. The
+  payouts page was corrected once for counting money iyzico still held as the
+  owner's, and when iyzico's daily transaction listing stopped listing on
+  23 September, it moved to asking about each booking by its own id.
 
-## Card handling, deliberately
+## Stack
+
+Next.js 16 (App Router, Cache Components) · React 19 · TypeScript ·
+Tailwind v4 + shadcn/ui (Base UI) · Postgres (Neon) + Drizzle ORM ·
+Better Auth · iyzico · React Email + Nodemailer · Bun · Biome · Vitest ·
+Playwright
+
+## Engineering notes
+
+<details>
+<summary>Card handling, iyzico billing and payouts, the sandbox probe, features, tests, architecture, routes, setup, and what's deliberately out of scope</summary>
+
+### Card handling, deliberately
 
 Upgrading to Pro takes the card number in Rezerve's own form
 (`/panel/abonelik`), and a server action passes it to iyzico's direct payment
@@ -60,115 +72,6 @@ passing through the server puts the whole deployment in PCI DSS scope — SAQ D,
 not the SAQ A a hosted payment page allows. And the first payment would have to
 go through `threedsInitialize` for 3-D Secure; renewals stay non-3DS either way,
 since the customer is not there to authenticate.
-
-## Features
-
-- **Multi-tenant** — each business gets its own `/r/[slug]` booking page
-  (Better Auth organizations, one business per owner)
-- **Slot engine** — availability computed from weekly hours (split shifts
-  supported), service duration, slot granularity, lead time and booking
-  window; timezone-correct across DST transitions (`@date-fns/tz`)
-- **Holidays and one-off hours** — a date range can be closed or given its
-  own hours, replacing the weekly hours for those dates only; a Postgres
-  exclusion constraint keeps one business's ranges from overlapping
-- **Race-safe booking** — a Postgres `EXCLUDE USING gist` constraint makes
-  double-booking impossible at the database level, even under concurrent
-  requests
-- **iyzico deposits** — services can require a deposit (kapora): the slot is
-  held as `pending` for 30 minutes and confirmed by an idempotent payment
-  callback (server-side token verification); abandoned checkouts release the
-  hold automatically
-- **Email notifications** — confirmation, reschedule and cancellation emails
-  to customer and owner (React Email + Brevo SMTP), formatted in the business
-  timezone; the customer's confirmation and reschedule emails link back to the
-  booking and carry it as a calendar file
-- **Add to calendar** — a confirmed booking offers a Google Calendar link and
-  an `.ics` file. The file is written by hand to RFC 5545 (UTC times, escaping,
-  folding that never splits a ğ), and keeps the booking's id as its UID, so the
-  copy sent after a move replaces the event instead of adding a second
-- **Customers cancel their own bookings** — from the booking's page, which
-  every email links to. With 24 hours' notice the kapora comes back in full;
-  later, the slot is still freed but the business keeps the kapora, the
-  no-show protection it was paid for. The policy is stated before anyone
-  pays, the dialog says what will happen to the kapora before anything does,
-  and if the deadline passes while it stands open, nothing is cancelled until
-  the customer confirms again. The panel shows which cancellations were the
-  customer's
-- **Link previews** — every booking page describes itself and has its own
-  social card, the business's name in the brand's type, since businesses share
-  these links on Instagram and in messages
-- **Owner dashboard** — bookings (upcoming/past; add, move and cancel — an
-  owner may book outside the published hours once asked, never over another
-  appointment), services CRUD, weekly availability and special days, booking
-  rules, and the business's name and public address
-- **Addresses that survive a move** — moving the public address keeps every
-  link already shared working: `/r/<old>` leads to the current page however
-  many moves ago it was, and a released address stays reserved for the
-  business that held it, which can take it back
-- **Subscriptions (Ücretsiz / Pro ₺299 ay)** — online kapora is the paid
-  feature. Entitlements are resolved once in `requireOwner()` and enforced
-  server-side; a lapsed plan keeps its stored kapora amounts but stops
-  charging them, so nothing is lost on re-upgrade
-- **Marketplace payouts** — each business is onboarded as an iyzico
-  submerchant, so a kapora settles into _its_ account and not the platform's
-  (`subMerchantPrice === price`: no commission)
-
-## Stack
-
-Next.js 16 (App Router, Cache Components) · React 19 · TypeScript ·
-Tailwind v4 + shadcn/ui (Base UI) · Postgres (Neon) + Drizzle ORM ·
-Better Auth · iyzico · React Email + Nodemailer · Bun · Biome · Vitest ·
-Playwright
-
-## Development
-
-```bash
-bun install
-cp .env.example .env        # fill in DATABASE_URL etc.
-bun run db:migrate
-bun dev
-```
-
-Useful scripts: `bun run check` (Biome), `bun run typecheck`,
-`bun run test` (unit + DB integration tests), `bun run e2e` (Playwright
-against a production build — it refuses any `DATABASE_URL` that is not on
-this machine, since it books appointments and resets the demos),
-`bun run db:studio`,
-`bun run demo:submerchant` (creates the demo business's iyzico submerchant),
-`bun run seed:demo` (creates two demo businesses: `/r/demo` on Pro, and
-`/r/demo-ucretsiz` on the free plan with the _same_ services — the only way to
-see the downgrade rule rather than read about it). It is a reset, not an
-additive seed: both demos go back to exactly their published state, with a
-fresh booking history, and the daily cron runs the same reset
-(`lib/demo/reset.ts`) because their logins are public.
-
-Payments use the iyzico sandbox by default (`IYZICO_BASE_URL`); create
-sandbox keys at sandbox-merchant.iyzipay.com.
-
-### Payments are always real iyzico calls
-
-There is one payment code path. An in-app simulation used to stand in while
-iyzico had neither Marketplace nor a usable recurring path, but a second path
-that production never exercises is somewhere the real one can rot unnoticed —
-so it was removed. Every payment path needs iyzico credentials; the rest of
-the app runs without them, which is how the end-to-end suite books on the
-free demo in CI.
-
-Sandbox versus production is a separate axis: `IYZICO_BASE_URL` decides which
-iyzico you reach. Sandbox gives real API calls, real submerchants, real hosted
-payment pages and real callbacks, with test cards and no money moving. That is
-the default, and `IS_TEST_MODE` is derived from it rather than carried as its
-own flag, so the "Test modu" banner can never disagree with reality.
-
-First-time setup for the demo business:
-
-```bash
-bun run demo:submerchant   # creates its iyzico submerchant, prints the key
-# put DEMO_SUBMERCHANT_KEY=... in .env
-bun run seed:demo
-```
-
-`demo:submerchant` runs under **Node, not Bun** — see the SDK note below.
 
 ### Why there is no iyzico Abonelik integration
 
@@ -302,29 +205,59 @@ Probed directly against the sandbox keys in `.env`:
 | `GET /v2/reporting/payment/details`                                       | works — has a payment within seconds                |
 | `GET /v2/reporting/payment/transactions`                                  | unreliable — see the payouts note above             |
 
-The iyzico SDK hangs under **Bun** (it uses `postman-request`), so any script
-touching it must run under Node. The app is unaffected: `next.config.ts` marks
-`iyzipay` as a server-external package, so it runs in Node there too.
+### Features
 
-## Routes
+- **Multi-tenant** — each business gets its own `/r/[slug]` booking page
+  (Better Auth organizations, one business per owner)
+- **Slot engine** — availability computed from weekly hours (split shifts
+  supported), service duration, slot granularity, lead time and booking
+  window; timezone-correct across DST transitions (`@date-fns/tz`)
+- **Holidays and one-off hours** — a date range can be closed or given its
+  own hours, replacing the weekly hours for those dates only; a Postgres
+  exclusion constraint keeps one business's ranges from overlapping
+- **Race-safe booking** — a Postgres `EXCLUDE USING gist` constraint makes
+  double-booking impossible at the database level, even under concurrent
+  requests
+- **iyzico deposits** — services can require a deposit (kapora): the slot is
+  held as `pending` for 30 minutes and confirmed by an idempotent payment
+  callback (server-side token verification); abandoned checkouts release the
+  hold automatically
+- **Email notifications** — confirmation, reschedule and cancellation emails
+  to customer and owner (React Email + Brevo SMTP), formatted in the business
+  timezone; the customer's confirmation and reschedule emails link back to the
+  booking and carry it as a calendar file
+- **Add to calendar** — a confirmed booking offers a Google Calendar link and
+  an `.ics` file. The file is written by hand to RFC 5545 (UTC times, escaping,
+  folding that never splits a ğ), and keeps the booking's id as its UID, so the
+  copy sent after a move replaces the event instead of adding a second
+- **Customers cancel their own bookings** — from the booking's page, which
+  every email links to. With 24 hours' notice the kapora comes back in full;
+  later, the slot is still freed but the business keeps the kapora, the
+  no-show protection it was paid for. The policy is stated before anyone
+  pays, the dialog says what will happen to the kapora before anything does,
+  and if the deadline passes while it stands open, nothing is cancelled until
+  the customer confirms again. The panel shows which cancellations were the
+  customer's
+- **Link previews** — every booking page describes itself and has its own
+  social card, the business's name in the brand's type, since businesses share
+  these links on Instagram and in messages
+- **Owner dashboard** — bookings (upcoming/past; add, move and cancel — an
+  owner may book outside the published hours once asked, never over another
+  appointment), services CRUD, weekly availability and special days, booking
+  rules, and the business's name and public address
+- **Addresses that survive a move** — moving the public address keeps every
+  link already shared working: `/r/<old>` leads to the current page however
+  many moves ago it was, and a released address stays reserved for the
+  business that held it, which can take it back
+- **Subscriptions (Ücretsiz / Pro ₺299 ay)** — online kapora is the paid
+  feature. Entitlements are resolved once in `requireOwner()` and enforced
+  server-side; a lapsed plan keeps its stored kapora amounts but stops
+  charging them, so nothing is lost on re-upgrade
+- **Marketplace payouts** — each business is onboarded as an iyzico
+  submerchant, so a kapora settles into _its_ account and not the platform's
+  (`subMerchantPrice === price`: no commission)
 
-Everything is Turkish, including the URLs:
-
-| Route                                                     | Purpose                                              |
-| --------------------------------------------------------- | ---------------------------------------------------- |
-| `/`                                                       | Marketing landing page                               |
-| `/giris` · `/kayit` · `/kurulum`                          | Login, signup, business onboarding                   |
-| `/panel` (+ `randevular` `hizmetler` `saatler` `ayarlar`) | Owner dashboard                                      |
-| `/panel/odemeler`                                         | Kapora over 7/30/90 days, with iyzico's cut itemised |
-| `/panel/abonelik` (+ `odeme-hesabi`)                      | Plan, and the submerchant payout form                |
-| `/r/[slug]`                                               | Public booking page (no customer account)            |
-| `/r/[slug]/onay/[bookingId]`                              | Booking confirmation                                 |
-| `/r/[slug]/onay/[bookingId]/takvim`                       | The booking as an `.ics` file                        |
-| `/api/r/[slug]/slots`                                     | Availability API                                     |
-| `/api/odeme/iyzico`                                       | iyzico deposit callback                              |
-| `/api/cron/abonelik`                                      | Daily: renewals, hold sweep, demo reset (bearer)     |
-
-## Testing
+### Testing
 
 - `lib/booking/slots.test.ts` — pure slot-engine tests incl. DST
   spring-forward/fall-back days
@@ -384,8 +317,17 @@ Everything is Turkish, including the URLs:
   calendar file; and a customer cancelling, after which the same time can be
   booked again
 
-## Architecture notes
+### Architecture notes
 
+- Correctness lives in the database. The booking race is decided by the
+  exclusion constraint described below; special-day ranges cannot overlap for
+  the same reason; a renewal cannot bill twice because a unique key refuses
+  the second charge; a refund claims its idempotency marker before iyzico is
+  ever called.
+- Entitlements are resolved in one place, on the server. Every panel page and
+  owner action goes through `requireOwner()`, which resolves the plan once;
+  the public booking path reads the business's own billing rows. Nothing in
+  the browser decides what a business may do.
 - Bookings are stored as UTC instants; availability rules as minutes-from-
   midnight in the business's local wall time. Conversion lives in
   `lib/booking/` — `slots.ts` for the slot engine, `opening-hours.ts` for
@@ -424,7 +366,79 @@ Everything is Turkish, including the URLs:
   and a Permissions-Policy; a script-src policy would need per-request nonces
   and is not attempted.
 
-## Deliberately out of scope
+### Routes
+
+Everything is Turkish, including the URLs:
+
+| Route                                                     | Purpose                                              |
+| --------------------------------------------------------- | ---------------------------------------------------- |
+| `/`                                                       | Marketing landing page                               |
+| `/giris` · `/kayit` · `/kurulum`                          | Login, signup, business onboarding                   |
+| `/panel` (+ `randevular` `hizmetler` `saatler` `ayarlar`) | Owner dashboard                                      |
+| `/panel/odemeler`                                         | Kapora over 7/30/90 days, with iyzico's cut itemised |
+| `/panel/abonelik` (+ `odeme-hesabi`)                      | Plan, and the submerchant payout form                |
+| `/r/[slug]`                                               | Public booking page (no customer account)            |
+| `/r/[slug]/onay/[bookingId]`                              | Booking confirmation                                 |
+| `/r/[slug]/onay/[bookingId]/takvim`                       | The booking as an `.ics` file                        |
+| `/api/r/[slug]/slots`                                     | Availability API                                     |
+| `/api/odeme/iyzico`                                       | iyzico deposit callback                              |
+| `/api/cron/abonelik`                                      | Daily: renewals, hold sweep, demo reset (bearer)     |
+
+### Development
+
+```bash
+bun install
+cp .env.example .env        # fill in DATABASE_URL etc.
+bun run db:migrate
+bun dev
+```
+
+Useful scripts: `bun run check` (Biome), `bun run typecheck`,
+`bun run test` (unit + DB integration tests), `bun run e2e` (Playwright
+against a production build — it refuses any `DATABASE_URL` that is not on
+this machine, since it books appointments and resets the demos),
+`bun run db:studio`,
+`bun run demo:submerchant` (creates the demo business's iyzico submerchant),
+`bun run seed:demo` (creates two demo businesses: `/r/demo` on Pro, and
+`/r/demo-ucretsiz` on the free plan with the _same_ services — the only way to
+see the downgrade rule rather than read about it). It is a reset, not an
+additive seed: both demos go back to exactly their published state, with a
+fresh booking history, and the daily cron runs the same reset
+(`lib/demo/reset.ts`) because their logins are public.
+
+Payments use the iyzico sandbox by default (`IYZICO_BASE_URL`); create
+sandbox keys at sandbox-merchant.iyzipay.com.
+
+#### Payments are always real iyzico calls
+
+There is one payment code path. An in-app simulation used to stand in while
+iyzico had neither Marketplace nor a usable recurring path, but a second path
+that production never exercises is somewhere the real one can rot unnoticed —
+so it was removed. Every payment path needs iyzico credentials; the rest of
+the app runs without them, which is how the end-to-end suite books on the
+free demo in CI.
+
+Sandbox versus production is a separate axis: `IYZICO_BASE_URL` decides which
+iyzico you reach. Sandbox gives real API calls, real submerchants, real hosted
+payment pages and real callbacks, with test cards and no money moving. That is
+the default, and `IS_TEST_MODE` is derived from it rather than carried as its
+own flag, so the "Test modu" banner can never disagree with reality.
+
+First-time setup for the demo business:
+
+```bash
+bun run demo:submerchant   # creates its iyzico submerchant, prints the key
+# put DEMO_SUBMERCHANT_KEY=... in .env
+bun run seed:demo
+```
+
+`demo:submerchant` runs under **Node, not Bun**.
+
+The iyzico SDK hangs under **Bun** (it uses `postman-request`), so any script
+touching it must run under Node. The app is unaffected: `next.config.ts` marks
+`iyzipay` as a server-external package, so it runs in Node there too.
+
+### Deliberately out of scope
 
 Each of these is a real requirement for a product, and not for this one. They
 are named because a gap a reader finds named reads as judgment, and the same
@@ -446,3 +460,5 @@ gap unexplained reads as an oversight.
 - **Error tracking and structured logging.** Sentry on an app with two demo
   businesses is ceremony; `console.error` and the platform's runtime logs are
   proportionate.
+
+</details>
