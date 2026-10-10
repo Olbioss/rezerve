@@ -609,8 +609,9 @@ export async function retrievePaymentDetails(
  *
  * iyzico holds a marketplace payment until the platform confirms delivery, so
  * without this the kapora reaches the business's submerchant and stays there.
- * Rezerve approves as soon as the payment succeeds: a kapora is a
- * non-refundable booking deposit, so there is nothing to wait for.
+ * Rezerve approves as soon as the payment succeeds. There is nothing to wait
+ * for: refundTransaction returns a released payment as well as a held one, so
+ * a kapora owed back on cancellation can still go back.
  */
 export function approveTransaction(
   paymentTransactionId: string

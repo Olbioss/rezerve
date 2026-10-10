@@ -231,9 +231,12 @@ business's submerchant and never leaves; iyzico's own panel shows
 Alt Üye İşyeri Ödemeleri as empty.
 
 Rezerve approves as soon as the payment succeeds, inside `confirmPaidBooking`.
-A kapora is a non-refundable booking deposit, so there is nothing to wait for —
-and doing it in the same guarded transition means it happens exactly once, since
-a replayed callback matches zero rows and never reaches the call.
+Approving does not stand in the way of a refund, so there is nothing to wait
+for: a kapora owed back — the business cancels, or the customer does with 24
+hours' notice — is returned with `refund`, which works on a released payment as
+well as a held one (see the notes on the API below). And doing it in the same
+guarded transition means it happens exactly once, since a replayed callback
+matches zero rows and never reaches the call.
 
 If approval fails the booking is still confirmed: the customer has paid, and
 refusing to confirm would be worse than a payout that needs releasing by hand.

@@ -27,8 +27,9 @@ export type PaymentOutcome =
  *
  * The release matters. iyzico holds a marketplace payment until the platform
  * approves the item transaction, so without it the money reaches the
- * business's submerchant and never leaves. Rezerve approves immediately: a
- * kapora is a non-refundable booking deposit, so there is nothing to wait for.
+ * business's submerchant and never leaves. Rezerve approves immediately, as
+ * there is nothing to wait for: a kapora owed back on cancellation is returned
+ * by refund, which works on a released payment too (see refundDeposit).
  *
  * Approval runs inside the same guarded transition, so it happens exactly once
  * — a replayed callback matches zero rows and never reaches it.
