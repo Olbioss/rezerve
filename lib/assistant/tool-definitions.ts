@@ -127,3 +127,98 @@ export type ListMyBookingsOutput = z.infer<
   typeof READ_TOOLS.list_my_bookings.output
 >;
 export type GetBookingInput = z.infer<typeof READ_TOOLS.get_booking.input>;
+
+const createBookingInput = z.object({
+  service_id: z.uuid(),
+  starts_at: instant,
+  customer_name: z.string().min(2).max(80),
+  // Checked in the tool with the booking form's own phone rule.
+  customer_phone: z.string().max(32).nullish(),
+  customer_email: z.email().nullish(),
+  expect_deposit_cents: z.number().int().positive().nullish(),
+});
+
+const rescheduleBookingInput = z.object({
+  booking_id: bookingId,
+  new_starts_at: instant,
+});
+
+const cancelBookingInput = z.object({
+  booking_id: bookingId,
+  expect_refund: z.boolean().optional(),
+});
+
+export const WRITE_TOOLS = {
+  create_booking: {
+    title: "Randevu oluştur",
+    description:
+      "Book a slot for this customer — only after they confirmed the exact service, time and kapora. With a kapora the slot is held for 30 minutes and checkout_url is the payment page to send them; customer_email is then required. Pass expect_deposit_cents as the kapora you showed them (null for none): if it changed since, nothing is booked (terms_changed).",
+    input: createBookingInput,
+    output: z.object({
+      booking_id: z.uuid(),
+      status: z.enum(["confirmed", "pending"]),
+      starts_at: instant,
+      local_label: z.string(),
+      checkout_url: z.url().nullable(),
+      hold_expires_at: instant.nullable(),
+    }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
+  },
+  reschedule_booking: {
+    title: "Randevuyu taşı",
+    description:
+      "Move one of this customer's confirmed bookings to another free start time (from find_slots), keeping its length. A booking still waiting for its kapora cannot be moved.",
+    input: rescheduleBookingInput,
+    output: z.object({
+      booking_id: z.uuid(),
+      starts_at: instant,
+      local_label: z.string(),
+      previous_local_label: z.string(),
+    }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  cancel_booking: {
+    title: "Randevuyu iptal et",
+    description:
+      "Cancel one of this customer's bookings. With at least 24 hours' notice a paid kapora is refunded; later, the business keeps it. Pass expect_refund as what you told them: if that is no longer true, nothing is cancelled (refund_window_closed).",
+    input: cancelBookingInput,
+    output: z.object({
+      cancelled: z.literal(true),
+      deposit_refunded: z.boolean(),
+      deposit_kept: z.boolean(),
+      refund_failed: z.boolean(),
+    }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+  },
+};
+
+/** Every tool /api/mcp serves, read and write. */
+export const TOOL_DEFINITIONS = { ...READ_TOOLS, ...WRITE_TOOLS };
+
+export type CreateBookingInput = z.infer<typeof createBookingInput>;
+export type CreateBookingOutput = z.infer<
+  typeof WRITE_TOOLS.create_booking.output
+>;
+export type RescheduleBookingInput = z.infer<typeof rescheduleBookingInput>;
+export type RescheduleBookingOutput = z.infer<
+  typeof WRITE_TOOLS.reschedule_booking.output
+>;
+export type CancelBookingInput = z.infer<typeof cancelBookingInput>;
+export type CancelBookingOutput = z.infer<
+  typeof WRITE_TOOLS.cancel_booking.output
+>;
