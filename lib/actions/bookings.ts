@@ -5,31 +5,21 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth-guard";
-import { getBilling } from "@/lib/billing/get-billing";
 import {
   customerCanCancel,
   refundsDeposit,
 } from "@/lib/booking/cancellation-policy";
 import { clientIp, FALLBACK_IP } from "@/lib/booking/client-ip";
-import { getBookingForPage } from "@/lib/booking/confirmation";
-import { expireHoldsForOrg } from "@/lib/booking/expire-holds";
 import {
-  getAvailableSlots,
-  getBusinessBySlug,
-  localDateISO,
-} from "@/lib/booking/get-available-slots";
+  confirmationPath,
+  getBookingForPage,
+} from "@/lib/booking/confirmation";
+import { createBookingCore } from "@/lib/booking/create-booking-core";
+import { getBusinessBySlug } from "@/lib/booking/get-available-slots";
 import { refundDeposit } from "@/lib/booking/refund-deposit";
-import { checkBookingThrottle } from "@/lib/booking/throttle";
 import { db } from "@/lib/db";
-import { isExclusionConflict } from "@/lib/db/errors";
 import { bookings } from "@/lib/db/schema/booking-schema";
-import { services } from "@/lib/db/schema/service-schema";
-import {
-  sendBookingCancelledEmails,
-  sendBookingConfirmedEmails,
-} from "@/lib/email/booking-notifications";
-import { requireEnv } from "@/lib/env";
-import { getPaymentProvider } from "@/lib/payments";
+import { sendBookingCancelledEmails } from "@/lib/email/booking-notifications";
 import { optionalPhoneSchema } from "@/lib/phone";
 
 const createBookingSchema = z.object({
@@ -44,14 +34,6 @@ const createBookingSchema = z.object({
 export type CreateBookingInput = z.input<typeof createBookingSchema>;
 export type ActionResult = { error: string } | undefined;
 
-/**
- * True when the insert lost the slot to another booking under
- * bookings_no_overlap — including the deadlock a same-instant race can end in.
- */
-function isOverlapError(err: unknown): boolean {
-  return isExclusionConflict(err);
-}
-
 export async function createBooking(
   input: CreateBookingInput
 ): Promise<ActionResult> {
@@ -61,127 +43,29 @@ export async function createBooking(
   }
   const { slug, serviceId, customerName, customerEmail, customerPhone } =
     parsed.data;
-  const startsAt = new Date(parsed.data.startsAt);
 
   const business = await getBusinessBySlug(slug);
   if (!business) return { error: "İşletme bulunamadı" };
 
-  // Before the slot work, so a flood costs the database as little as
-  // possible. A failed attempt still counts against the caller.
   const ip = await clientIp();
-  const throttled = await checkBookingThrottle({
-    organizationId: business.organizationId,
-    ip,
-    email: customerEmail,
+  const result = await createBookingCore({
+    business,
+    serviceId,
+    startsAt: new Date(parsed.data.startsAt),
+    customerName,
+    customerEmail,
+    customerPhone,
+    source: "web",
+    customerRef: null,
+    throttle: { ip, email: customerEmail },
+    customerIp: ip ?? FALLBACK_IP,
   });
-  if (throttled) return { error: throttled };
+  if (!result.ok) return { error: result.message };
 
-  const service = await db.query.services.findFirst({
-    where: and(
-      eq(services.id, serviceId),
-      eq(services.organizationId, business.organizationId),
-      eq(services.active, true)
-    ),
-  });
-  if (!service) return { error: "Hizmet bulunamadı" };
-
-  // Never trust the client: the requested instant must be in the freshly
-  // computed availability for its local business day.
-  const dateISO = localDateISO(startsAt, business.profile.timezone);
-  const slots = await getAvailableSlots(business, serviceId, dateISO);
-  if (!slots?.some((slot) => slot.getTime() === startsAt.getTime())) {
-    return {
-      error: "Bu saat artık müsait değil — lütfen başka bir saat seçin.",
-    };
-  }
-
-  await expireHoldsForOrg(business.organizationId);
-
-  // Public path — no requireOwner() here, so entitlements come straight from
-  // the business's own rows. A DB read only: never poll iyzico on a booking.
-  const billing = await getBilling(business.organizationId);
-
-  const endsAt = new Date(
-    startsAt.getTime() + service.durationMinutes * 60_000
+  // Outside any try: redirect() works by throwing.
+  return redirect(
+    result.checkoutUrl ?? confirmationPath(slug, result.booking.id)
   );
-  // A stored kapora on a lapsed plan is kept but not collected, so the
-  // snapshot below must follow this flag rather than the service row —
-  // otherwise the booking claims a deposit nobody was ever charged.
-  const requiresDeposit = service.depositCents != null && billing.onlineDeposit;
-
-  let created: typeof bookings.$inferSelect;
-  try {
-    [created] = await db
-      .insert(bookings)
-      .values({
-        organizationId: business.organizationId,
-        serviceId,
-        customerName,
-        customerEmail,
-        customerPhone,
-        startsAt,
-        endsAt,
-        status: requiresDeposit ? "pending" : "confirmed",
-        depositCents: requiresDeposit ? service.depositCents : null,
-        expiresAt: requiresDeposit ? new Date(Date.now() + 30 * 60_000) : null,
-      })
-      .returning();
-  } catch (err) {
-    if (isOverlapError(err)) {
-      return {
-        error: "Bu saat az önce doldu — lütfen başka bir saat seçin.",
-      };
-    }
-    throw err;
-  }
-
-  if (requiresDeposit && service.depositCents != null) {
-    let checkoutUrl: string;
-    try {
-      const subMerchantKey = billing.payoutAccount?.subMerchantKey;
-      if (!subMerchantKey) {
-        // Unreachable in practice — onlineDeposit requires an active payout
-        // account, and payout_accounts_active_has_key requires an active
-        // account to carry a key. Throwing reuses the hold release below
-        // rather than inventing a second failure path.
-        throw new Error("Entitled for deposits but no submerchant key");
-      }
-      const customerIp = ip ?? FALLBACK_IP;
-      const checkout = await getPaymentProvider().createDepositCheckout({
-        bookingId: created.id,
-        serviceName: service.name,
-        businessName: business.orgName,
-        depositCents: service.depositCents,
-        currency: business.profile.currency,
-        customerName,
-        customerEmail,
-        customerIp,
-        subMerchantKey,
-        appUrl: requireEnv("NEXT_PUBLIC_APP_URL"),
-      });
-      if (!checkout.paymentPageUrl) {
-        throw new Error("Payment provider returned no hosted page URL");
-      }
-      checkoutUrl = checkout.paymentPageUrl;
-      await db
-        .update(bookings)
-        .set({ paymentToken: checkout.token })
-        .where(eq(bookings.id, created.id));
-    } catch (err) {
-      // Couldn't start payment: release the hold instead of stranding it.
-      await db
-        .update(bookings)
-        .set({ status: "cancelled", cancelledAt: sql`now()` })
-        .where(eq(bookings.id, created.id));
-      console.error("Failed to create deposit checkout:", err);
-      return { error: "Ödeme başlatılamadı — lütfen tekrar deneyin." };
-    }
-    return redirect(checkoutUrl);
-  }
-
-  await sendBookingConfirmedEmails(created);
-
-  return redirect(`/r/${slug}/onay/${created.id}`);
 }
 
 export async function cancelBooking(id: string): Promise<void> {
