@@ -1,6 +1,6 @@
 import "server-only";
 import { TZDate } from "@date-fns/tz";
-import { and, asc, eq, gt, gte, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, gte, lt, lte, ne, or, sql } from "drizzle-orm";
 import { cache } from "react";
 import { db } from "@/lib/db";
 import { organization } from "@/lib/db/schema/auth-schema";
@@ -19,6 +19,14 @@ export type BusinessContext = {
   orgName: string;
   slug: string;
   profile: typeof businessProfiles.$inferSelect;
+};
+
+export type SlotOptions = {
+  /**
+   * A booking to leave out of the busy times — the one being moved, so a move
+   * that overlaps its own current time is not refused by itself.
+   */
+  excludeBookingId?: string;
 };
 
 /**
@@ -71,7 +79,8 @@ export async function getDaySlots(
   business: BusinessContext,
   serviceId: string,
   dateISO: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  options: SlotOptions = {}
 ): Promise<DaySlot[] | null> {
   if (!DATE_ISO_RE.test(dateISO)) return null;
   const { organizationId, profile } = business;
@@ -123,6 +132,9 @@ export async function getDaySlots(
         eq(bookings.organizationId, organizationId),
         gt(bookings.endsAt, windowStart),
         lt(bookings.startsAt, windowEnd),
+        options.excludeBookingId
+          ? ne(bookings.id, options.excludeBookingId)
+          : undefined,
         or(
           eq(bookings.status, "confirmed"),
           and(
@@ -155,9 +167,10 @@ export async function getAvailableSlots(
   business: BusinessContext,
   serviceId: string,
   dateISO: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  options: SlotOptions = {}
 ): Promise<Date[] | null> {
-  const slots = await getDaySlots(business, serviceId, dateISO, now);
+  const slots = await getDaySlots(business, serviceId, dateISO, now, options);
   if (slots === null) return null;
   return slots.filter((slot) => !slot.taken).map((slot) => slot.start);
 }
