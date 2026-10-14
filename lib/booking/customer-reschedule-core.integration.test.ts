@@ -210,4 +210,19 @@ describe("customerRescheduleCore", () => {
     });
     expect(atTwo).toHaveLength(1);
   });
+
+  it("moves onto a time a lapsed kapora hold still occupies, releasing the hold", async () => {
+    // Veli's hold ran out five minutes ago and nothing has swept it yet: the
+    // slot lookup already offers the time, so the move must not trip on it.
+    const lapsed = await seedBooking(13, {
+      customerRef: VELI,
+      status: "pending",
+      depositCents: 30_000,
+      expiresAt: new Date(Date.now() - 5 * 60_000),
+    });
+    const booking = await seedBooking(9);
+
+    expect((await move(booking.id, 13)).ok).toBe(true);
+    expect((await reload(lapsed.id))?.status).toBe("cancelled");
+  });
 });

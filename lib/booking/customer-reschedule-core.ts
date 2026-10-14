@@ -1,6 +1,7 @@
 import "server-only";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { getBookingForPage } from "@/lib/booking/confirmation";
+import { expireHoldsForOrg } from "@/lib/booking/expire-holds";
 import {
   type BusinessContext,
   getAvailableSlots,
@@ -93,6 +94,12 @@ export async function customerRescheduleCore(
       "Bu saat artık müsait değil — lütfen başka bir saat seçin."
     );
   }
+
+  // The slot lookup already treats a lapsed hold as free, but the exclusion
+  // constraint counts it until it is released — release them here, as
+  // createBookingCore does before its insert, or the move trips on a hold
+  // nobody is paying for.
+  await expireHoldsForOrg(business.organizationId);
 
   const endsAt = new Date(
     newStartsAt.getTime() +
