@@ -455,6 +455,10 @@ see the downgrade rule rather than read about it). It is a reset, not an
 additive seed: both demos go back to exactly their published state, with a
 fresh booking history, and the daily cron runs the same reset
 (`lib/demo/reset.ts`) because their logins are public.
+`bun run seed:eval` creates or resets `/r/eval` — the Pro demo's services
+and hours with no bookings, for the rezerve-asistan eval harness; it refuses
+any `DATABASE_URL` not on this machine. `bun run mcp:schema` prints the
+assistant's tools as JSON Schema.
 
 Payments use the iyzico sandbox by default (`IYZICO_BASE_URL`); create
 sandbox keys at sandbox-merchant.iyzipay.com.

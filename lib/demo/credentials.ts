@@ -41,4 +41,20 @@ export const DEMO_FREE: DemoAccount = {
   password: DEMO_PASSWORD,
 };
 
+/**
+ * The rezerve-asistan eval harness's business: the Pro demo's plan, services
+ * and hours, but no booking history, so a scripted conversation knows which
+ * times are free. Seeded only into local databases (`bun run seed:eval`) —
+ * deliberately not in DEMO_ACCOUNTS, so it is never published and the
+ * nightly reset never touches it.
+ */
+export const DEMO_EVAL: DemoAccount = {
+  orgId: "org_rezerve_eval",
+  slug: "eval",
+  name: "Rezerve Eval Salon",
+  ownerName: "Eval Salon",
+  email: "eval@rezerve.app",
+  password: DEMO_PASSWORD,
+};
+
 export const DEMO_ACCOUNTS = [DEMO_PRO, DEMO_FREE] as const;

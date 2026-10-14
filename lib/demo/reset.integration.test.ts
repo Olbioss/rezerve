@@ -70,6 +70,7 @@ function expectPublished(
   expect(state.org?.slug).toBe(demo.slug);
   expect(state.owner?.role).toBe("owner");
   expect(state.profile?.slotGranularityMinutes).toBe(30);
+  expect(state.profile?.assistantEnabled).toBe(true);
   expect(state.profile?.phone).toMatch(/^021[26] 000 00 00$/);
   expect(state.profile?.description).toMatch(/örnek işletmesi/);
   expect(state.svc.map((s) => s.name).sort()).toEqual([

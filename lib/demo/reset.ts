@@ -11,6 +11,8 @@
  * `bun run seed:demo`. Demo bookings are deleted outright, never refunded: a
  * visitor's kapora was a sandbox payment. Nothing outside the two demo
  * organizations is touched — every write is scoped to their fixed ids.
+ * The same machinery also resets the eval harness's business
+ * (resetEvalBusiness) — never from the cron.
  */
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -32,6 +34,7 @@ import {
 import { services } from "@/lib/db/schema/service-schema";
 import {
   DEMO_ACCOUNTS,
+  DEMO_EVAL,
   DEMO_FREE,
   DEMO_PRO,
   type DemoAccount,
@@ -79,6 +82,8 @@ const DEMO_PROFILE = {
   minLeadTimeMinutes: 60,
   bookingWindowDays: 30,
   contactEmail: null,
+  // The demos show the chat assistant; a real business switches it on itself.
+  assistantEnabled: true,
 };
 
 /**
@@ -102,6 +107,12 @@ const DEMO_PAGE: Record<
     description:
       "Saç ve sakal. Rezerve'nin ücretsiz plandaki örnek işletmesi — burada alınan randevular gerçek değildir.",
   },
+  [DEMO_EVAL.slug]: {
+    phone: "0212 000 00 01",
+    address: "Örnek Sk. No:3, Kadıköy / İstanbul",
+    description:
+      "rezerve-asistan değerlendirmelerinin örnek işletmesi — burada alınan randevular gerçek değildir.",
+  },
 };
 
 export type DemoResetSummary = {
@@ -122,15 +133,43 @@ export async function resetDemo({
 } = {}): Promise<Record<string, DemoResetSummary>> {
   const summary: Record<string, DemoResetSummary> = {};
   for (const demo of DEMO_ACCOUNTS) {
-    summary[demo.slug] = await resetBusiness(demo, now, subMerchantKey);
+    summary[demo.slug] = await resetBusiness(demo, now, subMerchantKey, {
+      pro: demo.orgId === DEMO_PRO.orgId,
+      withHistory: true,
+    });
   }
   return summary;
 }
 
+/**
+ * The rezerve-asistan eval business: the Pro demo's setup with no history.
+ * Not part of the nightly reset — see DEMO_EVAL.
+ */
+export function resetEvalBusiness({
+  now = new Date(),
+  subMerchantKey = process.env.DEMO_SUBMERCHANT_KEY,
+}: {
+  now?: Date;
+  subMerchantKey?: string | null;
+} = {}): Promise<DemoResetSummary> {
+  return resetBusiness(DEMO_EVAL, now, subMerchantKey, {
+    pro: true,
+    withHistory: false,
+  });
+}
+
+type ResetOptions = {
+  /** Restore Pro billing (kapora collected); otherwise the free plan. */
+  pro: boolean;
+  /** Seed the lived-in booking history the public demos show. */
+  withHistory: boolean;
+};
+
 async function resetBusiness(
   demo: DemoAccount,
   now: Date,
-  subMerchantKey: string | null | undefined
+  subMerchantKey: string | null | undefined,
+  { pro, withHistory }: ResetOptions
 ): Promise<DemoResetSummary> {
   const orgId = demo.orgId;
 
@@ -192,20 +231,24 @@ async function resetBusiness(
       .insert(availabilityRules)
       .values(DEMO_HOURS.map((h) => ({ ...h, organizationId: orgId })));
 
-    const history = demoHistory({
-      now,
-      timezone: DEMO_PROFILE.timezone,
-      hours: DEMO_HOURS,
-      services: created,
-    });
-    await tx
-      .insert(bookings)
-      .values(history.map((b) => ({ ...b, organizationId: orgId })));
+    const history = withHistory
+      ? demoHistory({
+          now,
+          timezone: DEMO_PROFILE.timezone,
+          hours: DEMO_HOURS,
+          services: created,
+        })
+      : [];
+    if (history.length > 0) {
+      await tx
+        .insert(bookings)
+        .values(history.map((b) => ({ ...b, organizationId: orgId })));
+    }
 
-    if (demo.orgId === DEMO_PRO.orgId) {
+    if (pro) {
       const collectsKapora = await restoreProBilling(
         tx,
-        orgId,
+        demo,
         now,
         subMerchantKey
       );
@@ -235,10 +278,11 @@ async function resetBusiness(
  */
 async function restoreProBilling(
   tx: Tx,
-  orgId: string,
+  demo: DemoAccount,
   now: Date,
   subMerchantKey: string | null | undefined
 ): Promise<boolean> {
+  const orgId = demo.orgId;
   const periodEnd = new Date(now.getTime() + 365 * 86_400_000);
   const active = {
     plan: "pro" as const,
@@ -268,14 +312,14 @@ async function restoreProBilling(
         subMerchantKey,
         subMerchantExternalId: orgId,
         merchantType: "personal",
-        name: DEMO_PRO.name,
+        name: demo.name,
         contactName: "Demo",
         contactSurname: "Salon",
         identityNumber: "10000000146",
         iban: "TR180006200119000006672315",
         address: "Merdivenköy Mah. Bora Sok. No:1, Kadıköy/İstanbul",
         gsmNumber: "+905350000000",
-        email: DEMO_PRO.email,
+        email: demo.email,
       })
       .onConflictDoUpdate({
         target: orgPayoutAccounts.organizationId,
