@@ -457,8 +457,9 @@ fresh booking history, and the daily cron runs the same reset
 (`lib/demo/reset.ts`) because their logins are public.
 `bun run seed:eval` creates or resets `/r/eval` — the Pro demo's services
 and hours with no bookings, for the rezerve-asistan eval harness; it refuses
-any `DATABASE_URL` not on this machine. `bun run mcp:schema` prints the
-assistant's tools as JSON Schema.
+any `DATABASE_URL` not on this machine. Its owner is never mailed, but its
+scenario customers would be: run the evals with `EMAIL_DELIVERY=off`.
+`bun run mcp:schema` prints the assistant's tools as JSON Schema.
 
 Payments use the iyzico sandbox by default (`IYZICO_BASE_URL`); create
 sandbox keys at sandbox-merchant.iyzipay.com.

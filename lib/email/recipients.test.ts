@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEMO_FREE, DEMO_PRO } from "@/lib/demo/credentials";
+import { DEMO_EVAL, DEMO_FREE, DEMO_PRO } from "@/lib/demo/credentials";
 import { ownerNotificationAddress } from "./recipients";
 
 describe("ownerNotificationAddress", () => {
@@ -45,5 +45,19 @@ describe("ownerNotificationAddress", () => {
         })
       ).toBeNull();
     }
+  });
+});
+
+describe("ownerNotificationAddress — the eval business", () => {
+  it("never mails the eval business's owner either", () => {
+    // Seeded for the rezerve-asistan evals with a login on the same domain
+    // this project does not own; its owner is nobody to write to.
+    expect(
+      ownerNotificationAddress({
+        organizationId: DEMO_EVAL.orgId,
+        contactEmail: null,
+        loginEmail: DEMO_EVAL.email,
+      })
+    ).toBeNull();
   });
 });
