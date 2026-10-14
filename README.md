@@ -310,6 +310,18 @@ Probed directly against the sandbox keys in `.env`:
   reserved for their business, and can be taken back
 - `lib/calendar/ics.test.ts` — RFC 5545 escaping, UTC times, and folding at
   75 octets without splitting a multi-byte Turkish character
+- `lib/booking/create-booking-core.integration.test.ts`,
+  `customer-cancel-core.integration.test.ts`,
+  `customer-reschedule-core.integration.test.ts` — the shared booking rules
+  as the assistant calls them: no email without a kapora, a kapora that
+  changed since the customer agreed, another chat customer's booking refused
+  even with its real id, and two moves into one slot of which exactly one wins
+- `lib/assistant/request-auth.integration.test.ts` — the endpoint's door:
+  fail-closed token, a customer ref taken exactly or not at all, an unknown
+  business and a switched-off one answered alike
+- `lib/assistant/mcp-route.integration.test.ts` — the endpoint through the
+  real MCP client: tools listed, a slot found and booked, a refusal returned
+  as a tool error with its code
 - `e2e/` — Playwright against the production build, in CI: a booking on the
   free demo; the slot-loading race, with the API stubbed so the previous
   day's answer arrives last (it fails if the fix is reverted); the demo login;
@@ -366,6 +378,43 @@ Probed directly against the sandbox keys in `.env`:
   and a Permissions-Policy; a script-src policy would need per-request nonces
   and is not attempted.
 
+### The assistant's endpoint: /api/mcp
+
+Rezerve Asistan, a chat receptionist (in progress), books through a Model
+Context Protocol endpoint rather than the database. It runs the same booking
+rules the booking page does — `lib/booking/create-booking-core.ts`,
+`customer-cancel-core.ts` and `customer-reschedule-core.ts`, which the
+page's server actions now wrap — so the exclusion constraint, the throttle,
+the entitlements and the kapora rules hold for a chat customer exactly as
+for a visitor.
+
+- **Who is asking travels in headers, never in arguments.** `Authorization:
+  Bearer <ASSISTANT_MCP_TOKEN>` (fail-closed, constant-time — the same check
+  as the cron's), `X-Rezerve-Business: <slug>` and `X-Rezerve-Customer:
+  <customer ref>`. No tool takes a business or a customer, so the model
+  cannot name someone else's.
+- **A chat customer is a customer ref** — an HMAC the assistant derives from
+  the channel's user id, so no Telegram id or phone number reaches this
+  database. It is the credential for moving or cancelling, the way a
+  booking's uuid is on its page.
+- **The customer agreed to specific terms.** `create_booking` takes the
+  kapora the customer was shown and `cancel_booking` what they were told
+  about the refund; if either changed since, nothing is written
+  (`terms_changed`, `refund_window_closed`).
+- **Off until switched on:** a business answers 403 unless
+  `assistant_enabled`. The demos have it on.
+
+| Tool                 | Writes | What it does                                        |
+| -------------------- | ------ | --------------------------------------------------- |
+| `get_business_info`  | —      | Contact details, notes, today's date in the business timezone |
+| `list_services`      | —      | Active services, with the kapora actually collected |
+| `find_slots`         | —      | Free starts across up to 14 days                     |
+| `list_my_bookings`   | —      | The customer's upcoming bookings and live holds      |
+| `get_booking`        | —      | One of their bookings, e.g. whether it is paid       |
+| `create_booking`     | ✓      | Book, or hold for 30 minutes with a payment page     |
+| `reschedule_booking` | ✓      | Move to another free start, keeping the length       |
+| `cancel_booking`     | ✓      | Cancel under the 24-hour kapora rule                 |
+
 ### Routes
 
 Everything is Turkish, including the URLs:
@@ -381,6 +430,7 @@ Everything is Turkish, including the URLs:
 | `/r/[slug]/onay/[bookingId]`                              | Booking confirmation                                 |
 | `/r/[slug]/onay/[bookingId]/takvim`                       | The booking as an `.ics` file                        |
 | `/api/r/[slug]/slots`                                     | Availability API                                     |
+| `/api/mcp`                                                | The chat assistant's MCP endpoint (bearer token)     |
 | `/api/odeme/iyzico`                                       | iyzico deposit callback                              |
 | `/api/cron/abonelik`                                      | Daily: renewals, hold sweep, demo reset (bearer)     |
 
