@@ -22,32 +22,56 @@ import { bookingAttempts } from "@/lib/db/schema/booking-schema";
  * cost of casual spam and nothing more. What actually protects correctness is
  * the exclusion constraint, which is in the database and cannot be talked out
  * of.
+ *
+ * The chat assistant's attempts are counted per customer ref instead of per
+ * address and email — see ThrottleIdentity.
  */
 const WINDOW_MINUTES = 60;
 const MAX_PER_IP = 6;
 const MAX_PER_EMAIL = 3;
+/** One chat customer, counted like one email: three tries an hour. */
+const MAX_PER_CUSTOMER_REF = 3;
 
 export const THROTTLED_MESSAGE =
   "Çok fazla randevu denemesi yaptınız — lütfen bir süre sonra tekrar deneyin.";
 
-export async function checkBookingThrottle(input: {
-  organizationId: string;
-  ip: string | null;
-  email: string;
-}): Promise<string | null> {
-  const { organizationId, ip, email } = input;
+/**
+ * Who an attempt counts against. The booking page knows an address and an
+ * email. The chat assistant calls from its own servers, so an address would
+ * put every chat customer in one bucket — its customer ref is the only
+ * identity it has, and those attempts are never counted by address.
+ */
+export type ThrottleIdentity =
+  | { ip: string | null; email: string }
+  | { customerRef: string };
+
+export async function checkBookingThrottle(
+  input: { organizationId: string } & ThrottleIdentity
+): Promise<string | null> {
+  const { organizationId } = input;
   const since = new Date(Date.now() - WINDOW_MINUTES * 60_000);
 
   // Nothing older than the window can affect a decision, so the table prunes
   // itself on the way past rather than needing a job of its own.
   await db.delete(bookingAttempts).where(lt(bookingAttempts.createdAt, since));
 
-  await db.insert(bookingAttempts).values({ organizationId, ip, email });
-
   const recent = and(
     eq(bookingAttempts.organizationId, organizationId),
     gte(bookingAttempts.createdAt, since)
   );
+
+  if ("customerRef" in input) {
+    const { customerRef } = input;
+    await db.insert(bookingAttempts).values({ organizationId, customerRef });
+    const [byRef] = await db
+      .select({ n: count() })
+      .from(bookingAttempts)
+      .where(and(recent, eq(bookingAttempts.customerRef, customerRef)));
+    return (byRef?.n ?? 0) > MAX_PER_CUSTOMER_REF ? THROTTLED_MESSAGE : null;
+  }
+
+  const { ip, email } = input;
+  await db.insert(bookingAttempts).values({ organizationId, ip, email });
 
   const [byEmail] = await db
     .select({ n: count() })

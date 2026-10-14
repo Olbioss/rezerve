@@ -112,3 +112,32 @@ describe("checkBookingThrottle", () => {
     expect(left).toHaveLength(1);
   });
 });
+
+describe("checkBookingThrottle — the assistant's customers", () => {
+  const ALI = `telegram:${"a".repeat(26)}`;
+  const VELI = `telegram:${"b".repeat(26)}`;
+  const chat = (customerRef: string) =>
+    checkBookingThrottle({ organizationId: ORG, customerRef });
+
+  it("allows a chat customer three attempts an hour, then refuses", async () => {
+    expect(await chat(ALI)).toBeNull();
+    expect(await chat(ALI)).toBeNull();
+    expect(await chat(ALI)).toBeNull();
+    expect(await chat(ALI)).toBe(THROTTLED_MESSAGE);
+  });
+
+  it("counts each chat customer on their own", async () => {
+    for (let i = 0; i < 4; i += 1) await chat(ALI);
+    expect(await chat(VELI)).toBeNull();
+  });
+
+  it("never buckets chat customers by the assistant's address", async () => {
+    // Seven customers through one server, each on their first try — more
+    // than the form allows one address.
+    for (const letter of "cdefghi") {
+      expect(await chat(`telegram:${letter.repeat(26)}`)).toBeNull();
+    }
+    // And the form's visitors are not charged for the chat's traffic.
+    expect(await attempt()).toBeNull();
+  });
+});
