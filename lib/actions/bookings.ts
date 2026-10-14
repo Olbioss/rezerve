@@ -1,20 +1,14 @@
 "use server";
 
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth-guard";
-import {
-  customerCanCancel,
-  refundsDeposit,
-} from "@/lib/booking/cancellation-policy";
 import { clientIp, FALLBACK_IP } from "@/lib/booking/client-ip";
-import {
-  confirmationPath,
-  getBookingForPage,
-} from "@/lib/booking/confirmation";
+import { confirmationPath } from "@/lib/booking/confirmation";
 import { createBookingCore } from "@/lib/booking/create-booking-core";
+import { customerCancelCore } from "@/lib/booking/customer-cancel-core";
 import { getBusinessBySlug } from "@/lib/booking/get-available-slots";
 import { refundDeposit } from "@/lib/booking/refund-deposit";
 import { db } from "@/lib/db";
@@ -139,72 +133,25 @@ export async function cancelBookingAsCustomer(
   const { slug, bookingId, expectRefund } = parsed.data;
 
   const business = await getBusinessBySlug(slug);
-  const found = business
-    ? await getBookingForPage(business.organizationId, bookingId)
-    : null;
-  if (!business || !found) return { error: "Randevu bulunamadı." };
-  const { booking } = found;
+  if (!business) return { error: "Randevu bulunamadı." };
 
-  const now = new Date();
-  if (booking.status === "cancelled") {
-    return { error: "Bu randevu zaten iptal edilmiş." };
-  }
-  if (!customerCanCancel(booking, now)) {
-    return { error: "Başlamış bir randevu iptal edilemez." };
-  }
-
-  const paid =
-    booking.paymentTransactionId !== null && booking.depositCents !== null;
-  const refundDue = paid && refundsDeposit(booking.startsAt, now);
-  if (expectRefund && paid && !refundDue) {
-    return {
-      error:
-        "İade süresi doldu: kapora artık iade edilmiyor. Yine de iptal etmek isterseniz tekrar onaylayın.",
-      refundWindowClosed: true,
-    };
-  }
-
-  // Guarded like the owner's cancel, and against the appointment starting
-  // between the check above and this write.
-  const [cancelled] = await db
-    .update(bookings)
-    .set({
-      status: "cancelled",
-      cancelledAt: sql`now()`,
-      cancelledBy: "customer",
-    })
-    .where(
-      and(
-        eq(bookings.id, booking.id),
-        eq(bookings.organizationId, business.organizationId),
-        sql`${bookings.status} <> 'cancelled'`,
-        gt(bookings.startsAt, sql`now()`)
-      )
-    )
-    .returning();
-  if (!cancelled) return { error: "Bu randevu zaten iptal edilmiş." };
-
-  let depositRefunded = false;
-  if (refundDue) {
-    try {
-      const customerIp = (await clientIp()) ?? FALLBACK_IP;
-      depositRefunded =
-        (await refundDeposit(cancelled.id, customerIp)) === "refunded";
-    } catch (err) {
-      // Cancelled either way; the emails say the refund did not go through.
-      console.error(`Kapora refund threw for booking ${cancelled.id}:`, err);
-    }
-  }
-  const outcome = {
-    depositKept: paid && !refundDue,
-    refundFailed: refundDue && !depositRefunded,
-  };
-
-  await sendBookingCancelledEmails(cancelled, depositRefunded, {
-    by: "customer",
-    ...outcome,
+  const result = await customerCancelCore({
+    organizationId: business.organizationId,
+    bookingId,
+    // On the page, the booking's uuid under its own business's address is
+    // the whole credential — there is no customer ref to match.
+    customerRef: null,
+    expectRefund,
+    customerIp: (await clientIp()) ?? FALLBACK_IP,
   });
+  if (!result.ok) {
+    return result.code === "refund_window_closed"
+      ? { error: result.message, refundWindowClosed: true }
+      : { error: result.message };
+  }
+
   revalidatePath("/panel/randevular");
   revalidatePath("/panel");
-  return { cancelled: true, depositRefunded, ...outcome };
+  const { depositRefunded, depositKept, refundFailed } = result;
+  return { cancelled: true, depositRefunded, depositKept, refundFailed };
 }
