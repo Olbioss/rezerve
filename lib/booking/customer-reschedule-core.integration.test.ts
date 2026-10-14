@@ -134,9 +134,11 @@ describe("customerRescheduleCore", () => {
     const after = await reload(booking.id);
     expect(after?.startsAt.toISOString()).toBe(at(13).toISOString());
     expect(after?.endsAt.toISOString()).toBe(at(14).toISOString());
+    // In the customer's own voice — they moved it, not the business.
     expect(rescheduledMock).toHaveBeenCalledWith(
       expect.objectContaining({ id: booking.id }),
-      at(9)
+      at(9),
+      { by: "customer" }
     );
   });
 

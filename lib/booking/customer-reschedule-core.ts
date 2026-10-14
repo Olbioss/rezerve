@@ -150,6 +150,8 @@ export async function customerRescheduleCore(
   // Cancelled, or begun, between the read and the write.
   if (!moved) return fail("not_found", "Randevu bulunamadı.");
 
-  await sendBookingRescheduledEmail(moved, booking.startsAt);
+  await sendBookingRescheduledEmail(moved, booking.startsAt, {
+    by: "customer",
+  });
   return { ok: true, booking: moved, previousStartsAt: booking.startsAt };
 }

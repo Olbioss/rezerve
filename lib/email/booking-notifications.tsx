@@ -17,6 +17,8 @@ import {
   cancelledIntro,
   customerCancelledIntro,
   customerCancelledOwnerIntro,
+  customerRescheduledIntro,
+  customerRescheduledOwnerIntro,
 } from "./copy";
 import { ownerNotificationAddress } from "./recipients";
 import { sendEmailSafe } from "./send";
@@ -282,43 +284,88 @@ export async function sendBookingCancelledEmails(
 }
 
 /**
- * The customer's copy when the owner moves their appointment. The owner did
- * the moving, so they get nothing; a customer with no email on file gets
- * nothing either, and hears about it however the owner reached them.
+ * Tell the right people that a booking moved.
+ *
+ * When the owner moved it, only the customer hears — the owner did the
+ * moving. When the customer moved it, through the chat assistant, the
+ * customer gets their own copy in their own voice, and the owner is told the
+ * old time is free. A customer with no email on file gets no copy, and hears
+ * about it however the move was made: from the owner, or in the chat.
  */
 export async function sendBookingRescheduledEmail(
   booking: Booking,
-  previousStartsAt: Date
+  previousStartsAt: Date,
+  {
+    /** The business from the panel, or the customer through the assistant. */
+    by = "owner",
+  }: { by?: "owner" | "customer" } = {}
 ) {
-  if (!booking.customerEmail) return;
+  const byCustomer = by === "customer";
+  if (!booking.customerEmail && !byCustomer) return;
   const ctx = await loadContext(booking);
   if (!ctx) return;
   const previousText = formatWhen(previousStartsAt, ctx.profile.timezone);
   const customer = forCustomer(booking, ctx);
 
-  await sendEmailSafe({
-    to: booking.customerEmail,
-    subject: `Randevunuzun saati değişti — ${ctx.service.name}, ${ctx.org.name}`,
-    attachments: customer.attachments,
-    body: (
-      <BookingEmail
-        heading="Randevunuz taşındı"
-        preview={`Yeni saat: ${ctx.whenText}`}
-        intro={`Merhaba ${booking.customerName}, ${ctx.org.name} randevunuzu yeni bir saate taşıdı. Önceki saat: ${previousText}.${
-          ctx.profile.phone
-            ? ` Size uymuyorsa ${ctx.profile.phone} numarasından ulaşabilirsiniz.`
-            : ""
-        }`}
-        businessName={ctx.org.name}
-        businessPhone={ctx.profile.phone}
-        businessAddress={ctx.profile.address}
-        serviceName={ctx.service.name}
-        whenText={ctx.whenText}
-        customerName={booking.customerName}
-        depositLine={ctx.depositLine}
-        bookingUrl={customer.bookingUrl}
-        note={customer.note}
-      />
-    ),
-  });
+  await Promise.all([
+    booking.customerEmail &&
+      sendEmailSafe({
+        to: booking.customerEmail,
+        subject: byCustomer
+          ? `Randevunuzu taşıdınız — ${ctx.service.name}, ${ctx.org.name}`
+          : `Randevunuzun saati değişti — ${ctx.service.name}, ${ctx.org.name}`,
+        attachments: customer.attachments,
+        body: (
+          <BookingEmail
+            heading={
+              byCustomer ? "Randevunuzu taşıdınız" : "Randevunuz taşındı"
+            }
+            preview={`Yeni saat: ${ctx.whenText}`}
+            intro={
+              byCustomer
+                ? customerRescheduledIntro({
+                    customerName: booking.customerName,
+                    previousText,
+                  })
+                : `Merhaba ${booking.customerName}, ${ctx.org.name} randevunuzu yeni bir saate taşıdı. Önceki saat: ${previousText}.${
+                    ctx.profile.phone
+                      ? ` Size uymuyorsa ${ctx.profile.phone} numarasından ulaşabilirsiniz.`
+                      : ""
+                  }`
+            }
+            businessName={ctx.org.name}
+            businessPhone={ctx.profile.phone}
+            businessAddress={ctx.profile.address}
+            serviceName={ctx.service.name}
+            whenText={ctx.whenText}
+            customerName={booking.customerName}
+            depositLine={ctx.depositLine}
+            bookingUrl={customer.bookingUrl}
+            note={customer.note}
+          />
+        ),
+      }),
+    byCustomer &&
+      ctx.ownerEmail &&
+      sendEmailSafe({
+        to: ctx.ownerEmail,
+        subject: `Müşteri randevusunu taşıdı — ${ctx.service.name}, ${ctx.whenText}`,
+        body: (
+          <BookingEmail
+            heading="Müşteri randevusunu taşıdı"
+            preview={`${booking.customerName} randevusunu ${ctx.whenText} saatine taşıdı`}
+            intro={customerRescheduledOwnerIntro({
+              customerName: booking.customerName,
+              previousText,
+            })}
+            customerEmail={booking.customerEmail ?? undefined}
+            customerPhone={booking.customerPhone}
+            businessName={ctx.org.name}
+            serviceName={ctx.service.name}
+            whenText={ctx.whenText}
+            customerName={booking.customerName}
+          />
+        ),
+      }),
+  ]);
 }

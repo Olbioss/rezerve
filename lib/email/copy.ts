@@ -81,3 +81,29 @@ export function customerCancelledOwnerIntro({
         : "";
   return `${customerName} randevusunu iptal etti; saat yeniden müsait.${kapora}`;
 }
+
+/**
+ * What a customer reads after moving their own booking, through the chat
+ * assistant: they did it, so the email says so rather than blaming the
+ * business.
+ */
+export function customerRescheduledIntro({
+  customerName,
+  previousText,
+}: {
+  customerName: string;
+  previousText: string;
+}): string {
+  return `Merhaba ${customerName}, randevunuzu yeni bir saate taşıdınız. Önceki saat: ${previousText}.`;
+}
+
+/** What the business reads when a customer moves: who, and that the old time is free. */
+export function customerRescheduledOwnerIntro({
+  customerName,
+  previousText,
+}: {
+  customerName: string;
+  previousText: string;
+}): string {
+  return `${customerName} randevusunu yeni bir saate taşıdı; önceki saat (${previousText}) yeniden müsait.`;
+}
