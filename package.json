@@ -23,6 +23,7 @@
   "dependencies": {
     "@base-ui/react": "^1.6.0",
     "@date-fns/tz": "^1.5.0",
+    "@modelcontextprotocol/server": "2.3.1",
     "@react-email/components": "^1.0.12",
     "@vercel/functions": "^3.9.9",
     "better-auth": "^1.6.23",
@@ -32,6 +33,7 @@
     "drizzle-orm": "^0.45.2",
     "iyzipay": "^2.0.69",
     "lucide-react": "^1.25.0",
+    "mcp-handler": "2.3.0",
     "next": "16.2.10",
     "nodemailer": "^9.0.3",
     "pg": "^8.22.0",
@@ -46,6 +48,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.5",
+    "@modelcontextprotocol/client": "2.3.1",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/iyzipay": "^2.0.3",
