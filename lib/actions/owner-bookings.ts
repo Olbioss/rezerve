@@ -143,6 +143,7 @@ export async function ownerCreateBooking(
         startsAt,
         endsAt,
         status: "confirmed",
+        source: "owner",
       })
       .returning();
   } catch (err) {

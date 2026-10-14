@@ -159,6 +159,12 @@ describe("ownerCreateBooking", () => {
     );
   });
 
+  it("records the booking as the owner's", async () => {
+    expect(await book()).toEqual({ ok: true });
+    const [row] = await rowsFor("ayse@test.dev");
+    expect(row.source).toBe("owner");
+  });
+
   it("takes a time off the customers' slot grid", async () => {
     expect(await book({ time: "10:15" })).toEqual({ ok: true });
   });

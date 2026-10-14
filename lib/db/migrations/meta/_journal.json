@@ -99,6 +99,13 @@
       "when": 1791019506786,
       "tag": "0013_booking_cancelled_by",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791975556073,
+      "tag": "0014_assistant_channel",
+      "breakpoints": true
     }
   ]
 }

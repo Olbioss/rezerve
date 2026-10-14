@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   pgTable,
@@ -34,6 +35,16 @@ export const businessProfiles = pgTable("business_profiles", {
   address: text("address"),
   /** Public. A few sentences under the business name on the booking page. */
   description: text("description"),
+  /**
+   * Whether the chat assistant may book for this business. Off until the
+   * business turns it on: /api/mcp answers 403 for a business that has not.
+   */
+  assistantEnabled: boolean("assistant_enabled").notNull().default(false),
+  /**
+   * Facts the owner wants the assistant to be able to quote — parking, what
+   * to bring, aftercare. The model sees them as data, never as instructions.
+   */
+  assistantNotes: text("assistant_notes"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

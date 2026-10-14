@@ -25,6 +25,16 @@ export const bookingCancelledBy = pgEnum("booking_cancelled_by", [
 ]);
 
 /**
+ * Where a booking came from: the public booking form, the owner's panel, or
+ * the chat assistant on a customer's confirmed request (through /api/mcp).
+ */
+export const bookingSource = pgEnum("booking_source", [
+  "web",
+  "owner",
+  "assistant",
+]);
+
+/**
  * A booked (or held) appointment. Instants are UTC; display converts to the
  * business timezone. Overlaps are prevented by the bookings_no_overlap
  * exclusion constraint (see the hand-written part of the migration).
@@ -72,6 +82,16 @@ export const bookings = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     cancelledBy: bookingCancelledBy("cancelled_by"),
+    /** Where the booking came from — see bookingSource. */
+    source: bookingSource("source").notNull().default("web"),
+    /**
+     * The chat customer an assistant booking belongs to: an opaque HMAC the
+     * assistant derives from the channel's user id, so no Telegram id or
+     * phone number is ever stored here. It is the credential for that
+     * customer's later moves and cancellations, the way a booking's own uuid
+     * is on its page.
+     */
+    customerRef: text("customer_ref"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -81,7 +101,15 @@ export const bookings = pgTable(
       table.organizationId,
       table.startsAt
     ),
+    index("bookings_org_customer_ref_idx").on(
+      table.organizationId,
+      table.customerRef
+    ),
     check("bookings_time_order", sql`${table.endsAt} > ${table.startsAt}`),
+    check(
+      "bookings_assistant_has_customer_ref",
+      sql`${table.source} <> 'assistant' OR ${table.customerRef} IS NOT NULL`
+    ),
   ]
 );
 
@@ -106,7 +134,10 @@ export const bookingAttempts = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     /** Null when the proxy sent no forwarded-for header. */
     ip: text("ip"),
-    email: text("email").notNull(),
+    /** The form's visitor. Null for an attempt the assistant made. */
+    email: text("email"),
+    /** The assistant's customer, for attempts made through /api/mcp. */
+    customerRef: text("customer_ref"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -115,6 +146,10 @@ export const bookingAttempts = pgTable(
     index("booking_attempts_org_created_idx").on(
       table.organizationId,
       table.createdAt
+    ),
+    check(
+      "booking_attempts_has_identity",
+      sql`${table.email} IS NOT NULL OR ${table.customerRef} IS NOT NULL`
     ),
   ]
 );
