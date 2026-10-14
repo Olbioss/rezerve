@@ -412,7 +412,7 @@ for a visitor.
 | `list_my_bookings`   | —      | The customer's upcoming bookings and live holds      |
 | `get_booking`        | —      | One of their bookings, e.g. whether it is paid       |
 | `create_booking`     | ✓      | Book, or hold for 30 minutes with a payment page     |
-| `reschedule_booking` | ✓      | Move to another free start, keeping the length       |
+| `reschedule_booking` | ✓      | Move to another free start, keeping the length; never a paid booking inside its last day |
 | `cancel_booking`     | ✓      | Cancel under the 24-hour kapora rule                 |
 
 ### Routes

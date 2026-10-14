@@ -1,5 +1,9 @@
 import "server-only";
 import { and, eq, gt, sql } from "drizzle-orm";
+import {
+  REFUND_NOTICE_HOURS,
+  refundsDeposit,
+} from "@/lib/booking/cancellation-policy";
 import { getBookingForPage } from "@/lib/booking/confirmation";
 import { expireHoldsForOrg } from "@/lib/booking/expire-holds";
 import {
@@ -28,6 +32,7 @@ export type CustomerRescheduleErrorCode =
   | "already_cancelled"
   | "pending"
   | "started"
+  | "move_window_closed"
   | "slot_unavailable"
   | "slot_taken";
 
@@ -75,6 +80,19 @@ export async function customerRescheduleCore(
   }
   if (booking.startsAt <= now) {
     return fail("started", "Başlamış bir randevu taşınamaz.");
+  }
+  // Inside the last day a paid kapora stays with the business
+  // (lib/booking/cancellation-policy.ts). A move then would let the customer
+  // carry the booking out of that day and cancel the new time with notice —
+  // the kapora back after all — so it stays put; the business can still move
+  // it from the panel.
+  const paid =
+    booking.paymentTransactionId !== null && booking.depositCents !== null;
+  if (paid && !refundsDeposit(booking.startsAt, now)) {
+    return fail(
+      "move_window_closed",
+      `Randevuya ${REFUND_NOTICE_HOURS} saatten az kaldığı için kaporalı randevu taşınamaz — lütfen işletmeyle iletişime geçin.`
+    );
   }
   if (newStartsAt.getTime() === booking.startsAt.getTime()) {
     return { ok: true, booking, previousStartsAt: booking.startsAt };

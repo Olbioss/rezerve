@@ -172,7 +172,7 @@ export const WRITE_TOOLS = {
   reschedule_booking: {
     title: "Randevuyu taşı",
     description:
-      "Move one of this customer's confirmed bookings to another free start time (from find_slots), keeping its length. A booking still waiting for its kapora cannot be moved.",
+      "Move one of this customer's confirmed bookings to another free start time (from find_slots), keeping its length. A booking still waiting for its kapora cannot be moved, nor a paid one inside its last 24 hours (move_window_closed) — hand the customer to the business then.",
     input: rescheduleBookingInput,
     output: z.object({
       booking_id: z.uuid(),

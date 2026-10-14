@@ -225,4 +225,29 @@ describe("customerRescheduleCore", () => {
     expect((await move(booking.id, 13)).ok).toBe(true);
     expect((await reload(lapsed.id))?.status).toBe("cancelled");
   });
+
+  it("will not move a paid booking inside its last day, where cancelling keeps the kapora", async () => {
+    // Otherwise a customer could move it out of that day and cancel the new
+    // time with notice — and get the kapora back after all.
+    const booking = await seedBooking(9, {
+      depositCents: 30_000,
+      paymentToken: `tok_${Math.random()}`,
+      paymentTransactionId: "41234567",
+    });
+    const moveAt = (hoursBefore: number) =>
+      customerRescheduleCore({
+        business,
+        bookingId: booking.id,
+        customerRef: ALI,
+        newStartsAt: at(13),
+        now: new Date(at(9).getTime() - hoursBefore * 3_600_000),
+      });
+
+    expect(await moveAt(3)).toMatchObject({
+      ok: false,
+      code: "move_window_closed",
+    });
+    // With a day's notice the same move goes through, kapora and all.
+    expect((await moveAt(30)).ok).toBe(true);
+  });
 });
