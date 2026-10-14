@@ -392,7 +392,7 @@ for a visitor.
   Bearer <ASSISTANT_MCP_TOKEN>` (fail-closed, constant-time — the same check
   as the cron's), `X-Rezerve-Business: <slug>` and `X-Rezerve-Customer:
   <customer ref>`. No tool takes a business or a customer, so the model
-  cannot name someone else's.
+  cannot name someone else's; `lib/assistant/tool-schema.test.ts` keeps it so.
 - **A chat customer is a customer ref** — an HMAC the assistant derives from
   the channel's user id, so no Telegram id or phone number reaches this
   database. It is the credential for moving or cancelling, the way a
