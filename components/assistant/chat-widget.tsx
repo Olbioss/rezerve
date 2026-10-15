@@ -126,7 +126,9 @@ export function ChatWidget({
     event.preventDefault();
     const body = text.trim();
     const id = visitor.current;
-    if (!body || !id) return;
+    // One message at a time: a second one sent while an answer is on its way
+    // could answer a confirmation the visitor has not seen yet.
+    if (!body || !id || waiting) return;
     const draft = { clientMessageId: crypto.randomUUID(), text: body };
     setDrafts((sent) => [...sent, draft]);
     setText("");
@@ -248,7 +250,7 @@ export function ChatWidget({
               type="submit"
               size="icon"
               aria-label="Gönder"
-              disabled={!text.trim()}
+              disabled={!text.trim() || waiting}
             >
               <SendIcon aria-hidden />
             </Button>

@@ -76,8 +76,14 @@ test("a visitor asks the assistant and gets a kapora button", async ({
   await chat.getByLabel("Mesajınız").fill("yarın 15:30 cilt bakımı");
   await chat.getByRole("button", { name: "Gönder" }).click();
 
+  // While an answer is on its way, a second message waits: it could answer a
+  // confirmation the visitor has not seen yet.
+  await chat.getByLabel("Mesajınız").fill("evet");
+  await expect(chat.getByRole("button", { name: "Gönder" })).toBeDisabled();
+
   const log = chat.getByRole("log");
   await expect(log.getByText(REPLY)).toBeVisible();
+  await expect(chat.getByRole("button", { name: "Gönder" })).toBeEnabled();
   // Drawn at once, swapped for the stored copy when it came back: one bubble.
   await expect(log.getByText("yarın 15:30 cilt bakımı")).toHaveCount(1);
   await expect(log.getByRole("link", { name: "Kaporayı öde" })).toHaveAttribute(
