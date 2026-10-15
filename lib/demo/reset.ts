@@ -111,7 +111,7 @@ const DEMO_PAGE: Record<
     phone: "0212 000 00 01",
     address: "Örnek Sk. No:3, Kadıköy / İstanbul",
     description:
-      "rezerve-asistan değerlendirmelerinin örnek işletmesi — burada alınan randevular gerçek değildir.",
+      "rezerve-assistant değerlendirmelerinin örnek işletmesi — burada alınan randevular gerçek değildir.",
   },
 };
 
@@ -142,7 +142,7 @@ export async function resetDemo({
 }
 
 /**
- * The rezerve-asistan eval business: the Pro demo's setup with no history.
+ * The rezerve-assistant eval business: the Pro demo's setup with no history.
  * Not part of the nightly reset — see DEMO_EVAL.
  */
 export function resetEvalBusiness({

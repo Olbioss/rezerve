@@ -50,7 +50,7 @@ describe("ownerNotificationAddress", () => {
 
 describe("ownerNotificationAddress — the eval business", () => {
   it("never mails the eval business's owner either", () => {
-    // Seeded for the rezerve-asistan evals with a login on the same domain
+    // Seeded for the rezerve-assistant evals with a login on the same domain
     // this project does not own; its owner is nobody to write to.
     expect(
       ownerNotificationAddress({

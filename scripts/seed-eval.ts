@@ -1,5 +1,5 @@
 /**
- * Create the rezerve-asistan eval business, or put it back exactly as seeded:
+ * Create the rezerve-assistant eval business, or put it back exactly as seeded:
  * /r/eval, with the Pro demo's services and hours and no bookings.
  *
  * Local databases only — it refuses a DATABASE_URL that is not on this

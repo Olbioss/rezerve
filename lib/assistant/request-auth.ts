@@ -9,7 +9,7 @@ import {
   isCustomerRef,
 } from "./identity";
 
-export const ASSISTANT_CLIENT_ID = "rezerve-asistan";
+export const ASSISTANT_CLIENT_ID = "rezerve-assistant";
 
 export type AssistantAuth =
   | { ok: true; authInfo: AuthInfo }
@@ -22,7 +22,7 @@ function deny(status: number, error: string): AssistantAuth {
 /**
  * The door in front of /api/mcp, checked on every request.
  *
- * One service holds the token — rezerve-asistan — so this is a shared secret
+ * One service holds the token — rezerve-assistant — so this is a shared secret
  * rather than OAuth: there is no third party to delegate to. What the token
  * does not settle, the headers do: which business, and which of its chat
  * customers. Both are checked here, before any tool can run.

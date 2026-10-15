@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /**
  * The assistant's tools as schemas — the contract between Rezerve and the
- * rezerve-asistan service. /api/mcp registers them, `bun run mcp:schema`
+ * rezerve-assistant service. /api/mcp registers them, `bun run mcp:schema`
  * prints them as JSON Schema for the other repository's contract test, and
  * the tool functions return exactly these shapes.
  *

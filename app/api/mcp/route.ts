@@ -4,7 +4,7 @@ import { authenticateAssistant } from "@/lib/assistant/request-auth";
 
 /**
  * The chat assistant's way into Rezerve: a Model Context Protocol endpoint
- * (Streamable HTTP, stateless), used by rezerve-asistan.
+ * (Streamable HTTP, stateless), used by rezerve-assistant.
  *
  * Every request passes the door first — token, business, customer
  * (lib/assistant/request-auth.ts) — and the identity it settles rides along
