@@ -9,25 +9,12 @@ import {
   listMyBookings,
   listServices,
 } from "./read-tools";
-import { TOOL_DEFINITIONS } from "./tool-definitions";
+import { toolConfig as config, TOOL_DEFINITIONS } from "./tool-definitions";
 import {
   cancelBookingTool,
   createBookingTool,
   rescheduleBookingTool,
 } from "./write-tools";
-
-type Definition = (typeof TOOL_DEFINITIONS)[keyof typeof TOOL_DEFINITIONS];
-
-/** A definition as registerTool takes it — specific types kept per tool. */
-function config<D extends Definition>(definition: D) {
-  return {
-    title: definition.title,
-    description: definition.description,
-    inputSchema: definition.input as D["input"],
-    outputSchema: definition.output as D["output"],
-    annotations: definition.annotations,
-  };
-}
 
 export function registerAssistantTools(server: McpServer): void {
   const tools = TOOL_DEFINITIONS;

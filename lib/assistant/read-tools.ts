@@ -3,6 +3,7 @@ import { and, asc, eq, gt, or, sql } from "drizzle-orm";
 import { getBilling } from "@/lib/billing/get-billing";
 import { REFUND_NOTICE_HOURS } from "@/lib/booking/cancellation-policy";
 import { getBookingForPage } from "@/lib/booking/confirmation";
+import { expireHoldsForOrg } from "@/lib/booking/expire-holds";
 import {
   getAvailableSlots,
   localDateISO,
@@ -52,6 +53,7 @@ function viewOf(
 ): BookingView {
   return {
     id: booking.id,
+    service_id: booking.serviceId,
     service_name: serviceName,
     starts_at: booking.startsAt.toISOString(),
     local_label: localLabel(booking.startsAt, timezone),
@@ -127,7 +129,7 @@ export async function listServices({
 }
 
 export async function findSlots(
-  { business }: AssistantIdentity,
+  { business, customerRef }: AssistantIdentity,
   args: FindSlotsInput,
   now: Date = new Date()
 ): Promise<ToolResult<FindSlotsOutput>> {
@@ -155,6 +157,16 @@ export async function findSlots(
   });
   if (!service) return toolError("not_found", "Hizmet bulunamadı");
 
+  // Only the customer's own booking may be left out: anyone else's would
+  // reveal when it is.
+  const moving = args.rescheduling_booking_id;
+  if (moving) {
+    const found = await getBookingForPage(business.organizationId, moving);
+    if (!found || found.booking.customerRef !== customerRef) {
+      return toolError("not_found", "Randevu bulunamadı.");
+    }
+  }
+
   const { timezone } = business.profile;
   const limit = args.limit ?? DEFAULT_SLOT_LIMIT;
   const found: Slot[] = [];
@@ -166,7 +178,8 @@ export async function findSlots(
         business,
         service.id,
         addDays(args.from_date, day),
-        now
+        now,
+        { excludeBookingId: moving }
       )) ?? [];
     for (const start of starts) {
       const time = localTime(start, timezone);
@@ -225,6 +238,9 @@ export async function getBooking(
   { business, customerRef }: AssistantIdentity,
   args: GetBookingInput
 ): Promise<ToolResult<BookingView>> {
+  // A hold whose kapora never came is released first, so it reads as the
+  // slot lookup already treats it: gone, not "waiting for payment".
+  await expireHoldsForOrg(business.organizationId);
   const found = await getBookingForPage(
     business.organizationId,
     args.booking_id

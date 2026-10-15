@@ -49,6 +49,7 @@ const slot = z.object({ starts_at: instant, local_label: z.string() });
 
 const bookingView = z.object({
   id: z.uuid(),
+  service_id: z.uuid(),
   service_name: z.string(),
   starts_at: instant,
   local_label: z.string(),
@@ -67,6 +68,7 @@ const findSlotsInput = z.object({
   earliest_time: wallTime.optional(),
   latest_time: wallTime.optional(),
   limit: z.number().int().min(1).max(20).optional(),
+  rescheduling_booking_id: bookingId.optional(),
 });
 
 const READ_ONLY = { readOnlyHint: true, openWorldHint: false } as const;
@@ -91,7 +93,7 @@ export const READ_TOOLS = {
   find_slots: {
     title: "Boş saatler",
     description:
-      "Free start times for one service between two business-local dates (at most 14 days), optionally between two wall-clock times. Returns at most `limit` (default 10); truncated is true when there were more.",
+      "Free start times for one service between two business-local dates (at most 14 days), optionally between two wall-clock times. Returns at most `limit` (default 10); truncated is true when there were more. When looking for a new time for one of this customer's bookings, pass its id as rescheduling_booking_id: its current time then does not block the times around it.",
     input: findSlotsInput,
     output: z.object({ slots: z.array(slot), truncated: z.boolean() }),
     annotations: READ_ONLY,
@@ -209,6 +211,19 @@ export const WRITE_TOOLS = {
 
 /** Every tool /api/mcp serves, read and write. */
 export const TOOL_DEFINITIONS = { ...READ_TOOLS, ...WRITE_TOOLS };
+
+type Definition = (typeof TOOL_DEFINITIONS)[keyof typeof TOOL_DEFINITIONS];
+
+/** A definition as McpServer.registerTool takes it — specific types kept per tool. */
+export function toolConfig<D extends Definition>(definition: D) {
+  return {
+    title: definition.title,
+    description: definition.description,
+    inputSchema: definition.input as D["input"],
+    outputSchema: definition.output as D["output"],
+    annotations: definition.annotations,
+  };
+}
 
 export type CreateBookingInput = z.infer<typeof createBookingInput>;
 export type CreateBookingOutput = z.infer<

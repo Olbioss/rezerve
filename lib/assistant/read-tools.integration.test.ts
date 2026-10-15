@@ -48,6 +48,7 @@ let ali: AssistantIdentity;
 let aliAtTheFreeShop: AssistantIdentity;
 let facial: string;
 let aliConfirmed: string;
+let aliLapsedHold: string;
 let veliConfirmed: string;
 
 async function seedOrg(org: { id: string; slug: string }) {
@@ -187,6 +188,7 @@ beforeAll(async () => {
     ])
     .returning({ id: bookings.id });
   aliConfirmed = inserted[0].id;
+  aliLapsedHold = inserted[2].id;
   veliConfirmed = inserted[5].id;
 
   ali = await identityFor(PRO.slug, ALI);
@@ -276,6 +278,22 @@ describe("find_slots", () => {
     expect(result.truncated).toBe(true);
   });
 
+  it("leaves the customer's own booking out when looking for a time to move it to", async () => {
+    // DAY_AFTER: Ali's booking 09:00–10:00, a live hold 10:00–11:00, and a
+    // lapsed hold at 11:00 that no longer occupies anything.
+    const sameDay = { from_date: DAY_AFTER, to_date: DAY_AFTER };
+    expect(times(await find(sameDay))).toEqual(["11:00"]);
+    expect(
+      times(await find({ ...sameDay, rescheduling_booking_id: aliConfirmed }))
+    ).toEqual(["09:00", "11:00"]);
+  });
+
+  it("will not leave out someone else's booking", async () => {
+    expect(
+      await find({ rescheduling_booking_id: veliConfirmed })
+    ).toMatchObject({ ok: false, error: { code: "not_found" } });
+  });
+
   it("refuses more than fourteen days, a range that ends before it starts, and an unknown service", async () => {
     expect(await find({ to_date: localDay(16) })).toMatchObject({
       ok: false,
@@ -300,6 +318,7 @@ describe("list_my_bookings", () => {
       ["pending", "10:00"],
     ]);
     expect(listed[1].hold_expires_at).not.toBeNull();
+    expect(listed.every((b) => b.service_id === facial)).toBe(true);
   });
 });
 
@@ -308,7 +327,15 @@ describe("get_booking", () => {
     const booking = ok(await getBooking(ali, { booking_id: aliConfirmed }));
 
     expect(booking.service_name).toBe("Cilt Bakımı");
+    expect(booking.service_id).toBe(facial);
     expect(booking.paid).toBe(false);
+  });
+
+  it("shows a hold whose kapora never came as released, as the slot lookup treats it", async () => {
+    const hold = ok(await getBooking(ali, { booking_id: aliLapsedHold }));
+
+    expect(hold.status).toBe("cancelled");
+    expect(hold.hold_expires_at).toBeNull();
   });
 
   it("treats someone else's booking, or a cut-short id, as not there", async () => {

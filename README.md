@@ -408,7 +408,7 @@ for a visitor.
 | -------------------- | ------ | --------------------------------------------------- |
 | `get_business_info`  | —      | Contact details, notes, today's date in the business timezone |
 | `list_services`      | —      | Active services, with the kapora actually collected |
-| `find_slots`         | —      | Free starts across up to 14 days                     |
+| `find_slots`         | —      | Free starts across up to 14 days, leaving out the booking being moved |
 | `list_my_bookings`   | —      | The customer's upcoming bookings and live holds      |
 | `get_booking`        | —      | One of their bookings, e.g. whether it is paid       |
 | `create_booking`     | ✓      | Book, or hold for 30 minutes with a payment page     |
@@ -459,7 +459,8 @@ fresh booking history, and the daily cron runs the same reset
 and hours with no bookings, for the rezerve-asistan eval harness; it refuses
 any `DATABASE_URL` not on this machine. Its owner is never mailed, but its
 scenario customers would be: run the evals with `EMAIL_DELIVERY=off`.
-`bun run mcp:schema` prints the assistant's tools as JSON Schema.
+`bun run mcp:schema` prints the assistant's tools exactly as `/api/mcp` lists
+them — the contract rezerve-assistant keeps a copy of and tests itself against.
 
 Payments use the iyzico sandbox by default (`IYZICO_BASE_URL`); create
 sandbox keys at sandbox-merchant.iyzipay.com.
