@@ -54,6 +54,9 @@ export default defineConfig({
       // A local run reads the real Brevo settings from .env; test bookings
       // must not reach anyone's inbox.
       EMAIL_DELIVERY: "off",
+      // The chat widget's assistant. Nothing listens here: each test that
+      // opens the widget answers for it (e2e/assistant-widget.spec.ts).
+      ASSISTANT_URL: "http://localhost:3999",
     },
   },
 });

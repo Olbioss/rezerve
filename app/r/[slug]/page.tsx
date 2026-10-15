@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
+import { ChatWidget } from "@/components/assistant/chat-widget";
 import { BookingShell } from "@/components/booking/booking-shell";
 import { getBilling } from "@/lib/billing/get-billing";
 import { dateOverrides } from "@/lib/booking/exceptions";
@@ -73,6 +74,13 @@ async function Booking({ params }: { params: Promise<{ slug: string }> }) {
     getBilling(business.organizationId),
   ]);
 
+  // The chat assistant: on where the business has switched it on and this
+  // deployment knows where the assistant lives. Read per request, so one
+  // build can point at any assistant.
+  const assistantUrl = business.profile.assistantEnabled
+    ? process.env.ASSISTANT_URL
+    : undefined;
+
   return (
     <BookingShell
       businessName={business.orgName}
@@ -99,6 +107,13 @@ async function Booking({ params }: { params: Promise<{ slug: string }> }) {
           depositCents: billing.onlineDeposit ? s.depositCents : null,
         }))}
       />
+      {assistantUrl && (
+        <ChatWidget
+          slug={slug}
+          assistantUrl={assistantUrl}
+          businessName={business.orgName}
+        />
+      )}
     </BookingShell>
   );
 }

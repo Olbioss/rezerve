@@ -404,6 +404,14 @@ for a visitor.
 - **Off until switched on:** a business answers 403 unless
   `assistant_enabled`. The demos have it on.
 
+**The chat widget** (`components/assistant/chat-widget.tsx`) puts the
+assistant on `/r/[slug]` for a business with `assistant_enabled`, when
+`ASSISTANT_URL` says where rezerve-assistant runs; it is read per request, so one
+build can point anywhere. Closed, the widget has sent nothing. Its visitor id,
+a random uuid kept in localStorage, is the conversation's only credential. It
+posts a message, then polls every second while an answer is coming, for at
+most a minute, and a kapora link arrives as a button.
+
 | Tool                 | Writes | What it does                                        |
 | -------------------- | ------ | --------------------------------------------------- |
 | `get_business_info`  | —      | Contact details, notes, today's date in the business timezone |
