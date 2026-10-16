@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type ChatMessage,
+  fetchMessages,
   mergeMessages,
   unconfirmedDrafts,
   VISITOR_KEY,
@@ -86,5 +87,25 @@ describe("unconfirmedDrafts", () => {
     ];
     const stored = [message(1, { direction: "in", client_message_id: "a" })];
     expect(unconfirmedDrafts(drafts, stored)).toEqual([drafts[1]]);
+  });
+});
+
+describe("fetchMessages", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("carries the visitor id in a header, never in the URL", async () => {
+    // The id is the conversation's only credential, and URLs end up in logs.
+    const fetch = vi.fn(async () =>
+      Response.json({ messages: [], pending: false })
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    await fetchMessages("https://assistant.example/", "demo", ID, 7);
+
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://assistant.example/web/demo/messages?after=7");
+    expect(new Headers(init.headers).get("X-Visitor-Id")).toBe(ID);
   });
 });

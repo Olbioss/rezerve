@@ -93,11 +93,12 @@ export async function fetchMessages(
   visitor: string,
   after: number
 ): Promise<ChatPage> {
-  const query = new URLSearchParams({
-    visitor_id: visitor,
-    after: String(after),
+  const query = new URLSearchParams({ after: String(after) });
+  const response = await fetch(`${endpoint(baseUrl, slug)}?${query}`, {
+    // The visitor id is the conversation's only credential: in a URL it would
+    // be written into every access log this once-a-second poll passes.
+    headers: { "X-Visitor-Id": visitor },
   });
-  const response = await fetch(`${endpoint(baseUrl, slug)}?${query}`);
   if (!response.ok) {
     throw new Error(`The assistant answered ${response.status}`);
   }

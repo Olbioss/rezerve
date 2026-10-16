@@ -12,12 +12,12 @@ type Posted = { visitor_id: string; client_message_id: string; text: string };
 /** A stand-in assistant: takes messages, and answers on the second poll. */
 async function stubAssistant(page: Page) {
   const posted: Posted[] = [];
-  const polled: URL[] = [];
+  const polled: { url: URL; visitor: string | undefined }[] = [];
   let pollsSincePost = 0;
   const cors = {
     "access-control-allow-origin": "*",
     "access-control-allow-methods": "GET, POST",
-    "access-control-allow-headers": "content-type",
+    "access-control-allow-headers": "content-type, x-visitor-id",
   };
   await page.route(`${ASSISTANT}/web/demo/messages**`, (route: Route) => {
     const request = route.request();
@@ -33,7 +33,10 @@ async function stubAssistant(page: Page) {
         json: { status: "accepted" },
       });
     }
-    polled.push(new URL(request.url()));
+    polled.push({
+      url: new URL(request.url()),
+      visitor: request.headers()["x-visitor-id"],
+    });
     pollsSincePost += 1;
     const messages = posted.flatMap((message, i) => [
       {
@@ -115,10 +118,14 @@ test("a returning visitor finds their conversation", async ({ page }) => {
   // The same visitor, asking for the whole conversation again.
   const [first] = assistant.polled;
   const last = assistant.polled[assistant.polled.length - 1];
-  expect(last.searchParams.get("visitor_id")).toBe(
-    first.searchParams.get("visitor_id")
-  );
-  expect(last.searchParams.get("after")).toBe("0");
+  expect(last.visitor).toMatch(UUID);
+  expect(last.visitor).toBe(first.visitor);
+  expect(last.url.searchParams.get("after")).toBe("0");
+  // The id is the conversation's only credential: never in a URL, which
+  // would put it in every access log the polling passes through.
+  for (const poll of assistant.polled) {
+    expect(poll.url.search).not.toContain("visitor");
+  }
 });
 
 test("closed, the widget has sent nothing anywhere", async ({ page }) => {
