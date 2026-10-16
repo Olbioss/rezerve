@@ -17,8 +17,11 @@ export type ChatMessage = {
 
 export type ChatPage = { messages: ChatMessage[]; pending: boolean };
 
-/** A message the widget shows before the service has stored it. */
-export type Draft = { clientMessageId: string; text: string };
+/**
+ * A message the widget shows before the service has stored it. `failed` when
+ * its last send did not go through: it is retried as itself, same id and all.
+ */
+export type Draft = { clientMessageId: string; text: string; failed?: boolean };
 
 export const VISITOR_KEY = "rezerve-assistant:visitor";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

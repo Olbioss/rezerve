@@ -48,7 +48,6 @@ export function ChatWidget({
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [waiting, setWaiting] = useState(false);
   const [text, setText] = useState("");
-  const [failed, setFailed] = useState(false);
   const visitor = useRef<string | null>(null);
   const lastSeq = useRef(0);
   const pollUntil = useRef(0);
@@ -122,30 +121,48 @@ export function ChatWidget({
     requestAnimationFrame(() => launcher.current?.focus());
   }
 
-  async function send(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const body = text.trim();
+  const undelivered = drafts.some((draft) => draft.failed);
+
+  function markFailed(clientMessageId: string, failed: boolean) {
+    setDrafts((sent) =>
+      sent.map((d) =>
+        d.clientMessageId === clientMessageId ? { ...d, failed } : d
+      )
+    );
+  }
+
+  /**
+   * Send a draft, or send it again as itself: the same id, so if an earlier
+   * try reached the assistant after all, it is still one message (§7.2).
+   */
+  async function deliver(draft: Draft) {
     const id = visitor.current;
-    // One message at a time: a second one sent while an answer is on its way
-    // could answer a confirmation the visitor has not seen yet.
-    if (!body || !id || waiting) return;
-    const draft = { clientMessageId: crypto.randomUUID(), text: body };
-    setDrafts((sent) => [...sent, draft]);
-    setText("");
-    setFailed(false);
+    if (!id) return;
+    markFailed(draft.clientMessageId, false);
     try {
       await sendMessage(assistantUrl, slug, {
         visitor_id: id,
         client_message_id: draft.clientMessageId,
-        text: body,
+        text: draft.text,
       });
     } catch {
-      setDrafts((sent) => sent.filter((d) => d !== draft));
-      setText(body);
-      setFailed(true);
+      markFailed(draft.clientMessageId, true);
       return;
     }
     poll();
+  }
+
+  async function send(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const body = text.trim();
+    // One message at a time: a second one sent while an answer is on its way
+    // could answer a confirmation the visitor has not seen yet, and one sent
+    // past an undelivered message would arrive before it.
+    if (!body || !visitor.current || waiting || undelivered) return;
+    const draft = { clientMessageId: crypto.randomUUID(), text: body };
+    setDrafts((sent) => [...sent, draft]);
+    setText("");
+    await deliver(draft);
   }
 
   return (
@@ -213,6 +230,8 @@ export function ChatWidget({
                 mine
                 text={draft.text}
                 actions={[]}
+                failed={draft.failed}
+                onRetry={() => deliver(draft)}
               />
             ))}
             <li ref={logEnd} aria-hidden className="h-px" />
@@ -223,11 +242,6 @@ export function ChatWidget({
               className="px-5 pb-2 text-muted-foreground text-sm"
             >
               Yazıyor…
-            </p>
-          )}
-          {failed && (
-            <p role="alert" className="px-5 pb-2 text-destructive text-sm">
-              Mesaj gönderilemedi. Tekrar deneyin.
             </p>
           )}
           <form
@@ -250,7 +264,7 @@ export function ChatWidget({
               type="submit"
               size="icon"
               aria-label="Gönder"
-              disabled={!text.trim() || waiting}
+              disabled={!text.trim() || waiting || undelivered}
             >
               <SendIcon aria-hidden />
             </Button>
@@ -266,10 +280,15 @@ function Bubble({
   mine,
   text,
   actions,
+  failed = false,
+  onRetry,
 }: {
   mine: boolean;
   text: string;
   actions: ChatAction[];
+  /** A draft whose send did not go through, offered again as itself. */
+  failed?: boolean;
+  onRetry?: () => void;
 }) {
   return (
     <li
@@ -283,6 +302,17 @@ function Bubble({
       >
         {text}
       </p>
+      {failed && (
+        <p
+          role="alert"
+          className="flex items-center gap-2 text-destructive text-xs"
+        >
+          Gönderilemedi.
+          <Button type="button" variant="link" size="xs" onClick={onRetry}>
+            Tekrar gönder
+          </Button>
+        </p>
+      )}
       {actions.map((action) => (
         <a
           key={action.url}

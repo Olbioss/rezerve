@@ -9,8 +9,12 @@ const REPLY = "Yarın 15:30 uygun. Kaporayı ödediğinizde randevunuz kesinleş
 
 type Posted = { visitor_id: string; client_message_id: string; text: string };
 
-/** A stand-in assistant: takes messages, and answers on the second poll. */
-async function stubAssistant(page: Page) {
+/**
+ * A stand-in assistant: takes messages, and answers on the second poll. With
+ * `failFirstPost`, its first POST answers 503, as an assistant briefly down.
+ */
+async function stubAssistant(page: Page, { failFirstPost = false } = {}) {
+  const attempts: Posted[] = [];
   const posted: Posted[] = [];
   const polled: { url: URL; visitor: string | undefined }[] = [];
   let pollsSincePost = 0;
@@ -25,7 +29,12 @@ async function stubAssistant(page: Page) {
       return route.fulfill({ status: 204, headers: cors });
     }
     if (request.method() === "POST") {
-      posted.push(request.postDataJSON() as Posted);
+      const body = request.postDataJSON() as Posted;
+      attempts.push(body);
+      if (failFirstPost && attempts.length === 1) {
+        return route.fulfill({ status: 503, headers: cors, body: "" });
+      }
+      posted.push(body);
       pollsSincePost = 0;
       return route.fulfill({
         status: 202,
@@ -65,7 +74,7 @@ async function stubAssistant(page: Page) {
       json: { messages: visible, pending: !answered },
     });
   });
-  return { posted, polled };
+  return { attempts, posted, polled };
 }
 
 test("a visitor asks the assistant and gets a kapora button", async ({
@@ -136,4 +145,28 @@ test("closed, the widget has sent nothing anywhere", async ({ page }) => {
   ).toBeVisible();
   expect(assistant.posted).toHaveLength(0);
   expect(assistant.polled).toHaveLength(0);
+});
+
+test("a message that failed to send is retried as itself, and nothing typed meanwhile is lost", async ({
+  page,
+}) => {
+  const assistant = await stubAssistant(page, { failFirstPost: true });
+  await page.goto("/r/demo");
+  await page.getByRole("button", { name: "Asistana yazın" }).click();
+  const chat = page.getByRole("region", { name: "Asistan" });
+  await chat.getByLabel("Mesajınız").fill("yarın 15:30 cilt bakımı");
+  await chat.getByRole("button", { name: "Gönder" }).click();
+
+  const retry = chat.getByRole("button", { name: "Tekrar gönder" });
+  await expect(retry).toBeVisible();
+  // The visitor keeps typing while the first message waits to go out.
+  await chat.getByLabel("Mesajınız").fill("bir de manikür");
+  await retry.click();
+
+  await expect(chat.getByRole("log").getByText(REPLY)).toBeVisible();
+  // The same message, by the same id: if the first try had reached the
+  // assistant after all, it stores the message once (spec §7.2).
+  expect(assistant.attempts).toHaveLength(2);
+  expect(assistant.attempts[1]).toEqual(assistant.attempts[0]);
+  await expect(chat.getByLabel("Mesajınız")).toHaveValue("bir de manikür");
 });
