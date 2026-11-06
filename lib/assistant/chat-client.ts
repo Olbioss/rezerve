@@ -15,7 +15,37 @@ export type ChatMessage = {
   client_message_id: string | null;
 };
 
-export type ChatPage = { messages: ChatMessage[]; pending: boolean };
+export type ChatPage = {
+  messages: ChatMessage[];
+  /** A message of the visitor's is still to be answered. */
+  pending: boolean;
+  /** The business owner holds the conversation (spec §7.6). Absent from an
+   * assistant older than the owner relay. */
+  with_owner?: boolean;
+};
+
+/** How long to look for an answer after a message, and for the owner's. */
+export const ANSWER_WAIT_MS = 60_000;
+export const OWNER_WAIT_MS = 30 * 60_000;
+
+/**
+ * After a poll, when to poll again: every second while an answer is coming,
+ * holding the visitor's next message back, until a minute after theirs;
+ * every ten seconds while the owner holds the conversation, the visitor free
+ * to write, until half an hour after the last news; otherwise not at all.
+ */
+export function nextPoll(
+  page: Pick<ChatPage, "pending" | "with_owner">,
+  now: number,
+  until: { answer: number; owner: number }
+): { afterMs: number; waiting: boolean } | null {
+  if (page.pending && now < until.answer)
+    return { afterMs: 1_000, waiting: true };
+  if (page.with_owner && now < until.owner) {
+    return { afterMs: 10_000, waiting: false };
+  }
+  return null;
+}
 
 /**
  * A message the widget shows before the service has stored it. `failed` when

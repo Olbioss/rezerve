@@ -3,6 +3,7 @@ import {
   type ChatMessage,
   fetchMessages,
   mergeMessages,
+  nextPoll,
   unconfirmedDrafts,
   VISITOR_KEY,
   visitorId,
@@ -107,5 +108,53 @@ describe("fetchMessages", () => {
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://assistant.example/web/demo/messages?after=7");
     expect(new Headers(init.headers).get("X-Visitor-Id")).toBe(ID);
+  });
+});
+
+describe("nextPoll", () => {
+  const NOW = 1_000_000;
+  const until = { answer: NOW + 30_000, owner: NOW + 600_000 };
+
+  it("asks every second while an answer is coming, holding the next message", () => {
+    expect(nextPoll({ pending: true, with_owner: false }, NOW, until)).toEqual({
+      afterMs: 1_000,
+      waiting: true,
+    });
+  });
+
+  it("gives up on an answer a minute after the message", () => {
+    expect(
+      nextPoll({ pending: true, with_owner: false }, until.answer, until)
+    ).toBeNull();
+  });
+
+  it("looks every ten seconds while the owner holds the conversation, the visitor free to write", () => {
+    // The owner answers when they can (spec §7.6), long after a minute.
+    expect(nextPoll({ pending: false, with_owner: true }, NOW, until)).toEqual({
+      afterMs: 10_000,
+      waiting: false,
+    });
+  });
+
+  it("still looks for the owner once a message's minute is up", () => {
+    expect(
+      nextPoll({ pending: true, with_owner: true }, until.answer, until)
+    ).toEqual({ afterMs: 10_000, waiting: false });
+  });
+
+  it("stops looking for the owner half an hour after the last news", () => {
+    expect(
+      nextPoll({ pending: false, with_owner: true }, until.owner, until)
+    ).toBeNull();
+  });
+
+  it("stops once nothing is coming", () => {
+    expect(
+      nextPoll({ pending: false, with_owner: false }, NOW, until)
+    ).toBeNull();
+  });
+
+  it("reads an assistant from before with_owner as no owner", () => {
+    expect(nextPoll({ pending: false }, NOW, until)).toBeNull();
   });
 });

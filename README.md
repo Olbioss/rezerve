@@ -410,7 +410,11 @@ assistant on `/r/[slug]` for a business with `assistant_enabled`, when
 build can point anywhere. Closed, the widget has sent nothing. Its visitor id,
 a random uuid kept in localStorage, is the conversation's only credential. It
 posts a message, then polls every second while an answer is coming, for at
-most a minute, and a kapora link arrives as a button.
+most a minute, and a kapora link arrives as a button. While the business owner
+holds the conversation, it polls every ten seconds instead, for half an hour
+after the last news, only while the chat is open and the tab in view, and the
+visitor can keep writing. Opening the chat again, or coming back to the tab,
+fetches what came meanwhile.
 
 **The kapora event.** When a kapora is paid for a booking the assistant made,
 Rezerve tells the assistant, which tells the customer in their chat:

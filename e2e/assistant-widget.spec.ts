@@ -77,6 +77,55 @@ async function stubAssistant(page: Page, { failFirstPost = false } = {}) {
   return { attempts, posted, polled };
 }
 
+/**
+ * A stand-in assistant whose conversation the business owner holds (spec
+ * §7.6): each message is stored and passed on, and the owner's reply comes
+ * whenever the test sends it.
+ */
+async function stubOwnerHolding(page: Page) {
+  const conversation: Record<string, unknown>[] = [];
+  const polled: number[] = [];
+  const cors = {
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET, POST",
+    "access-control-allow-headers": "content-type, x-visitor-id",
+  };
+  const add = (direction: "in" | "out", text: string, id: string | null) =>
+    conversation.push({
+      seq: conversation.length + 1,
+      direction,
+      text,
+      actions: [],
+      client_message_id: id,
+    });
+  await page.route(`${ASSISTANT}/web/demo/messages**`, (route: Route) => {
+    const request = route.request();
+    if (request.method() === "OPTIONS") {
+      return route.fulfill({ status: 204, headers: cors });
+    }
+    if (request.method() === "POST") {
+      const body = request.postDataJSON() as Posted;
+      add("in", body.text, body.client_message_id);
+      return route.fulfill({
+        status: 202,
+        headers: cors,
+        json: { status: "accepted" },
+      });
+    }
+    polled.push(Date.now());
+    const after = Number(new URL(request.url()).searchParams.get("after"));
+    return route.fulfill({
+      headers: cors,
+      json: {
+        messages: conversation.filter((m) => Number(m.seq) > after),
+        pending: false,
+        with_owner: true,
+      },
+    });
+  });
+  return { polled, reply: (text: string) => add("out", text, null) };
+}
+
 test("a visitor asks the assistant and gets a kapora button", async ({
   page,
 }) => {
@@ -169,4 +218,54 @@ test("a message that failed to send is retried as itself, and nothing typed mean
   expect(assistant.attempts).toHaveLength(2);
   expect(assistant.attempts[1]).toEqual(assistant.attempts[0]);
   await expect(chat.getByLabel("Mesajınız")).toHaveValue("bir de manikür");
+});
+
+test("while the owner holds the conversation, the widget looks every ten seconds and the visitor can write", async ({
+  page,
+}) => {
+  const owner = await stubOwnerHolding(page);
+  await page.goto("/r/demo");
+  await page.getByRole("button", { name: "Asistana yazın" }).click();
+  const chat = page.getByRole("region", { name: "Asistan" });
+  await chat.getByLabel("Mesajınız").fill("fiyatta indirim olur mu?");
+  await chat.getByRole("button", { name: "Gönder" }).click();
+  // The first look finds the message passed on to the owner.
+  await expect.poll(() => owner.polled.length).toBe(1);
+
+  // The owner answers when they can: nothing is "typing", and the visitor
+  // can add to what they asked meanwhile.
+  await expect(chat.getByRole("status")).toBeHidden();
+  await chat.getByLabel("Mesajınız").fill("bir de 16:00 olur mu?");
+  await expect(chat.getByRole("button", { name: "Gönder" })).toBeEnabled();
+
+  // Slowly: not every second, but within ten.
+  const polls = owner.polled.length;
+  owner.reply("İşletme: 16:00 olur, indirim yapamıyoruz.");
+  await page.waitForTimeout(3_000);
+  expect(owner.polled).toHaveLength(polls);
+  await expect(
+    chat.getByRole("log").getByText("İşletme: 16:00 olur")
+  ).toBeVisible({ timeout: 12_000 });
+});
+
+test("what came while the chat was closed is there when it opens again", async ({
+  page,
+}) => {
+  const owner = await stubOwnerHolding(page);
+  await page.goto("/r/demo");
+  await page.getByRole("button", { name: "Asistana yazın" }).click();
+  const chat = page.getByRole("region", { name: "Asistan" });
+  await chat.getByLabel("Mesajınız").fill("merhaba");
+  await chat.getByRole("button", { name: "Gönder" }).click();
+  await expect(chat.getByRole("log").getByText("merhaba")).toHaveCount(1);
+
+  await chat.getByRole("button", { name: "Kapat" }).click();
+  owner.reply("İşletme: Merhaba, buyurun.");
+  await page.getByRole("button", { name: "Asistana yazın" }).click();
+  // At once: not at the next ten-second look.
+  await expect(
+    page
+      .getByRole("region", { name: "Asistan" })
+      .getByText("İşletme: Merhaba, buyurun.")
+  ).toBeVisible({ timeout: 3_000 });
 });

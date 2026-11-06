@@ -12,25 +12,26 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  ANSWER_WAIT_MS,
   type ChatAction,
   type ChatMessage,
+  type ChatPage,
   type Draft,
   fetchMessages,
   mergeMessages,
+  nextPoll,
+  OWNER_WAIT_MS,
   sendMessage,
   unconfirmedDrafts,
   visitorId,
 } from "@/lib/assistant/chat-client";
 import { cn } from "@/lib/utils";
 
-/** How often to ask for the answer, and for how long before giving up. */
-const POLL_EVERY_MS = 1_000;
-const POLL_FOR_MS = 60_000;
-
 /**
  * The chat assistant on a business's booking page (spec §6.4). Closed, it is
  * one button and has sent nothing anywhere; opened, it is a conversation with
- * rezerve-assistant, polled while an answer is on its way.
+ * rezerve-assistant, polled while an answer is on its way, and slowly while
+ * the business owner holds the conversation (nextPoll).
  */
 export function ChatWidget({
   slug,
@@ -50,46 +51,76 @@ export function ChatWidget({
   const [text, setText] = useState("");
   const visitor = useRef<string | null>(null);
   const lastSeq = useRef(0);
-  const pollUntil = useRef(0);
+  // What the last poll said, and until when each kind of news is looked for.
+  const last = useRef<Pick<ChatPage, "pending" | "with_owner">>({
+    pending: false,
+  });
+  const answerUntil = useRef(0);
+  const ownerUntil = useRef(0);
+  // Open: the owner's reply is looked for only while someone can see it.
+  const shown = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const launcher = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const logEnd = useRef<HTMLLIElement>(null);
 
-  /** One poll: fold in what is new. True while an answer is still coming. */
-  const refresh = useCallback(async (): Promise<boolean> => {
+  /** One poll: fold in what is new, and keep what it says is coming. */
+  const refresh = useCallback(async () => {
     const id = visitor.current;
-    if (!id) return false;
+    if (!id) return;
     const page = await fetchMessages(assistantUrl, slug, id, lastSeq.current);
     if (page.messages.length > 0) {
       lastSeq.current = page.messages[page.messages.length - 1].seq;
       setMessages((shown) => mergeMessages(shown, page.messages));
       setDrafts((sent) => unconfirmedDrafts(sent, page.messages));
+      ownerUntil.current = Date.now() + OWNER_WAIT_MS;
     }
-    return page.pending;
+    last.current = page;
   }, [assistantUrl, slug]);
 
+  /** Poll now, then as long as nextPoll says. */
   const poll = useCallback(() => {
     clearTimeout(timer.current);
-    pollUntil.current = Date.now() + POLL_FOR_MS;
-    setWaiting(true);
     const tick = async () => {
-      let pending = true;
       try {
-        pending = await refresh();
+        await refresh();
       } catch {
-        // A dropped poll: the next one asks again.
+        // A dropped poll: decide on what the last one said.
       }
-      if (pending && Date.now() < pollUntil.current) {
-        timer.current = setTimeout(tick, POLL_EVERY_MS);
-      } else {
-        setWaiting(false);
+      const step = nextPoll(last.current, Date.now(), {
+        answer: answerUntil.current,
+        owner: ownerUntil.current,
+      });
+      setWaiting(step?.waiting ?? false);
+      const seen = shown.current && document.visibilityState === "visible";
+      if (step && (step.waiting || seen)) {
+        timer.current = setTimeout(tick, step.afterMs);
       }
     };
     void tick();
   }, [refresh]);
 
+  /** Look from now: for an answer for a minute, the owner's for half an hour. */
+  const lookAgain = useCallback(() => {
+    const now = Date.now();
+    answerUntil.current = now + ANSWER_WAIT_MS;
+    ownerUntil.current = now + OWNER_WAIT_MS;
+    poll();
+  }, [poll]);
+
   useEffect(() => () => clearTimeout(timer.current), []);
+
+  // Back on the page, say from paying the kapora in another tab: what came
+  // meanwhile, and the owner looked for again.
+  useEffect(() => {
+    const returned = () => {
+      if (document.visibilityState === "visible" && shown.current) {
+        if (visitor.current) lookAgain();
+      }
+    };
+    document.addEventListener("visibilitychange", returned);
+    return () => document.removeEventListener("visibilitychange", returned);
+  }, [lookAgain]);
 
   useEffect(() => {
     if (open) input.current?.focus();
@@ -103,21 +134,26 @@ export function ChatWidget({
 
   function openChat() {
     setOpen(true);
-    if (visitor.current) return;
-    let storage: Storage | null = null;
-    try {
-      storage = window.localStorage;
-    } catch {
-      // Storage refused: the conversation lasts as long as the page.
+    shown.current = true;
+    if (!visitor.current) {
+      let storage: Storage | null = null;
+      try {
+        storage = window.localStorage;
+      } catch {
+        // Storage refused: the conversation lasts as long as the page.
+      }
+      const { id, returning } = visitorId(storage);
+      visitor.current = id;
+      // A new visitor has no conversation to fetch yet.
+      if (!returning) return;
     }
-    const { id, returning } = visitorId(storage);
-    visitor.current = id;
-    // A returning visitor's conversation is kept by the service: show it.
-    if (returning) poll();
+    // The conversation the service keeps, with whatever came while closed.
+    lookAgain();
   }
 
   function closeChat() {
     setOpen(false);
+    shown.current = false;
     requestAnimationFrame(() => launcher.current?.focus());
   }
 
@@ -149,7 +185,10 @@ export function ChatWidget({
       markFailed(draft.clientMessageId, true);
       return;
     }
-    poll();
+    // Its answer is coming: the next message waits for it.
+    last.current = { ...last.current, pending: true };
+    setWaiting(true);
+    lookAgain();
   }
 
   async function send(event: FormEvent<HTMLFormElement>) {
