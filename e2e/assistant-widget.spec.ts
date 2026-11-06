@@ -98,7 +98,9 @@ async function stubOwnerHolding(page: Page) {
       actions: [],
       client_message_id: id,
     });
-  await page.route(`${ASSISTANT}/web/demo/messages**`, (route: Route) => {
+  // While held, each poll's answer waits, as on a database waking up.
+  let held: Promise<void> | null = null;
+  await page.route(`${ASSISTANT}/web/demo/messages**`, async (route: Route) => {
     const request = route.request();
     if (request.method() === "OPTIONS") {
       return route.fulfill({ status: 204, headers: cors });
@@ -114,16 +116,29 @@ async function stubOwnerHolding(page: Page) {
     }
     polled.push(Date.now());
     const after = Number(new URL(request.url()).searchParams.get("after"));
-    return route.fulfill({
-      headers: cors,
-      json: {
-        messages: conversation.filter((m) => Number(m.seq) > after),
-        pending: false,
-        with_owner: true,
-      },
-    });
+    const json = {
+      messages: conversation.filter((m) => Number(m.seq) > after),
+      pending: false,
+      with_owner: true,
+    };
+    if (held) await held;
+    return route.fulfill({ headers: cors, json });
   });
-  return { polled, reply: (text: string) => add("out", text, null) };
+  return {
+    polled,
+    reply: (text: string) => add("out", text, null),
+    /** Hold the polls' answers; the function returned lets them go. */
+    hold: () => {
+      let release = () => {};
+      held = new Promise((resolve) => {
+        release = () => {
+          held = null;
+          resolve();
+        };
+      });
+      return () => release();
+    },
+  };
 }
 
 test("a visitor asks the assistant and gets a kapora button", async ({
@@ -246,6 +261,34 @@ test("while the owner holds the conversation, the widget looks every ten seconds
   await expect(
     chat.getByRole("log").getByText("İşletme: 16:00 olur")
   ).toBeVisible({ timeout: 12_000 });
+});
+
+test("a look begun while another is on its way replaces it, never adds a second", async ({
+  page,
+}) => {
+  const owner = await stubOwnerHolding(page);
+  await page.goto("/r/demo");
+  await page.getByRole("button", { name: "Asistana yazın" }).click();
+  const chat = page.getByRole("region", { name: "Asistan" });
+  await chat.getByLabel("Mesajınız").fill("fiyatta indirim olur mu?");
+  await chat.getByRole("button", { name: "Gönder" }).click();
+  await expect.poll(() => owner.polled.length).toBe(1);
+
+  // A look slow to answer, from opening the chat again; the visitor writes
+  // meanwhile, which begins another.
+  const release = owner.hold();
+  await chat.getByRole("button", { name: "Kapat" }).click();
+  await page.getByRole("button", { name: "Asistana yazın" }).click();
+  await expect.poll(() => owner.polled.length).toBe(2);
+  await chat.getByLabel("Mesajınız").fill("bir de 16:00 olur mu?");
+  await chat.getByRole("button", { name: "Gönder" }).click();
+  await expect.poll(() => owner.polled.length).toBe(3);
+  release();
+
+  // From here one look every ten seconds, not one for each that was waiting.
+  const settled = owner.polled.length;
+  await page.waitForTimeout(11_000);
+  expect(owner.polled.length - settled).toBe(1);
 });
 
 test("what came while the chat was closed is there when it opens again", async ({

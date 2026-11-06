@@ -60,33 +60,42 @@ export function ChatWidget({
   // Open: the owner's reply is looked for only while someone can see it.
   const shown = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Each poll() begins a generation. A look still on its way when a newer one
+  // begins, or when the widget goes, changes nothing and schedules nothing.
+  const generation = useRef(0);
   const launcher = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const logEnd = useRef<HTMLLIElement>(null);
 
   /** One poll: fold in what is new, and keep what it says is coming. */
-  const refresh = useCallback(async () => {
-    const id = visitor.current;
-    if (!id) return;
-    const page = await fetchMessages(assistantUrl, slug, id, lastSeq.current);
-    if (page.messages.length > 0) {
-      lastSeq.current = page.messages[page.messages.length - 1].seq;
-      setMessages((shown) => mergeMessages(shown, page.messages));
-      setDrafts((sent) => unconfirmedDrafts(sent, page.messages));
-      ownerUntil.current = Date.now() + OWNER_WAIT_MS;
-    }
-    last.current = page;
-  }, [assistantUrl, slug]);
+  const refresh = useCallback(
+    async (begun: number) => {
+      const id = visitor.current;
+      if (!id) return;
+      const page = await fetchMessages(assistantUrl, slug, id, lastSeq.current);
+      if (begun !== generation.current) return;
+      if (page.messages.length > 0) {
+        lastSeq.current = page.messages[page.messages.length - 1].seq;
+        setMessages((shown) => mergeMessages(shown, page.messages));
+        setDrafts((sent) => unconfirmedDrafts(sent, page.messages));
+        ownerUntil.current = Date.now() + OWNER_WAIT_MS;
+      }
+      last.current = page;
+    },
+    [assistantUrl, slug]
+  );
 
   /** Poll now, then as long as nextPoll says. */
   const poll = useCallback(() => {
     clearTimeout(timer.current);
+    const begun = ++generation.current;
     const tick = async () => {
       try {
-        await refresh();
+        await refresh(begun);
       } catch {
         // A dropped poll: decide on what the last one said.
       }
+      if (begun !== generation.current) return;
       const step = nextPoll(last.current, Date.now(), {
         answer: answerUntil.current,
         owner: ownerUntil.current,
@@ -108,7 +117,13 @@ export function ChatWidget({
     poll();
   }, [poll]);
 
-  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(
+    () => () => {
+      generation.current += 1;
+      clearTimeout(timer.current);
+    },
+    []
+  );
 
   // Back on the page, say from paying the kapora in another tab: what came
   // meanwhile, and the owner looked for again.
