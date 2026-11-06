@@ -412,6 +412,15 @@ a random uuid kept in localStorage, is the conversation's only credential. It
 posts a message, then polls every second while an answer is coming, for at
 most a minute, and a kapora link arrives as a button.
 
+**The kapora event.** When a kapora is paid for a booking the assistant made,
+Rezerve tells the assistant, which tells the customer in their chat:
+`booking.confirmed`, posted to its `/events/rezerve` once the confirmation
+redirect is sent (`lib/assistant/events.ts`). It is signed with HMAC-SHA256
+over `<timestamp>.<body>` under `ASSISTANT_EVENT_SECRET`, the same secret the
+assistant holds; a test vector pinned in both repositories keeps the two
+signatures one. Best effort: one attempt, a failure logged. Without
+`ASSISTANT_URL` or `ASSISTANT_EVENT_SECRET` nothing is sent.
+
 | Tool                 | Writes | What it does                                        |
 | -------------------- | ------ | --------------------------------------------------- |
 | `get_business_info`  | —      | Contact details, notes, today's date in the business timezone |

@@ -5,6 +5,7 @@
 import { eq } from "drizzle-orm";
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -24,6 +25,18 @@ const { approveMock, refundMock } = vi.hoisted(() => ({
   approveMock: vi.fn(),
   refundMock: vi.fn(),
 }));
+
+// What confirmPaidBooking leaves for after the response: Next.js runs it once
+// the redirect is sent, and here the test does.
+const { scheduled } = vi.hoisted(() => ({
+  scheduled: [] as (() => unknown)[],
+}));
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (task: () => unknown) => {
+    scheduled.push(task);
+  },
+}));
 vi.mock("@/lib/payments", () => ({
   getPaymentProvider: () => ({
     approveTransaction: approveMock,
@@ -35,6 +48,7 @@ const { confirmPaidBooking, cancelFailedPayment } = await import(
   "./handle-payment-result"
 );
 const { db } = await import("@/lib/db");
+const { localLabel } = await import("@/lib/assistant/format");
 const { organization } = await import("@/lib/db/schema/auth-schema");
 const { bookings } = await import("@/lib/db/schema/booking-schema");
 const { businessProfiles } = await import("@/lib/db/schema/business-schema");
@@ -77,6 +91,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  scheduled.length = 0;
   sendConfirmed.mockClear();
   sendCancelled.mockClear();
   await db.delete(bookings).where(eq(bookings.organizationId, ORG_ID));
@@ -135,6 +150,63 @@ describe("handle-payment-result (integration)", () => {
     expect(await confirmPaidBooking(bookingId, TOKEN)).toBe("noop");
     expect(await bookingStatus()).toBe("cancelled");
     expect(sendConfirmed).not.toHaveBeenCalled();
+  });
+});
+
+describe("confirmPaidBooking — telling the assistant", () => {
+  const REF = "telegram:abcdefghijklmnopqrstuvwxyz";
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    fetchMock
+      .mockReset()
+      .mockResolvedValue(new Response(null, { status: 202 }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubEnv("ASSISTANT_URL", "https://assistant.example");
+    vi.stubEnv("ASSISTANT_EVENT_SECRET", "event-secret");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("tells it of a kapora paid for its booking, after the response", async () => {
+    // The customer paid in their browser; their chat hears it too (spec §6.5).
+    await db
+      .update(bookings)
+      .set({ source: "assistant", customerRef: REF })
+      .where(eq(bookings.id, bookingId));
+
+    expect(await confirmPaidBooking(bookingId, TOKEN)).toBe("confirmed");
+    // The redirect to the confirmation page never waits on the assistant.
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(scheduled).toHaveLength(1);
+
+    await scheduled[0]();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    expect(String(url)).toBe("https://assistant.example/events/rezerve");
+    const row = await db.query.bookings.findFirst({
+      where: eq(bookings.id, bookingId),
+    });
+    expect(JSON.parse(String(init.body))).toEqual({
+      type: "booking.confirmed",
+      booking_id: bookingId,
+      business_slug: "itest-payment",
+      customer_ref: REF,
+      service_name: "Kaporali Bakim",
+      local_label: localLabel(row!.startsAt, "UTC"),
+    });
+
+    // A replayed callback confirms nothing, so it tells nothing.
+    expect(await confirmPaidBooking(bookingId, TOKEN)).toBe("noop");
+    expect(scheduled).toHaveLength(1);
+  });
+
+  it("leaves it out of a booking made on the booking page", async () => {
+    expect(await confirmPaidBooking(bookingId, TOKEN)).toBe("confirmed");
+    expect(scheduled).toEqual([]);
   });
 });
 

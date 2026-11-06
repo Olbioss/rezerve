@@ -1,9 +1,17 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
+import { after } from "next/server";
+import { notifyAssistant } from "@/lib/assistant/events";
+import { localLabel } from "@/lib/assistant/format";
 import { refundDeposit } from "@/lib/booking/refund-deposit";
 import { db } from "@/lib/db";
+import { organization } from "@/lib/db/schema/auth-schema";
 import { bookings } from "@/lib/db/schema/booking-schema";
+import { businessProfiles } from "@/lib/db/schema/business-schema";
+import { services } from "@/lib/db/schema/service-schema";
 import { sendBookingConfirmedEmails } from "@/lib/email/booking-notifications";
 import { getPaymentProvider } from "@/lib/payments";
+
+type Booking = typeof bookings.$inferSelect;
 
 /**
  * Payment-callback business logic, separated from the route for testing.
@@ -80,7 +88,37 @@ export async function confirmPaidBooking(
   }
 
   await sendBookingConfirmedEmails(confirmed);
+  if (confirmed.source === "assistant") {
+    // Once the redirect is sent: a cold-starting assistant never holds up the
+    // customer's confirmation page.
+    after(() => tellAssistant(confirmed));
+  }
   return "confirmed";
+}
+
+/**
+ * The customer who booked in a chat hears there that their kapora arrived
+ * (spec §6.5), as well as on the confirmation page and by email.
+ */
+async function tellAssistant(booking: Booking): Promise<void> {
+  const [org, profile, service] = await Promise.all([
+    db.query.organization.findFirst({
+      where: eq(organization.id, booking.organizationId),
+    }),
+    db.query.businessProfiles.findFirst({
+      where: eq(businessProfiles.organizationId, booking.organizationId),
+    }),
+    db.query.services.findFirst({ where: eq(services.id, booking.serviceId) }),
+  ]);
+  if (!org || !profile || !service || !booking.customerRef) return;
+  await notifyAssistant({
+    type: "booking.confirmed",
+    booking_id: booking.id,
+    business_slug: org.slug,
+    customer_ref: booking.customerRef,
+    service_name: service.name,
+    local_label: localLabel(booking.startsAt, profile.timezone),
+  });
 }
 
 /** Failed/abandoned payment: release the hold. No email for a failed attempt. */
