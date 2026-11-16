@@ -17,6 +17,12 @@ and can pay a deposit (_kapora_), without an account. The UI is in Turkish.
   collected).
 - Both demos reset every morning, so change anything.
 
+Owners' feature requests and bug reports, which other owners vote on, go to a
+[feedback board in Turkish](https://pano.olbios88.workers.dev/rezerve) linked
+from the panel's sidebar. It runs on [Pano](https://github.com/Olbioss/pano), a
+separate app with its own sign-in: Rezerve links to it and shares nothing with
+it.
+
 ## Worth a look
 
 - **Fifty simultaneous bookings for one slot, and exactly one wins.** A
@@ -325,9 +331,9 @@ Probed directly against the sandbox keys in `.env`:
 - `e2e/` — Playwright against the production build, in CI: a booking on the
   free demo; the slot-loading race, with the API stubbed so the previous
   day's answer arrives last (it fails if the fix is reverted); the demo login;
-  not-found pages; security headers; link previews; old addresses; the
-  calendar file; and a customer cancelling, after which the same time can be
-  booked again
+  the panel's link to the feedback board, desktop and phone; not-found pages;
+  security headers; link previews; old addresses; the calendar file; and a
+  customer cancelling, after which the same time can be booked again
 
 ### Architecture notes
 

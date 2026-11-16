@@ -8,6 +8,7 @@ import {
   CreditCardIcon,
   LayoutGridIcon,
   ListIcon,
+  MessageSquareTextIcon,
   SettingsIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -24,6 +25,27 @@ const NAV = [
   { href: "/panel/abonelik", label: "Abonelik", icon: CreditCardIcon },
   { href: "/panel/ayarlar", label: "Ayarlar", icon: SettingsIcon },
 ];
+
+/**
+ * The owners' feedback board: a separate app (Pano) with its own sign-in, so
+ * the panel only links to it, and tells it nothing about the business.
+ */
+const FEEDBACK_BOARD_URL = "https://pano.olbios88.workers.dev/rezerve";
+
+function FeedbackLink({ className }: { className: string }) {
+  return (
+    <a
+      href={FEEDBACK_BOARD_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+    >
+      <MessageSquareTextIcon className="size-4 shrink-0" />
+      <span className="whitespace-nowrap">Geri bildirim</span>
+      <ArrowUpRightIcon className="size-3.5 shrink-0" />
+    </a>
+  );
+}
 
 /**
  * Owner workspace: a night rail beside an ivory page (and the reverse in
@@ -69,20 +91,29 @@ export function PanelShell({
               </Link>
             );
           })}
+          {/* On a phone the footer below is hidden, so the board is the last
+              item of the scrolling row instead. */}
+          <FeedbackLink className="flex shrink-0 items-center gap-2.5 rounded-full px-3.5 py-2.5 text-muted-foreground text-sm transition-colors hover:bg-accent hover:text-foreground md:hidden" />
         </nav>
-        {slug && (
-          <div className="mt-auto hidden border-border border-t pt-5 md:block">
-            <p className="eyebrow text-muted-foreground">Randevu sayfanız</p>
-            <Link
-              href={`/r/${slug}`}
-              target="_blank"
-              className="mt-2 flex items-center gap-1 font-display text-brand-ink text-lg italic transition-opacity hover:opacity-80"
-            >
-              /r/{slug}
-              <ArrowUpRightIcon className="size-3.5" />
-            </Link>
+        <div className="mt-auto hidden space-y-5 md:block">
+          {slug && (
+            <div className="border-border border-t pt-5">
+              <p className="eyebrow text-muted-foreground">Randevu sayfanız</p>
+              <Link
+                href={`/r/${slug}`}
+                target="_blank"
+                className="mt-2 flex items-center gap-1 font-display text-brand-ink text-lg italic transition-opacity hover:opacity-80"
+              >
+                /r/{slug}
+                <ArrowUpRightIcon className="size-3.5" />
+              </Link>
+            </div>
+          )}
+          <div className="border-border border-t pt-5">
+            <p className="eyebrow text-muted-foreground">Fikriniz mi var?</p>
+            <FeedbackLink className="mt-2 flex items-center gap-1.5 font-display text-brand-ink text-lg italic transition-opacity hover:opacity-80" />
           </div>
-        )}
+        </div>
       </aside>
 
       <div className="surface-ivory flex min-w-0 flex-1 flex-col">
