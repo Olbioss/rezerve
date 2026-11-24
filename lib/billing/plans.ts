@@ -8,8 +8,12 @@
 
 export type Plan = "free" | "pro";
 
-/** The only gated capability today. Kept as a union so adding one is typed. */
-export type Feature = "onlineDeposit";
+/**
+ * What a plan unlocks. Online kapora is resolved per organization in
+ * resolveEntitlements, since it also needs a payout account; the day-before
+ * reminder needs nothing but the plan, so planHasFeature is the whole check.
+ */
+export type Feature = "onlineDeposit" | "bookingReminders";
 
 export const PRO_PRICE_CENTS = 29_900;
 export const TRIAL_DAYS = 14;
@@ -47,12 +51,14 @@ export const PLANS: Record<Plan, PlanDefinition> = {
     name: "Pro",
     priceCents: PRO_PRICE_CENTS,
     interval: "/ay",
-    tagline: "Ücretsiz'deki her şey, artı online kapora.",
-    features: ["onlineDeposit"],
+    tagline:
+      "Ücretsiz'deki her şey, artı online kapora ve randevu hatırlatmaları.",
+    features: ["onlineDeposit", "bookingReminders"],
     bullets: [
       "Online kapora tahsilatı",
       "Kapora doğrudan sizin hesabınıza geçer",
       "Komisyon almıyoruz",
+      "Randevudan bir gün önce hatırlatma e-postası",
       "Boşa çıkan randevuları azaltın",
     ],
     footnote: `${TRIAL_DAYS} gün ücretsiz deneme.`,

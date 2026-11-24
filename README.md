@@ -232,6 +232,10 @@ Probed directly against the sandbox keys in `.env`:
   to customer and owner (React Email + Brevo SMTP), formatted in the business
   timezone; the customer's confirmation and reschedule emails link back to the
   booking and carry it as a calendar file
+- **A reminder the morning before** (Pro) — the daily cron emails every
+  customer booked for tomorrow, tomorrow being the business's own. Each
+  booking is claimed before its email goes, so overlapping runs remind it
+  once; a move clears the claim, so the new date is reminded too
 - **Add to calendar** — a confirmed booking offers a Google Calendar link and
   an `.ics` file. The file is written by hand to RFC 5545 (UTC times, escaping,
   folding that never splits a ğ), and keeps the booking's id as its UID, so the
@@ -255,10 +259,11 @@ Probed directly against the sandbox keys in `.env`:
   link already shared working: `/r/<old>` leads to the current page however
   many moves ago it was, and a released address stays reserved for the
   business that held it, which can take it back
-- **Subscriptions (Ücretsiz / Pro ₺299 ay)** — online kapora is the paid
-  feature. Entitlements are resolved once in `requireOwner()` and enforced
-  server-side; a lapsed plan keeps its stored kapora amounts but stops
-  charging them, so nothing is lost on re-upgrade
+- **Subscriptions (Ücretsiz / Pro ₺299 ay)** — online kapora and the
+  day-before reminder are the paid features. Entitlements are resolved once
+  in `requireOwner()` and enforced server-side; a lapsed plan keeps its
+  stored kapora amounts but stops charging them, so nothing is lost on
+  re-upgrade
 - **Marketplace payouts** — each business is onboarded as an iyzico
   submerchant, so a kapora settles into _its_ account and not the platform's
   (`subMerchantPrice === price`: no commission)
@@ -316,6 +321,11 @@ Probed directly against the sandbox keys in `.env`:
   reserved for their business, and can be taken back
 - `lib/calendar/ics.test.ts` — RFC 5545 escaping, UTC times, and folding at
   75 octets without splitting a multi-byte Turkish character
+- `lib/booking/reminders.integration.test.ts` — the day-before reminder:
+  only tomorrow's confirmed bookings, in each business's own timezone, and
+  only on Pro; one email per booking when two runs overlap, and a booking
+  whose email failed left unclaimed. `reminder-window.test.ts` holds tomorrow
+  to 25 hours on New York's fall-back day and 23 on its spring-forward day
 - `lib/booking/create-booking-core.integration.test.ts`,
   `customer-cancel-core.integration.test.ts`,
   `customer-reschedule-core.integration.test.ts` — the shared booking rules
@@ -459,7 +469,7 @@ Everything is Turkish, including the URLs:
 | `/api/r/[slug]/slots`                                     | Availability API                                     |
 | `/api/mcp`                                                | The chat assistant's MCP endpoint (bearer token)     |
 | `/api/odeme/iyzico`                                       | iyzico deposit callback                              |
-| `/api/cron/abonelik`                                      | Daily: renewals, hold sweep, demo reset (bearer)     |
+| `/api/cron/abonelik`                                      | Daily: renewals, hold sweep, demo reset, reminders (bearer) |
 
 ### Development
 

@@ -128,7 +128,8 @@ export async function customerRescheduleCore(
   try {
     [moved] = await db
       .update(bookings)
-      .set({ startsAt: newStartsAt, endsAt })
+      // A new date earns its own day-before reminder.
+      .set({ startsAt: newStartsAt, endsAt, reminderSentAt: null })
       .where(
         and(
           eq(bookings.id, booking.id),

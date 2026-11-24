@@ -218,7 +218,8 @@ export async function rescheduleBooking(
   try {
     [moved] = await db
       .update(bookings)
-      .set({ startsAt, endsAt })
+      // A new date earns its own day-before reminder.
+      .set({ startsAt, endsAt, reminderSentAt: null })
       .where(
         and(
           eq(bookings.id, bookingId),

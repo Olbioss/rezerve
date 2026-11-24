@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import {
   REFUND_NOTICE_HOURS,
   refundDeadline,
+  refundsDeposit,
 } from "@/lib/booking/cancellation-policy";
 import { confirmationUrl } from "@/lib/booking/confirmation";
 import { bookingCalendarEvent } from "@/lib/calendar/booking-event";
@@ -19,6 +20,8 @@ import {
   customerCancelledOwnerIntro,
   customerRescheduledIntro,
   customerRescheduledOwnerIntro,
+  reminderIntro,
+  reminderKaporaNote,
 } from "./copy";
 import { ownerNotificationAddress } from "./recipients";
 import { sendEmailSafe } from "./send";
@@ -171,6 +174,61 @@ export async function sendBookingConfirmedEmails(
         ),
       }),
   ]);
+}
+
+/**
+ * The day-before reminder (lib/booking/reminders.ts), to the customer only:
+ * the business has its own diary. No calendar file this time — the
+ * confirmation carried one.
+ *
+ * True only when the email went. The daily run releases its claim on a
+ * booking otherwise, which includes there being nowhere to send it and
+ * delivery being switched off.
+ */
+export async function sendBookingReminderEmail(
+  booking: Booking,
+  now: Date
+): Promise<boolean> {
+  if (!booking.customerEmail) return false;
+  const ctx = await loadContext(booking);
+  if (!ctx) return false;
+
+  const note =
+    booking.depositCents != null
+      ? reminderKaporaNote({
+          deadlineText: formatWhen(
+            refundDeadline(booking.startsAt),
+            ctx.profile.timezone
+          ),
+          refundable: refundsDeposit(booking.startsAt, now),
+        })
+      : undefined;
+
+  const sent = await sendEmailSafe({
+    to: booking.customerEmail,
+    subject: `Yarın randevunuz var — ${ctx.service.name}, ${ctx.org.name}`,
+    body: (
+      <BookingEmail
+        heading="Randevunuz yarın"
+        preview={`${ctx.service.name} — ${ctx.whenText}`}
+        intro={reminderIntro({
+          customerName: booking.customerName,
+          businessName: ctx.org.name,
+          businessPhone: ctx.profile.phone,
+        })}
+        businessName={ctx.org.name}
+        businessPhone={ctx.profile.phone}
+        businessAddress={ctx.profile.address}
+        serviceName={ctx.service.name}
+        whenText={ctx.whenText}
+        customerName={booking.customerName}
+        depositLine={ctx.depositLine}
+        bookingUrl={confirmationUrl(ctx.org.slug, booking.id)}
+        note={note}
+      />
+    ),
+  });
+  return sent !== null;
 }
 
 export async function sendBookingCancelledEmails(

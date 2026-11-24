@@ -270,6 +270,25 @@ describe("rescheduleBooking", () => {
     );
   });
 
+  it("clears the day-before reminder, so the new date gets its own", async () => {
+    const before = await existing("confirmed");
+    await db
+      .update(bookings)
+      .set({ reminderSentAt: new Date() })
+      .where(eq(bookings.id, before.id));
+
+    await rescheduleBooking({
+      bookingId: before.id,
+      dateISO: OPEN_DAY,
+      time: "14:00",
+    });
+
+    const after = await db.query.bookings.findFirst({
+      where: eq(bookings.id, before.id),
+    });
+    expect(after?.reminderSentAt).toBeNull();
+  });
+
   it("asks before moving it outside the hours, then does", async () => {
     const before = await existing("confirmed");
     const move = { bookingId: before.id, dateISO: OPEN_DAY, time: "16:00" };

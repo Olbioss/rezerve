@@ -97,6 +97,43 @@ export function customerRescheduledIntro({
   return `Merhaba ${customerName}, randevunuzu yeni bir saate taşıdınız. Önceki saat: ${previousText}.`;
 }
 
+/**
+ * What a customer reads the day before. The reminder exists to cut no-shows,
+ * so after the reminding it asks one thing: if you cannot come, say so, and
+ * the time goes to someone else.
+ */
+export function reminderIntro({
+  customerName,
+  businessName,
+  businessPhone,
+}: {
+  customerName: string;
+  businessName: string;
+  businessPhone: string | null;
+}): string {
+  const tell = businessPhone
+    ? ` ya da ${businessName} ile ${businessPhone} numarasından iletişime geçin`
+    : "";
+  return `Merhaba ${customerName}, yarınki randevunuzu hatırlatmak istedik. Gelemeyecekseniz lütfen randevunuzu iptal edin${tell}; böylece saat başka birine açılır.`;
+}
+
+/**
+ * The kapora's terms in a reminder. Sent the morning before, it can arrive
+ * after the refund deadline — an early appointment tomorrow is already
+ * inside the day — and then promising a refund would be wrong.
+ */
+export function reminderKaporaNote({
+  deadlineText,
+  refundable,
+}: {
+  deadlineText: string;
+  refundable: boolean;
+}): string {
+  return refundable
+    ? `Randevudan ${REFUND_NOTICE_HOURS} saat öncesine kadar (${deadlineText}) iptal ederseniz kaporanız iade edilir; daha sonra iptal ederseniz kapora işletmede kalır.`
+    : `Randevuya ${REFUND_NOTICE_HOURS} saatten az kaldığı için iptal ederseniz kapora işletmede kalır.`;
+}
+
 /** What the business reads when a customer moves: who, and that the old time is free. */
 export function customerRescheduledOwnerIntro({
   customerName,

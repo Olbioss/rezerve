@@ -142,6 +142,14 @@ describe("customerRescheduleCore", () => {
     );
   });
 
+  it("clears the day-before reminder, so the new date gets its own", async () => {
+    const booking = await seedBooking(9, { reminderSentAt: new Date() });
+
+    expect((await move(booking.id, 13)).ok).toBe(true);
+
+    expect((await reload(booking.id))?.reminderSentAt).toBeNull();
+  });
+
   it("moves onto a time that overlaps its own", async () => {
     const booking = await seedBooking(10);
 

@@ -82,6 +82,13 @@ export const bookings = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     cancelledBy: bookingCancelledBy("cancelled_by"),
+    /**
+     * When the customer was emailed the day-before reminder
+     * (lib/booking/reminders.ts). The daily run claims it before sending and
+     * clears it again if the send fails, so no booking is reminded twice;
+     * moving the booking clears it too, so the new date gets its own.
+     */
+    reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
     /** Where the booking came from — see bookingSource. */
     source: bookingSource("source").notNull().default("web"),
     /**

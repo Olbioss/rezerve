@@ -5,6 +5,10 @@ import {
 } from "@/lib/billing/charge-subscription";
 import { checkCronAuth } from "@/lib/billing/cron-auth";
 import { expireAllHolds } from "@/lib/booking/expire-holds";
+import {
+  type ReminderTally,
+  sendDayBeforeReminders,
+} from "@/lib/booking/reminders";
 import { type DemoResetSummary, resetDemo } from "@/lib/demo/reset";
 
 /**
@@ -20,7 +24,12 @@ import { type DemoResetSummary, resetDemo } from "@/lib/demo/reset";
  * somebody next tries to book that organization, and puts the two public
  * demo businesses back as published (lib/demo/reset.ts) — their logins are
  * public, so by evening they are whatever the last visitor made them. It
- * runs at 06:00 UTC, so each Istanbul morning starts clean. The path is still named
+ * runs at 06:00 UTC, so each Istanbul morning starts clean.
+ *
+ * Last, it emails tomorrow's customers their reminder (lib/booking/reminders.ts)
+ * — at 09:00 Istanbul, and after the demo reset, which deletes the bookings
+ * visitors made on the demos rather than leave them to be reminded of an
+ * appointment that no longer exists. The path is still named
  * after renewals because vercel.json and the README both point at it, and one
  * scheduled job is deliberate rather than incidental — several would each
  * need their own schedule and secret for no gain.
@@ -52,7 +61,7 @@ export async function GET(request: Request) {
   // Vercel Cron sends the secret as a bearer token.
   const auth = checkCronAuth(
     request.headers.get("authorization"),
-    process.env.CRON_SECRET
+    process.env.CRON_SECRET,
   );
   if (auth === "misconfigured") {
     console.error("CRON_SECRET is not set — refusing to run the daily job.");
@@ -86,5 +95,13 @@ export async function GET(request: Request) {
     demo = { error: true };
   }
 
-  return NextResponse.json({ renewals, holds, demo });
+  let reminders: ReminderTally | { error: true };
+  try {
+    reminders = await sendDayBeforeReminders(new Date());
+  } catch (err) {
+    console.error("Reminder run failed:", err);
+    reminders = { error: true };
+  }
+
+  return NextResponse.json({ renewals, holds, demo, reminders });
 }
