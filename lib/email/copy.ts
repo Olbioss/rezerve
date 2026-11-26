@@ -118,11 +118,12 @@ export function reminderIntro({
 }
 
 /**
- * The kapora's terms in a reminder. Sent the morning before, it can arrive
- * after the refund deadline — an early appointment tomorrow is already
- * inside the day — and then promising a refund would be wrong.
+ * A paid kapora's terms, as they stand when the email goes. Any email can
+ * arrive after the refund deadline: a booking made or moved to inside the
+ * next day, or a reminder for an early appointment tomorrow. Promising a
+ * refund then would be wrong.
  */
-export function reminderKaporaNote({
+export function kaporaNote({
   deadlineText,
   refundable,
 }: {

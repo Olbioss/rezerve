@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   customerRescheduledIntro,
   customerRescheduledOwnerIntro,
+  kaporaNote,
   reminderIntro,
-  reminderKaporaNote,
 } from "./copy";
 
 const PREVIOUS = "15 Ekim 2026 Perşembe 10:00";
@@ -55,9 +55,7 @@ describe("the day-before reminder", () => {
   });
 
   it("states the refund deadline while it is still ahead", () => {
-    expect(
-      reminderKaporaNote({ deadlineText: PREVIOUS, refundable: true })
-    ).toBe(
+    expect(kaporaNote({ deadlineText: PREVIOUS, refundable: true })).toBe(
       `Randevudan 24 saat öncesine kadar (${PREVIOUS}) iptal ederseniz kaporanız iade edilir; daha sonra iptal ederseniz kapora işletmede kalır.`
     );
   });
@@ -65,9 +63,7 @@ describe("the day-before reminder", () => {
   it("promises no refund once the deadline has passed", () => {
     // Sent at 09:00, a reminder for an 08:00 appointment is already inside
     // the day.
-    expect(
-      reminderKaporaNote({ deadlineText: PREVIOUS, refundable: false })
-    ).toBe(
+    expect(kaporaNote({ deadlineText: PREVIOUS, refundable: false })).toBe(
       "Randevuya 24 saatten az kaldığı için iptal ederseniz kapora işletmede kalır."
     );
   });

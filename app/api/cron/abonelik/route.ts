@@ -61,7 +61,7 @@ export async function GET(request: Request) {
   // Vercel Cron sends the secret as a bearer token.
   const auth = checkCronAuth(
     request.headers.get("authorization"),
-    process.env.CRON_SECRET,
+    process.env.CRON_SECRET
   );
   if (auth === "misconfigured") {
     console.error("CRON_SECRET is not set — refusing to run the daily job.");

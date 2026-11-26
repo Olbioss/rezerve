@@ -1,7 +1,6 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import {
-  REFUND_NOTICE_HOURS,
   refundDeadline,
   refundsDeposit,
 } from "@/lib/booking/cancellation-policy";
@@ -20,8 +19,8 @@ import {
   customerCancelledOwnerIntro,
   customerRescheduledIntro,
   customerRescheduledOwnerIntro,
+  kaporaNote,
   reminderIntro,
-  reminderKaporaNote,
 } from "./copy";
 import { ownerNotificationAddress } from "./recipients";
 import { sendEmailSafe } from "./send";
@@ -78,6 +77,22 @@ async function loadContext(booking: Booking) {
 type Context = NonNullable<Awaited<ReturnType<typeof loadContext>>>;
 
 /**
+ * A paid kapora's terms as they stand at `now`; only a paid kapora has a
+ * deadline to state. formatWhen gives the business's own clock, the one the
+ * appointment is in.
+ */
+function kaporaNoteAt(booking: Booking, ctx: Context, now: Date) {
+  if (booking.depositCents == null) return undefined;
+  return kaporaNote({
+    deadlineText: formatWhen(
+      refundDeadline(booking.startsAt),
+      ctx.profile.timezone
+    ),
+    refundable: refundsDeposit(booking.startsAt, now),
+  });
+}
+
+/**
  * What only the customer's copy carries: a link to their booking's page, and
  * the booking as an .ics file — which Gmail and Apple Mail offer to add to
  * the calendar in one tap. The file keeps the booking's id as its UID, so the
@@ -97,18 +112,9 @@ function forCustomer(booking: Booking, ctx: Context) {
       url: bookingUrl,
     })
   );
-  // Only a paid kapora has a deadline to state. formatWhen gives the
-  // business's own clock, the one the appointment is in.
-  const note =
-    booking.depositCents != null
-      ? `Randevudan ${REFUND_NOTICE_HOURS} saat öncesine kadar (${formatWhen(
-          refundDeadline(booking.startsAt),
-          ctx.profile.timezone
-        )}) iptal ederseniz kaporanız iade edilir; daha sonra iptal ederseniz kapora işletmede kalır.`
-      : undefined;
   return {
     bookingUrl,
-    note,
+    note: kaporaNoteAt(booking, ctx, new Date()),
     attachments: [
       {
         filename: "randevu.ics",
@@ -193,16 +199,7 @@ export async function sendBookingReminderEmail(
   const ctx = await loadContext(booking);
   if (!ctx) return false;
 
-  const note =
-    booking.depositCents != null
-      ? reminderKaporaNote({
-          deadlineText: formatWhen(
-            refundDeadline(booking.startsAt),
-            ctx.profile.timezone
-          ),
-          refundable: refundsDeposit(booking.startsAt, now),
-        })
-      : undefined;
+  const note = kaporaNoteAt(booking, ctx, now);
 
   const sent = await sendEmailSafe({
     to: booking.customerEmail,
